@@ -9,7 +9,7 @@ from mem0 import Memory
 from mem0.configs.base import MemoryConfig, LlmConfig, EmbedderConfig, VectorStoreConfig
 
 # Get API key for LLM (opencode-go)
-key = open(r'C:\vazus\pyenv\hermes-home\.env').read().split('OPENCODE_GO_API_KEY=')[1].split('\n')[0].strip()
+key = open(r'C:\vazus\hermes-home\.env').read().split('OPENCODE_GO_API_KEY=')[1].split('\n')[0].strip()
 os.environ['OPENAI_API_KEY'] = key
 
 print("Creating mem0 with HuggingFace embedding...")

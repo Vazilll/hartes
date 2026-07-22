@@ -21,7 +21,7 @@ from pathlib import Path
 from leann.api import LeannSearcher
 
 # Путь к CBM
-CBM_EXE = r"C:\vazus\pyenv\bin\codebase-memory-mcp.exe"
+CBM_EXE = r"C:\vazus\bin\codebase-memory-mcp.exe"
 
 def run_cypher_query(query):
     """Выполняет Cypher-запрос к codebase-memory-mcp"""
@@ -79,11 +79,11 @@ def main():
     print("=" * 80)
     
     # Шаг 1: Семантический поиск по LEANN
-    index_path = "C:/vazus/pyenv/leann-indexes/pyenv-project.leann"
+    index_path = "C:/vazus/leann-indexes/pyenv-project.leann"
     if not os.path.exists(index_path):
-        index_path = "C:/vazus/pyenv/leann-indexes/gomcp-functions-v2.leann"
+        index_path = "C:/vazus/leann-indexes/gomcp-functions-v2.leann"
     if not os.path.exists(index_path):
-        index_path = "C:/vazus/pyenv/leann-indexes/gomcp-functions.leann"
+        index_path = "C:/vazus/leann-indexes/gomcp-functions.leann"
         
     searcher = LeannSearcher(index_path, enable_warmup=False)
     

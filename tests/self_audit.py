@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Self-audit: analyze myself for vulnerabilities using unified_search."""
 import sys, json, time
-sys.path.insert(0, "C:/vazus/pyenv/scripts")
+sys.path.insert(0, "C:/vazus/scripts")
 from rlm_unified_worker import unified_search
 
 queries = [
@@ -58,7 +58,7 @@ for q in queries:
     all_results[q['id']] = result
 
 # Save full results
-with open("C:/vazus/pyenv/hermes-home/cache/self_audit_results.json", "w") as f:
+with open("C:/vazus/hermes-home/cache/self_audit_results.json", "w") as f:
     json.dump(all_results, f, ensure_ascii=False, default=str, indent=2)
 
 print("\n\n=== SELF-AUDIT COMPLETE ===")

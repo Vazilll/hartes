@@ -21,9 +21,9 @@ import os
 from pathlib import Path
 
 # Ensure pyenv is in sys.path
-PYENV_DIR = Path(__file__).resolve().parent.parent
-if str(PYENV_DIR) not in sys.path:
-    sys.path.insert(0, str(PYENV_DIR))
+VAZUS_DIR = Path(__file__).resolve().parent.parent
+if str(VAZUS_DIR) not in sys.path:
+    sys.path.insert(0, str(VAZUS_DIR))
 
 from vazus_core.ast_pruner import (
     prune_python_code,
@@ -132,8 +132,8 @@ def test_ast_pruner_real_files():
     print("[2/4] Testing AST Pruner on real vazus_core modules...")
 
     target_files = [
-        PYENV_DIR / "vazus_core" / "embeddings.py",
-        PYENV_DIR / "vazus_core" / "supergraph_linker.py",
+        VAZUS_DIR / "vazus_core" / "embeddings.py",
+        VAZUS_DIR / "vazus_core" / "supergraph_linker.py",
     ]
 
     for file_path in target_files:

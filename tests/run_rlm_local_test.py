@@ -12,7 +12,7 @@ sys.stderr.reconfigure(encoding='utf-8')
 from dotenv import load_dotenv
 
 # Add rlm-mit directory to Python path if needed
-sys.path.append(r"C:\vazus\pyenv\rlm-mit")
+sys.path.append(r"C:\vazus\rlm-mit")
 
 from rlm import RLM
 from rlm.logger import RLMLogger
@@ -25,7 +25,7 @@ def main():
     print("=" * 80)
 
     # Load local adapter key
-    key_path = r"C:\vazus\pyenv\.adapter_key"
+    key_path = r"C:\vazus\.adapter_key"
     adapter_key = "any_key_for_adapter"
     if os.path.exists(key_path):
         with open(key_path, "r") as f:

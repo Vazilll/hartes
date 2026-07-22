@@ -16,9 +16,9 @@ import sqlite3
 from pathlib import Path
 
 # Setup Python Path
-PYENV_DIR = Path("C:/vazus/pyenv")
-if str(PYENV_DIR) not in sys.path:
-    sys.path.insert(0, str(PYENV_DIR))
+VAZUS_DIR = Path("C:/vazus")
+if str(VAZUS_DIR) not in sys.path:
+    sys.path.insert(0, str(VAZUS_DIR))
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")

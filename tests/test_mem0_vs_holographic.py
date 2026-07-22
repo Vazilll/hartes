@@ -17,7 +17,7 @@ import os, sys, json, time, hashlib
 from pathlib import Path
 
 HERMES_HOME = Path(os.environ.get('HERMES_HOME', 
-    os.path.expanduser('C:/vazus/pyenv/hermes-home')))
+    os.path.expanduser('C:/vazus/hermes-home')))
 
 print("=" * 60)
 print("A/B TEST: Holographic (Hermes) vs mem0")

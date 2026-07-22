@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, 'C:/vazus/pyenv')
+sys.path.insert(0, 'C:/vazus')
 import io
 sys.stderr = io.StringIO()  # suppress startup logs
 

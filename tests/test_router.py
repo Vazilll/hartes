@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, "C:/vazus/pyenv")
+sys.path.insert(0, "C:/vazus")
 from vazus_core.workers import router
 
 query = "What is LeANN and how is it configured in our codebase?"

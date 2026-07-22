@@ -6,7 +6,7 @@ import os
 import json
 import time
 
-sys.path.insert(0, "C:/vazus/pyenv")
+sys.path.insert(0, "C:/vazus")
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 

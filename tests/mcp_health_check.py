@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Quick health check for all new MCP servers."""
 import sys, json, traceback
-sys.path.insert(0, "C:/vazus/pyenv")
+sys.path.insert(0, "C:/vazus")
 
 PASS = "\u2705"
 FAIL = "\u274c"
@@ -19,7 +19,7 @@ def test(name, fn):
 # ── leann-mcp ────────────────────────────────────────────────────────────
 print("Testing leann-mcp...")
 try:
-    exec(open("C:/vazus/pyenv/scripts/leann-mcp.py", encoding="utf-8").read().split("if __name__")[0])
+    exec(open("C:/vazus/scripts/leann-mcp.py", encoding="utf-8").read().split("if __name__")[0])
     test("leann_list()", lambda: f"{len(json.loads(leann_list()))} indexes")
     test("leann_search(daemon)", lambda: json.loads(leann_search("worker search architecture", top_k=2))["source"])
 except Exception as e:
@@ -58,9 +58,9 @@ except Exception as e:
 # ── dnts-evolution ───────────────────────────────────────────────────────
 print("Testing dnts-evolution...")
 try:
-    exec(open("C:/vazus/pyenv/scripts/evolution_mcp.py", encoding="utf-8").read().split("if __name__")[0])
-    test("find_code_duplicates(vazus_core)", lambda: find_code_duplicates("C:/vazus/pyenv/vazus_core")[:60])
-    test("find_callers(load_adapter_key)", lambda: find_callers("load_adapter_key", "C:/vazus/pyenv/vazus_core")[:60])
+    exec(open("C:/vazus/scripts/evolution_mcp.py", encoding="utf-8").read().split("if __name__")[0])
+    test("find_code_duplicates(vazus_core)", lambda: find_code_duplicates("C:/vazus/vazus_core")[:60])
+    test("find_callers(load_adapter_key)", lambda: find_callers("load_adapter_key", "C:/vazus/vazus_core")[:60])
 except Exception as e:
     results.append((FAIL, "dnts-evolution import", str(e)))
 
