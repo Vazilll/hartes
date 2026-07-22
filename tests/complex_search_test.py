@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, r"C:\vazus")
+sys.path.insert(0, r"C:\vazus\scripts")
 import os
 import sys
 

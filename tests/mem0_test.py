@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, r"C:\vazus")
+sys.path.insert(0, r"C:\vazus\scripts")
 #!/usr/bin/env python3
 """mem0 test with HuggingFace embeddings - safe local execution"""
 import os, sys
