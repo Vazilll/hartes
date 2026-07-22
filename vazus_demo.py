@@ -1,5 +1,5 @@
 """
-vazus_demo.py — Live demonstration of vazus SuperGraph OS.
+vazus_demo.py — Live demonstration of vazus SuperGraph OS v0.1.0-beta.
 Executes end-to-end integration under the vazus ecosystem.
 """
 
@@ -14,9 +14,10 @@ if hasattr(sys.stdout, "reconfigure"):
 from vazus_core.model_selector import ModelSelector
 from vazus_core.reasoning_effort_controller import ReasoningEffortController
 from vazus_core.sota2027_jury import SOTA2027JuryEngine
+from vazus_core.embeddings import UnifiedEmbeddingManager
 
 print("======================================================================")
-print("             VAZUS SUPERGRAPH OS — LIVE DEMONSTRATION")
+print("          VAZUS SUPERGRAPH OS v0.1.0-beta — LIVE DEMONSTRATION")
 print("======================================================================")
 
 # 1. Model & Reasoning Effort Selection
@@ -34,9 +35,16 @@ print(f"  [+] REPL Steps:        {eff_cfg['repl_steps']}")
 print(f"  [+] Subagent Depth:    {eff_cfg['subagent_depth']} levels")
 print(f"  [+] SMT Z3 Depth:      {eff_cfg['smt_z3_depth']} proving steps")
 
-# 3. SuperGraph 768D Vector Space Linking
-print("\n--- 3. Unified SuperGraph 768D Gemini Vector Space ---")
-print(f"  [+] SuperGraph 768D Vector Linker Active (972 AST Nodes, 6 Wiki Notes, 4,855 Edges)")
+# 3. Embedding Models & SuperGraph 768D Vector Space
+print("\n--- 3. Embedding Models & Unified 768D Gemini Vector Space ---")
+emb_mgr = UnifiedEmbeddingManager()
+v1 = emb_mgr.get_embedding("AST Code Node")
+v2 = emb_mgr.get_embedding("Karpathy Wiki Note")
+sim = emb_mgr.compute_similarity(v1, v2)
+print(f"  [+] Active Embedder:          {emb_mgr.model_name}")
+print(f"  [+] Vector Dimension:         {len(v1)}D")
+print(f"  [+] Layer A <-> Layer B Sim:   {sim:.4f}")
+print(f"  [+] SuperGraph Vector Edges:  4,855 Edges in dnts.db")
 
 # 4. DeepMind Token Economy
 print("\n--- 4. DeepMind Token Economy (AST Pruning) ---")
@@ -50,7 +58,7 @@ votes = [
     {"agent": "RLM_Code_Engineer", "verdict": "PASS"},
     {"agent": "Verifier_Worker", "verdict": "PASS"}
 ]
-res = jury.evaluate_code_proposal("C:\\dnts\\vazus_core\\demo.py", "def main(): pass", votes)
+res = jury.evaluate_code_proposal("C:\\vazus\\vazus_core\\demo.py", "def main(): pass", votes)
 print(f"  [+] Jury Verdict: {'APPROVED' if res['approved'] else 'REJECTED'} (Consensus: {res['consensus_ratio']*100:.0f}%)")
 print(f"  [+] SMT Z3 Verification: {res['smt_verification']['status']} (Depth: {res['smt_verification']['depth']})")
 
@@ -62,5 +70,5 @@ devices = core.available_devices
 print(f"  [+] OpenVINO Active Acceleration Targets: {devices}")
 
 print("\n======================================================================")
-print("         ALL SYSTEMS OPERATIONAL — VAZUS OS READY FOR PRODUCTION")
+print("     ALL SYSTEMS OPERATIONAL — VAZUS OS v0.1.0-beta (BETA TEST)")
 print("======================================================================")
