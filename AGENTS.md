@@ -15,7 +15,7 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 | **MIT RLM Engine** | `C:\vazus\pyenv\rlm-mit` | Recursive Language Modeling (RLM) engine with LocalREPL environment |
 | **Open Deep Research** | `C:\vazus\pyenv\open-deep-research` | LangGraph multi-step research workflow with Google Search Grounding |
 | **Scripts & Subagent Bridges** | `C:\vazus\pyenv\scripts` | Bridge execution scripts connecting subagents to target engines |
-| **Go Core MCP Monolith** | `C:\vazus\gomcp` / `C:\vazus\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
+| **Go Core MCP Monolith** | `C:\vazus\services\gomcp` / `C:\vazus\services\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
 
 ---
 

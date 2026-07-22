@@ -6,7 +6,7 @@
 - Monitored progress across all 5 milestones:
   - **Milestone 1**: Exploration & Codebase Mapping (`rlm-mit`, `open-deep-research`, `dnts_core`, `scripts`).
   - **Milestone 2 (R1)**: Native Subagents & GitHub Wrappers Bridge (`subagent_rlm_bridge.py`, `subagent_research_bridge.py`, `subagent_verifier_bridge.py`).
-  - **Milestone 3 (R2)**: Unified SuperGraph & 768D Gemini Embeddings Integration (`supergraph_linker.py`, 4-component hybrid metric, `dnts.db` persistence).
+  - **Milestone 3 (R2)**: Unified SuperGraph & 768D Gemini Embeddings Integration (`supergraph_linker.py`, 4-component hybrid metric, `vazus.db` persistence).
   - **Milestone 4 (R3)**: DeepMind Token Economy & Prompt Compression (`ast_pruner.py`, `context_caching.py`, 77-81% token reduction).
   - **Milestone 5**: E2E Verification, Documentation Update (`AGENTS.md`, `roles.py`), & Forensic Audit.
 - Orchestrator reported project completion.

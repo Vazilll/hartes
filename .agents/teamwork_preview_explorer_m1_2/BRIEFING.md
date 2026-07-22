@@ -28,7 +28,7 @@ Investigate 768D Embeddings and Memory Graph structure for R2 (Unified SuperGrap
   - `C:\vazus\pyenv\gomcp\graphify-out\graph.json` (Graphify AST Code Topology)
 - **Key findings**:
   1. `embeddings.py` implements `UnifiedGoogleEmbedder` (768D, `google/embeddinggemma-300m`, pure in-process, deterministic fallback, zero HTTP calls). Tested in `test_dnts_system.py`.
-  2. Karpathy Memory Wiki in `wiki\` contains markdown files with timestamped entries. Dual-layer graph stores structured AST nodes & semantic wiki nodes in SQLite `dnts.db` (`kg_nodes`, `kg_edges`).
+  2. Karpathy Memory Wiki in `wiki\` contains markdown files with timestamped entries. Dual-layer graph stores structured AST nodes & semantic wiki nodes in SQLite `vazus.db` (`kg_nodes`, `kg_edges`).
   3. `verify_ov_npu.py` executed successfully via `.venv\Scripts\python.exe`: OpenVINO 2026.2.1 detects Intel NPU (`Intel(R) AI Boost` on Ultra 5 125U).
   4. Designed hybrid node-linking metric formula $S(u,v) = \alpha S_{\text{cosine}} + \beta S_{\text{FTS}} + \gamma S_{\text{structural}} + \delta S_{\text{provenance}}$ linking Layer A AST and Layer B Wiki.
 - **Unexplored areas**: None for R2 scope.

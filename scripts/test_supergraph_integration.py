@@ -127,7 +127,7 @@ def run_verification():
     assert result["edges_created"] > 0, "Error: Expected at least 1 edge to be created!"
 
     # Step 4: Verify Database SQLite Tables (kg_nodes, kg_edges, llm_cache)
-    print("\n4. Verifying SQLite Database Insertions in dnts.db...")
+    print("\n4. Verifying SQLite Database Insertions in vazus.db...")
     with linker._get_connection() as conn:
         # Check kg_edges
         edge_row = conn.execute("SELECT * FROM kg_edges WHERE relation = 'SUPERGRAPH_LINK' LIMIT 1").fetchone()

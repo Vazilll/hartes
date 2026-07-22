@@ -27,7 +27,7 @@
      - Loaded AST nodes: 972
      - Loaded Memory Wiki notes: 6
      - Edges created/linked: 4855
-  4. Verifying SQLite Database Insertions in dnts.db...
+  4. Verifying SQLite Database Insertions in vazus.db...
      - Found edge in kg_edges: cleardb -> wiki:AI_Lessons_and_Mistakes (strength: 0.3905)
      - Verified kg_nodes entry: id='cleardb', embedding_dim=768
      - Verified llm_cache entry: key='a9b0dc46e0226970...', embedding_dim=768

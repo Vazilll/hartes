@@ -39,7 +39,7 @@ sim = emb_mgr.compute_similarity(v1, v2)
 print(f"  [+] Active Embedder:          {emb_mgr.model_name}")
 print(f"  [+] Vector Dimension:         {len(v1)}D")
 print(f"  [+] Layer A <-> Layer B Sim:   {sim:.4f}")
-print(f"  [+] SuperGraph Vector Edges:  4,855 Edges in dnts.db")
+print(f"  [+] SuperGraph Vector Edges:  4,855 Edges in vazus.db")
 
 # 4. DeepMind Token Economy
 print("\n--- 4. DeepMind Token Economy (AST Pruning) ---")

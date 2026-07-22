@@ -23,7 +23,7 @@ Independently review and verify Milestone 3 R2 implementation (Unified SuperGrap
 
 ## Review Scope
 - **Files to review**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
-- **Database to inspect**: `dnts.db` (checking 768D vectors storage in `kg_nodes`, `kg_edges`, `llm_cache`)
+- **Database to inspect**: `vazus.db` (checking 768D vectors storage in `kg_nodes`, `kg_edges`, `llm_cache`)
 - **Verification execution**: Run tests in `C:\vazus\pyenv\.venv`
 
 ## Review Checklist
@@ -32,7 +32,7 @@ Independently review and verify Milestone 3 R2 implementation (Unified SuperGrap
   - `C:\vazus\pyenv\scripts\test_supergraph_integration.py` (Integration test suite)
   - `C:\vazus\pyenv\dnts_core\embeddings.py` (UnifiedGoogleEmbedder 768D vector generation)
   - `C:\vazus\pyenv\dnts_core\config.py` (Settings, EMBEDDING_DIM=768)
-  - `C:\vazus\memory\dnts.db` (SQLite schema & data verification)
+  - `C:\vazus\memory\vazus.db` (SQLite schema & data verification)
 - **Verdict**: PASS
 - **Unverified claims**: None. All core claims independently tested and verified.
 

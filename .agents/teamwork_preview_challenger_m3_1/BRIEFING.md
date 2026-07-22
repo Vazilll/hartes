@@ -42,7 +42,7 @@ Empirically stress-test R2 implementation (Unified SuperGraph & 768D Embeddings 
   - H4: SQL Injection in node IDs -> PASS (properly parameterized queries).
   - H5: NULL primary keys in SQLite -> CONFIRMED BUG (SQLite allows multiple NULL primary key rows).
 - **Vulnerabilities found**: 4 issues documented in handoff.md.
-- **Untested angles**: Multi-threaded concurrent writes to `dnts.db` during active WAL checkpoints.
+- **Untested angles**: Multi-threaded concurrent writes to `vazus.db` during active WAL checkpoints.
 
 ## Artifact Index
 - C:\vazus\.agents\teamwork_preview_challenger_m3_1\ORIGINAL_REQUEST.md — Original request log

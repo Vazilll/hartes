@@ -144,7 +144,7 @@ All 7 acceptance criteria scripts were independently executed using `C:\vazus\py
      - Loaded Memory Wiki notes: 6
      - Edges created/linked: 4855
 
-  4. Verifying SQLite Database Insertions in dnts.db...
+  4. Verifying SQLite Database Insertions in vazus.db...
      - Found edge in kg_edges: cleardb -> wiki:AI_Lessons_and_Mistakes (strength: 0.3405)
      - Verified kg_nodes entry: id='cleardb', embedding_dim=768
      - Verified llm_cache entry: key='a9b0dc46e0226970...', embedding_dim=768
@@ -203,7 +203,7 @@ All 7 acceptance criteria scripts were independently executed using `C:\vazus\py
    - `subagent_verifier_bridge.py` connects `verifier_worker` to static AST parsing, contract testing, subprocess code execution (`Fibonacci(10) = 55`), and Git provenance tracking (`feature/google-deepmind/jules-verifier-bridge`).
 4. **Hardware Acceleration & Integrity Check (Observation 4 & Code Inspection)**:
    - `verify_ov_npu.py` queries OpenVINO runtime 2026.2.1 directly and detects Intel NPU (`Intel(R) AI Boost`), iGPU (`Intel(R) Graphics`), and CPU.
-   - Code inspections revealed no hardcoded test stubs, fake facades, or self-certifying shortcuts. AST transformations use Python's native `ast.NodeTransformer`; vector embeddings interact with real 768D float arrays; SQLite operations execute real SQL queries against `C:\vazus\pyenv\dnts.db`.
+   - Code inspections revealed no hardcoded test stubs, fake facades, or self-certifying shortcuts. AST transformations use Python's native `ast.NodeTransformer`; vector embeddings interact with real 768D float arrays; SQLite operations execute real SQL queries against `C:\vazus\pyenv\vazus.db`.
 
 ---
 

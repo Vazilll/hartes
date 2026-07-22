@@ -1,12 +1,12 @@
 import sqlite3
 import json
 
-db_path = "C:/vazus/memory/dnts.db"
+db_path = "C:/vazus/memory/vazus.db"
 conn = sqlite3.connect(db_path)
 conn.row_factory = sqlite3.Row
 
 tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-print("Tables in dnts.db:", tables)
+print("Tables in vazus.db:", tables)
 
 for t in ["kg_nodes", "kg_edges", "llm_cache"]:
     cnt = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]

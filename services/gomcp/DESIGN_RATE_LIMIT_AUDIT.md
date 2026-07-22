@@ -29,7 +29,7 @@ C:\vazus\pyenv\gomcp\
 │   ├── agent_router.go             # ProxyToHermes, GetActiveAgent
 │   ├── profiles.go                 # RegisterAgent() — 6 tools для dnts-agent
 │   ├── register_agent.go           # RegisterAgentTools() — расширенный набор для dnts-brain
-│   ├── db.go                       # SQLite schema (C:\vazus\memory\dnts.db)
+│   ├── db.go                       # SQLite schema (C:\vazus\memory\vazus.db)
 │   ├── states.go                   # Phase state machine
 │   └── phase_control.go            # phase_control tool
 ```

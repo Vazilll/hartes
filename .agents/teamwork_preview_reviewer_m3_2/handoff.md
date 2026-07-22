@@ -8,7 +8,7 @@ Direct observations from source inspection, database verification, and execution
    - `C:\vazus\pyenv\dnts_core\supergraph_linker.py`:
      - Implements `SuperGraphLinker` class connecting Layer A (AST Code Topology) and Layer B (Karpathy Memory Wiki Notes).
      - Calculates 4-component hybrid metric $S(u, v) = 0.45 \cdot S_{\text{cosine}} + 0.25 \cdot S_{\text{fts}} + 0.20 \cdot S_{\text{structural}} + 0.10 \cdot S_{\text{provenance}}$ (lines 341–346).
-     - Stores 768D embeddings into `llm_cache` and `kg_nodes` tables in `C:\vazus\memory\dnts.db` (lines 286–318).
+     - Stores 768D embeddings into `llm_cache` and `kg_nodes` tables in `C:\vazus\memory\vazus.db` (lines 286–318).
      - Stores linked cross-layer edges into `kg_edges` with metadata in `properties` JSON column (lines 390–418).
    - `C:\vazus\pyenv\dnts_core\embeddings.py`:
      - Implements `UnifiedGoogleEmbedder` returning 768-dimensional float vectors (`self.dim = 768`).
@@ -43,7 +43,7 @@ Direct observations from source inspection, database verification, and execution
         - Loaded Memory Wiki notes: 6
         - Edges created/linked: 4855
 
-     4. Verifying SQLite Database Insertions in dnts.db...
+     4. Verifying SQLite Database Insertions in vazus.db...
         - Found edge in kg_edges: cleardb -> wiki:AI_Lessons_and_Mistakes (strength: 0.3905)
         - Verified kg_nodes entry: id='cleardb', embedding_dim=768
         - Verified llm_cache entry: key='a9b0dc46e0226970...', embedding_dim=768
@@ -56,7 +56,7 @@ Direct observations from source inspection, database verification, and execution
 3. **Integrity & Quality Check**:
    - No hardcoded test assertions or mock returns found in production files.
    - No facade implementations: vector calculations, string similarity, path overlap, and provenance scoring process live inputs dynamically.
-   - Database operations execute real SQLite SQL queries against `C:\vazus\memory\dnts.db`.
+   - Database operations execute real SQLite SQL queries against `C:\vazus\memory\vazus.db`.
 
 ---
 
@@ -65,7 +65,7 @@ Direct observations from source inspection, database verification, and execution
 1. **Requirement 1: 768D Vector Computation & Storage**:
    - `UnifiedGoogleEmbedder.embed_query()` outputs float vectors of exact length 768 (`settings.EMBEDDING_DIM = 768`).
    - `SuperGraphLinker.get_or_compute_embedding()` validates `len(vec) == 768` and saves JSON-encoded vectors into `llm_cache` (table schema `cache_key`, `text_content`, `embedding_json`, `created_at`) and `kg_nodes` (`id`, `name`, `domain`, `node_type`, `description`, `tags`, `properties`, `embedding_json`).
-   - Execution output confirmed 768D vectors stored and retrievable in `dnts.db`.
+   - Execution output confirmed 768D vectors stored and retrievable in `vazus.db`.
 
 2. **Requirement 2: SuperGraph Linker & Hybrid Metric**:
    - `compute_hybrid_metric()` combines Cosine Similarity ($0.45$), Full-Text Lexical Similarity ($0.25$), Structural Similarity ($0.20$), and Provenance Similarity ($0.10$).

@@ -24,7 +24,7 @@ MANIFEST_PATH = WORKSPACE_DIR / "rlm_tools" / "manifest.json"
 ADAPTER_SCRIPT = WORKSPACE_DIR / "scripts" / "agy_openai_adapter.py"
 PYTHON_EXE = WORKSPACE_DIR / ".venv" / "Scripts" / "python.exe"
 
-# Sync codebase AST to SQLite dnts.db at startup
+# Sync codebase AST to SQLite vazus.db at startup
 try:
     sys.path.append(str(WORKSPACE_DIR / "scripts"))
     import sync_ast_to_sqlite
@@ -209,7 +209,7 @@ st.sidebar.markdown("<div class='premium-divider'></div>", unsafe_allow_html=Tru
 if st.sidebar.button("↻ Force UI Refresh", use_container_width=True):
     st.rerun()
 
-if st.sidebar.button("Sync Codebase AST to dnts.db", use_container_width=True):
+if st.sidebar.button("Sync Codebase AST to vazus.db", use_container_width=True):
     try:
         import sync_ast_to_sqlite
         sync_ast_to_sqlite.sync()

@@ -1,11 +1,11 @@
 import sqlite3, os
 
-db_path = r"C:\vazus\memory\dnts.db"
+db_path = r"C:\vazus\memory\vazus.db"
 print("DB Path:", db_path, "Exists:", os.path.exists(db_path))
 
 if not os.path.exists(db_path):
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    print("Created directory for dnts.db")
+    print("Created directory for vazus.db")
 
 conn = sqlite3.connect(db_path)
 cur = conn.cursor()

@@ -3,7 +3,7 @@
 ## System Environment
 - **Root Directory**: `C:\vazus`
 - **Python Virtualenv**: `C:\vazus\pyenv\.venv`
-- **Go Core MCP**: `C:\vazus\gomcp\dnts-brain.exe`
+- **Go Core MCP**: `C:\vazus\services\gomcp\dnts-brain.exe`
 - **Memory Storage**: `C:\vazus\memory\semantic\wiki\` and `C:\vazus\memory\graph.db`
 
 ## Target Architecture Integration

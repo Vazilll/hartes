@@ -21,7 +21,7 @@ Review and verify R2 implementation (Unified SuperGraph & 768D Embeddings Integr
 
 ## Review Scope
 - **Files to review**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
-- **Database to inspect**: `C:\vazus\memory\dnts.db` (`kg_nodes`, `kg_edges`, `llm_cache`)
+- **Database to inspect**: `C:\vazus\memory\vazus.db` (`kg_nodes`, `kg_edges`, `llm_cache`)
 - **Review criteria**: 768D Google Gemini Embeddings (`UnifiedGoogleEmbedder`), 4-component hybrid metric formula (0.45 * S_cosine + 0.25 * S_fts + 0.20 * S_structural + 0.10 * S_provenance), DB persistence, verification tests pass, code integrity & zero shortcuts.
 
 ## Review Checklist
@@ -30,7 +30,7 @@ Review and verify R2 implementation (Unified SuperGraph & 768D Embeddings Integr
   - `embeddings.py` (UnifiedGoogleEmbedder 768D)
   - `test_supergraph_integration.py` (Integration test suite)
   - `test_dnts_system.py` (Portless native system test suite)
-  - `C:\vazus\memory\dnts.db` (`kg_nodes` [976 rows], `kg_edges` [4,855 rows], `llm_cache` [976 rows])
+  - `C:\vazus\memory\vazus.db` (`kg_nodes` [976 rows], `kg_edges` [4,855 rows], `llm_cache` [976 rows])
 - **Verdict**: PASS
 - **Unverified claims**: None. All core claims directly verified via source inspection, execution of test scripts, and DB inspection.
 

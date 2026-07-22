@@ -44,7 +44,7 @@
 
 - Go-монолит читает из `C:\vazus\memory\` (USER.md, SOUL.md, system_report.md)
 - MCP-серверы: dnts-core, dnts-memory, dnts-reason, dnts-agent
-- Базы данных: dnts.db (основная), graph.db, epistemic.db, events.db
+- Базы данных: vazus.db (основная), graph.db, epistemic.db, events.db
 - Vault синхронизируется через Google Drive → Obsidian на Pixel 10
 - Файлы vault: USER.md, SOUL.md, HUB.md, JOURNAL.md, BACKLOG.md, map.md, system_report.md
 

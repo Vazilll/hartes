@@ -1,0 +1,14 @@
+{
+  "roots": [
+    "C:\\dnts\\pyenv\\mcp-unified",
+    "C:\\dnts\\pyenv\\open-deep-research",
+    "C:\\dnts\\pyenv\\scripts"
+  ],
+  "include_extensions": [
+    ".py",
+    ".go"
+  ],
+  "ignore_patterns": [
+    "**/.*"
+  ]
+}

@@ -304,7 +304,7 @@ parent_span_id = span_id родительского события
 | Формат | Назначение | Путь |
 |--------|-----------|------|
 | **JSON Lines** (основной) | Real-time поток, log rotation | `C:\vazus\logs\jtrace\YYYY-MM-DD.jsonl` |
-| **SQLite events** (зеркало) | Быстрый поиск, агрегация | `events` table в dnts.db |
+| **SQLite events** (зеркало) | Быстрый поиск, агрегация | `events` table в vazus.db |
 | **MCP Resource** (live) | Чтение через MCP | `dnts://trace/live` (последние 100) |
 
 ---

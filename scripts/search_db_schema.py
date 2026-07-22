@@ -1,7 +1,7 @@
 import os, sys, sqlite3
 
 def search_text():
-    search_terms = ["kg_nodes", "kg_edges", "llm_cache", "dnts.db"]
+    search_terms = ["kg_nodes", "kg_edges", "llm_cache", "vazus.db"]
     results = []
     base_dir = r"C:\vazus"
     

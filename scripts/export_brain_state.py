@@ -14,7 +14,7 @@ import sqlite3
 from datetime import datetime
 
 # --- Paths ---
-DB_PATH = r"C:\vazus\memory\dnts.db"
+DB_PATH = r"C:\vazus\memory\vazus.db"
 USER_MD_PATH = r"C:\vazus\memory\USER.md"
 DIALOGUES_DIR = r"G:\Мой диск\ai\dialogues cli"
 OUTPUT_PATH = r"G:\Мой диск\ai\brain_state.md"

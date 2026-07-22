@@ -13,7 +13,7 @@
 
 ## Стек и архитектура DNTS
 - **Язык монолита**: Go 1.22+
-- **Главные особенности**: Без Python в рантайме (весь критический путь на Go), интеграция с Ollama/llama.cpp (модели LFM-350M, RWKV-7, Jamba-3B), базы данных SQLite (dnts.db, graph.db, epistemic.db, events.db), FTS5 для RAG, кастомная Graph Memory.
+- **Главные особенности**: Без Python в рантайме (весь критический путь на Go), интеграция с Ollama/llama.cpp (модели LFM-350M, RWKV-7, Jamba-3B), базы данных SQLite (vazus.db, graph.db, epistemic.db, events.db), FTS5 для RAG, кастомная Graph Memory.
 - **Вспомогательный стек**: Python (только для оффлайн скриптов), TypeScript/React (для UI).
 - **Паттерны**: Инкапсуляция инструментов в Go-структуры, минимизация внешних зависимостей, потокобезопасность, строгая валидация путей в Windows.
 

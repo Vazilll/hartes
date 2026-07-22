@@ -18,10 +18,10 @@
    - Uses `compact_history()` via LLM summary call (`openai:gemini-3.5-flash`) at `http://127.0.0.1:5001/v1/chat/completions`.
    - Includes `estimate_token_pressure()` returning tokens, context limit (64,000), pressure level (`low`|`medium`|`high`|`critical`), and `should_compact` boolean.
 3. `C:\vazus\pyenv\dnts_core\evolution\sync_ast.py` (lines 1-140):
-   - Connects to `C:\vazus\pyenv\memory\dnts.db` and queries `codebase-memory-mcp.exe` via Cypher (`MATCH (n) WHERE (n:Function OR n:Method OR n:Class...)`).
+   - Connects to `C:\vazus\pyenv\memory\vazus.db` and queries `codebase-memory-mcp.exe` via Cypher (`MATCH (n) WHERE (n:Function OR n:Method OR n:Class...)`).
    - Populates `kg_nodes` (codebase domain) and `kg_edges` (`CALLS`, `USAGE`, `IMPORTS`, `HANDLES`).
 4. `C:\vazus\.mcp.json` (lines 1-37) & `C:\vazus\opencode.json` (lines 1-71):
-   - `.mcp.json`: Registers `dnts-brain` (`C:\vazus\gomcp\dnts-brain.exe`), `sequential-thinking`, `codebase-graph` (`C:\vazus\bin\codebase-memory-mcp.exe`), `desktop-commander`, `filesystem`, `memory`, `playwright`.
+   - `.mcp.json`: Registers `dnts-brain` (`C:\vazus\services\gomcp\dnts-brain.exe`), `sequential-thinking`, `codebase-graph` (`C:\vazus\bin\codebase-memory-mcp.exe`), `desktop-commander`, `filesystem`, `memory`, `playwright`.
    - `opencode.json`: Active server `dnts-brain` (89 tools); duplicate Go binaries (`dnts-core`, `dnts-memory`, `dnts-reason`, `dnts-agent`) disabled to save RAM.
 5. `C:\vazus\CLAUDE.md` (lines 1-204) & `C:\vazus\pyenv\rlm-mit\AGENTS.md` (lines 1-330):
    - `CLAUDE.md`: Documents SCA swarm guidelines, memory protocol (SQLite `state.db` + Knowledge Graph `knowledge_graph.jsonl`), key paths, and tool definitions.
@@ -77,7 +77,7 @@
 2. **Path Verification**:
    - Python Virtualenv: `C:\vazus\pyenv\.venv\Scripts\python.exe`
    - Target Bridge Scripts: `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`, `C:\vazus\pyenv\scripts\subagent_research_bridge.py`.
-   - Go MCP Monolith: `C:\vazus\gomcp\dnts-brain.exe` (89 tools in `opencode.json`, 44 tools in `.mcp.json`).
+   - Go MCP Monolith: `C:\vazus\services\gomcp\dnts-brain.exe` (89 tools in `opencode.json`, 44 tools in `.mcp.json`).
 3. **AGENTS.md Hierarchy**:
    - Local `AGENTS.md` files exist in `pyenv/dnts_core/AGENTS.md`, `pyenv/rlm-mit/AGENTS.md`, `pyenv/open-deep-research/AGENTS.md`, `pyenv/gomcp/AGENTS.md`, `llama.cpp/AGENTS.md`.
    - Root `C:\vazus\AGENTS.md` should consolidate global subagent role descriptions, execution paths, and token economy rules during Milestone 5.

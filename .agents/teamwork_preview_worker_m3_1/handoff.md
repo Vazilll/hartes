@@ -28,7 +28,7 @@
           - Loaded Memory Wiki notes: 6
           - Edges created/linked: 4855
 
-       4. Verifying SQLite Database Insertions in dnts.db...
+       4. Verifying SQLite Database Insertions in vazus.db...
           - Found edge in kg_edges: cleardb -> wiki:AI_Lessons_and_Mistakes (strength: 0.3905)
           - Verified kg_nodes entry: id='cleardb', embedding_dim=768
           - Verified llm_cache entry: key='a9b0dc46e0226970...', embedding_dim=768
@@ -67,7 +67,7 @@
    - R2 requires unifying Layer A (AST Code Topology Nodes) and Layer B (Karpathy Memory Wiki Notes) into a single 768D vector space using `UnifiedGoogleEmbedder`.
    - The hybrid linking metric formula is strictly specified as:
      $$S(u, v) = 0.45 \cdot S_{\text{cosine}}(E(u), E(v)) + 0.25 \cdot S_{\text{fts}}(u, v) + 0.20 \cdot S_{\text{structural}}(u, v) + 0.10 \cdot S_{\text{provenance}}(u, v)$$
-   - The computed relationships must be persisted into `kg_edges`, with node embeddings stored in `kg_nodes` and `llm_cache` within SQLite database `C:\vazus\memory\dnts.db`.
+   - The computed relationships must be persisted into `kg_edges`, with node embeddings stored in `kg_nodes` and `llm_cache` within SQLite database `C:\vazus\memory\vazus.db`.
 
 2. **Component Metric Design**:
    - $S_{\text{cosine}}$: Vector dot product divided by the product of Euclidean norms, clamped to $[0.0, 1.0]$.
@@ -92,7 +92,7 @@
 ## 4. Conclusion
 
 - Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration) has been fully implemented with zero hardcoded/mocked test data.
-- 972 AST Code Topology nodes (Layer A) and 6 Memory Wiki notes (Layer B) are unified in `C:\vazus\memory\dnts.db`.
+- 972 AST Code Topology nodes (Layer A) and 6 Memory Wiki notes (Layer B) are unified in `C:\vazus\memory\vazus.db`.
 - Both `C:\vazus\pyenv\scripts\test_supergraph_integration.py` and `C:\vazus\pyenv\tests\test_dnts_system.py` pass with Exit Code 0.
 
 ## 5. Verification Method

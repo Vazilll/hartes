@@ -64,7 +64,7 @@
       "type": "local",
       "command": ["C:\\dnts\\node_modules\\.bin\\mcp-server-memory.cmd"],
       "enabled": false,
-      "description": "Избыточен (заменен единым графом dnts.db)"
+      "description": "Избыточен (заменен единым графом vazus.db)"
     }
   }
 }
