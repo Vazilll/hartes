@@ -1,12 +1,12 @@
 # BRIEFING — 2026-07-22T14:44:18Z
 
 ## Mission
-Review C:\dnts\AGENTS.md, C:\dnts\pyenv\dnts_core\AGENTS.md, and C:\dnts\pyenv\dnts_core\subagents\roles.py for accuracy, completeness, and interface compliance.
+Review C:\vazus\AGENTS.md, C:\vazus\pyenv\dnts_core\AGENTS.md, and C:\vazus\pyenv\dnts_core\subagents\roles.py for accuracy, completeness, and interface compliance.
 
 ## 🔒 My Identity
 - Archetype: reviewer & critic
 - Roles: reviewer, critic
-- Working directory: C:\dnts\.agents\teamwork_preview_reviewer_m5_1
+- Working directory: C:\vazus\.agents\teamwork_preview_reviewer_m5_1
 - Original parent: 912b3520-5853-40ab-961a-acf7137b1695
 - Milestone: M5_1 Subagent Role & Configuration Review
 - Instance: 1 of 1
@@ -21,13 +21,13 @@ Review C:\dnts\AGENTS.md, C:\dnts\pyenv\dnts_core\AGENTS.md, and C:\dnts\pyenv\d
 
 ## Review Scope
 - **Files to review**:
-  - `C:\dnts\AGENTS.md`
-  - `C:\dnts\pyenv\dnts_core\AGENTS.md`
-  - `C:\dnts\pyenv\dnts_core\subagents\roles.py`
+  - `C:\vazus\AGENTS.md`
+  - `C:\vazus\pyenv\dnts_core\AGENTS.md`
+  - `C:\vazus\pyenv\dnts_core\subagents\roles.py`
 - **Review criteria**: correctness, syntax integrity, configuration alignment, completeness, absence of shortcuts/facades/hardcoded test result cheating.
 
 ## Review Checklist
-- **Items reviewed**: `C:\dnts\AGENTS.md`, `C:\dnts\pyenv\dnts_core\AGENTS.md`, `C:\dnts\pyenv\dnts_core\subagents\roles.py`, bridge scripts (`subagent_research_bridge.py`, `subagent_rlm_bridge.py`, `subagent_verifier_bridge.py`)
+- **Items reviewed**: `C:\vazus\AGENTS.md`, `C:\vazus\pyenv\dnts_core\AGENTS.md`, `C:\vazus\pyenv\dnts_core\subagents\roles.py`, bridge scripts (`subagent_research_bridge.py`, `subagent_rlm_bridge.py`, `subagent_verifier_bridge.py`)
 - **Verdict**: APPROVE
 - **Unverified claims**: None. All repository paths and bridge scripts verified on disk and tested at runtime.
 
@@ -44,7 +44,7 @@ Review C:\dnts\AGENTS.md, C:\dnts\pyenv\dnts_core\AGENTS.md, and C:\dnts\pyenv\d
 - Confirmed full compliance and issued verdict APPROVE.
 
 ## Artifact Index
-- `C:\dnts\.agents\teamwork_preview_reviewer_m5_1\ORIGINAL_REQUEST.md` — Original request transcript
-- `C:\dnts\.agents\teamwork_preview_reviewer_m5_1\BRIEFING.md` — Working context briefing
-- `C:\dnts\.agents\teamwork_preview_reviewer_m5_1\progress.md` — Liveness heartbeat and progress tracking
-- `C:\dnts\.agents\teamwork_preview_reviewer_m5_1\handoff.md` — 5-component handoff report & verdict
+- `C:\vazus\.agents\teamwork_preview_reviewer_m5_1\ORIGINAL_REQUEST.md` — Original request transcript
+- `C:\vazus\.agents\teamwork_preview_reviewer_m5_1\BRIEFING.md` — Working context briefing
+- `C:\vazus\.agents\teamwork_preview_reviewer_m5_1\progress.md` — Liveness heartbeat and progress tracking
+- `C:\vazus\.agents\teamwork_preview_reviewer_m5_1\handoff.md` — 5-component handoff report & verdict

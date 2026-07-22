@@ -6,11 +6,11 @@ import requests
 MODELS = [
     {
         "url": "https://hf-mirror.com/Abiray/ZAYA1-8B-GGUF/resolve/main/ZAYA1-8B-Q4_K_M.gguf",
-        "path": "C:/dnts/models/ZAYA1-8B-Q4_K_M.gguf"
+        "path": "C:/vazus/models/ZAYA1-8B-Q4_K_M.gguf"
     },
     {
         "url": "https://hf-mirror.com/shoumenchougou/RWKV7-G1g-2.9B-GGUF/resolve/main/rwkv7-g1g-2.9b-Q4_K_M.gguf",
-        "path": "C:/dnts/models/rwkv7-g1g-2.9b-Q4_K_M.gguf"
+        "path": "C:/vazus/models/rwkv7-g1g-2.9b-Q4_K_M.gguf"
     }
 ]
 

@@ -21,7 +21,7 @@
 
 ## Проекты пользователя
 
-1. **DNTS Brain** — автономная AI-система с Go-монолитом, MCP-серверами, базами данных (SQLite, RAG, knowledge graph). Живёт на C:\dnts\.
+1. **DNTS Brain** — автономная AI-система с Go-монолитом, MCP-серверами, базами данных (SQLite, RAG, knowledge graph). Живёт на C:\vazus\.
 2. **Hermes** — коммуникационный AI-агент, модуль DNTS.
 3. **Clawd** — интеграция с Claude/Anthropic API.
 4. **Cremniy** — проект на кремниевой основе (экспериментальный).
@@ -42,7 +42,7 @@
 
 ## Контекст системы DNTS
 
-- Go-монолит читает из `C:\dnts\memory\` (USER.md, SOUL.md, system_report.md)
+- Go-монолит читает из `C:\vazus\memory\` (USER.md, SOUL.md, system_report.md)
 - MCP-серверы: dnts-core, dnts-memory, dnts-reason, dnts-agent
 - Базы данных: dnts.db (основная), graph.db, epistemic.db, events.db
 - Vault синхронизируется через Google Drive → Obsidian на Pixel 10

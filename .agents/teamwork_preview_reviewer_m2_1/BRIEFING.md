@@ -6,7 +6,7 @@ Review and verify implementation of R1 bridge scripts for Milestone 2: `subagent
 ## 🔒 My Identity
 - Archetype: reviewer / critic
 - Roles: reviewer, critic
-- Working directory: C:\dnts\.agents\teamwork_preview_reviewer_m2_1
+- Working directory: C:\vazus\.agents\teamwork_preview_reviewer_m2_1
 - Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
 - Milestone: Milestone 2 (R1: Native Subagents & GitHub Wrappers Bridge)
 - Instance: 1 of 1
@@ -21,16 +21,16 @@ Review and verify implementation of R1 bridge scripts for Milestone 2: `subagent
 
 ## Review Scope
 - **Files to review**:
-  - `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
-  - `C:\dnts\pyenv\scripts\subagent_research_bridge.py`
-  - `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+  - `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
+  - `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
+  - `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 - **Verification steps**:
-  - Checked imports (`rlm` from `C:\dnts\pyenv\rlm-mit`, `open_deep_research` from `C:\dnts\pyenv\open-deep-research`, `jules_verifier.py` & `git_provenance.py` integration)
-  - Executed verification commands in `C:\dnts\pyenv\.venv`
+  - Checked imports (`rlm` from `C:\vazus\pyenv\rlm-mit`, `open_deep_research` from `C:\vazus\pyenv\open-deep-research`, `jules_verifier.py` & `git_provenance.py` integration)
+  - Executed verification commands in `C:\vazus\pyenv\.venv`
   - Structural analysis, error handling inspection, integrity verification (no facade/dummy shortcuts)
 
 ## Key Decisions Made
-- All three bridge scripts verified successfully in target environment (`C:\dnts\pyenv\.venv`).
+- All three bridge scripts verified successfully in target environment (`C:\vazus\pyenv\.venv`).
 - No integrity violations found.
 - Final Verdict: PASS.
 
@@ -45,7 +45,7 @@ Review and verify implementation of R1 bridge scripts for Milestone 2: `subagent
 - **Untested angles**: Live network calls to remote AI endpoints (dry-run/local sandboxing tested).
 
 ## Artifact Index
-- `C:\dnts\.agents\teamwork_preview_reviewer_m2_1\ORIGINAL_REQUEST.md` — Original request record
-- `C:\dnts\.agents\teamwork_preview_reviewer_m2_1\BRIEFING.md` — Working memory briefing
-- `C:\dnts\.agents\teamwork_preview_reviewer_m2_1\progress.md` — Progress tracking heartbeat
-- `C:\dnts\.agents\teamwork_preview_reviewer_m2_1\handoff.md` — Final Handoff Report and Verdict
+- `C:\vazus\.agents\teamwork_preview_reviewer_m2_1\ORIGINAL_REQUEST.md` — Original request record
+- `C:\vazus\.agents\teamwork_preview_reviewer_m2_1\BRIEFING.md` — Working memory briefing
+- `C:\vazus\.agents\teamwork_preview_reviewer_m2_1\progress.md` — Progress tracking heartbeat
+- `C:\vazus\.agents\teamwork_preview_reviewer_m2_1\handoff.md` — Final Handoff Report and Verdict

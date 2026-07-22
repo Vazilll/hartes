@@ -9,13 +9,13 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 
 | Component / Subsystem | Directory Path | Description |
 |---|---|---|
-| **System Root** | `C:\dnts` | Root workspace for DNTS SuperGraph OS |
-| **Python Environment & Core** | `C:\dnts\pyenv` | Python 3.11 virtualenv, core modules, scripts, and logs |
-| **DNTS Core Module** | `C:\dnts\pyenv\dnts_core` | Core engine, AST pruner, embeddings, database, workers, and verifier |
-| **MIT RLM Engine** | `C:\dnts\pyenv\rlm-mit` | Recursive Language Modeling (RLM) engine with LocalREPL environment |
-| **Open Deep Research** | `C:\dnts\pyenv\open-deep-research` | LangGraph multi-step research workflow with Google Search Grounding |
-| **Scripts & Subagent Bridges** | `C:\dnts\pyenv\scripts` | Bridge execution scripts connecting subagents to target engines |
-| **Go Core MCP Monolith** | `C:\dnts\gomcp` / `C:\dnts\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
+| **System Root** | `C:\vazus` | Root workspace for DNTS SuperGraph OS |
+| **Python Environment & Core** | `C:\vazus\pyenv` | Python 3.11 virtualenv, core modules, scripts, and logs |
+| **DNTS Core Module** | `C:\vazus\pyenv\dnts_core` | Core engine, AST pruner, embeddings, database, workers, and verifier |
+| **MIT RLM Engine** | `C:\vazus\pyenv\rlm-mit` | Recursive Language Modeling (RLM) engine with LocalREPL environment |
+| **Open Deep Research** | `C:\vazus\pyenv\open-deep-research` | LangGraph multi-step research workflow with Google Search Grounding |
+| **Scripts & Subagent Bridges** | `C:\vazus\pyenv\scripts` | Bridge execution scripts connecting subagents to target engines |
+| **Go Core MCP Monolith** | `C:\vazus\gomcp` / `C:\vazus\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
 
 ---
 
@@ -24,8 +24,8 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 ### 1. `open_deep_researcher`
 * **Role**: Open Deep Researcher Subagent
 * **Description**: LangGraph Open Deep Research + Google Search Grounding for web longreads & research synthesis. Performs multi-step web research, query clarification, and structured report synthesis.
-* **Repository Path**: `C:\dnts\pyenv\open-deep-research`
-* **Bridge Script**: `C:\dnts\pyenv\scripts\subagent_research_bridge.py`
+* **Repository Path**: `C:\vazus\pyenv\open-deep-research`
+* **Bridge Script**: `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
 * **Responsibilities**:
   - Compiles and executes LangGraph StateGraph research workflows.
   - Integrates Google Search Grounding with fallback search providers (DuckDuckGo, Tavily).
@@ -34,8 +34,8 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 ### 2. `rlm_code_engineer`
 * **Role**: RLM Code Engineer Subagent
 * **Description**: MIT RLM for REPL-based self-healing code generation, refactoring, and execution testing. Runs recursive code rollouts in LocalREPL.
-* **Repository Path**: `C:\dnts\pyenv\rlm-mit`
-* **Bridge Script**: `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
+* **Repository Path**: `C:\vazus\pyenv\rlm-mit`
+* **Bridge Script**: `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
 * **Responsibilities**:
   - Connects directly to the MIT RLM engine and `dnts_core.workers.rlm`.
   - Executes recursive code analysis, self-healing bug fixes, and REPL test execution.
@@ -44,8 +44,8 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 ### 3. `verifier_worker`
 * **Role**: Jules Verifier Worker Subagent
 * **Description**: Jules Verifier worker for syntax verification, contract testing, isolated execution testing, and Git provenance tracking.
-* **Repository Path**: `C:\dnts\pyenv\dnts_core`
-* **Bridge Script**: `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+* **Repository Path**: `C:\vazus\pyenv\dnts_core`
+* **Bridge Script**: `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 * **Responsibilities**:
   - Performs static AST syntax parsing and signature/contract compliance testing.
   - Runs code in isolated subprocess execution via `CodeVerifier`.
@@ -62,9 +62,9 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 
 | Subagent Role | Bridge File | Command Line Example |
 |---|---|---|
-| `open_deep_researcher` | `C:\dnts\pyenv\scripts\subagent_research_bridge.py` | `python C:\dnts\pyenv\scripts\subagent_research_bridge.py -q "SuperGraph Architecture" --dry-run` |
-| `rlm_code_engineer` | `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py` | `python C:\dnts\pyenv\scripts\subagent_rlm_bridge.py -p "Verify prime algorithms" --dry-run` |
-| `verifier_worker` | `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py` | `python C:\dnts\pyenv\scripts\subagent_verifier_bridge.py -f C:\dnts\pyenv\dnts_core\utils.py` |
+| `open_deep_researcher` | `C:\vazus\pyenv\scripts\subagent_research_bridge.py` | `python C:\vazus\pyenv\scripts\subagent_research_bridge.py -q "SuperGraph Architecture" --dry-run` |
+| `rlm_code_engineer` | `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py` | `python C:\vazus\pyenv\scripts\subagent_rlm_bridge.py -p "Verify prime algorithms" --dry-run` |
+| `verifier_worker` | `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py` | `python C:\vazus\pyenv\scripts\subagent_verifier_bridge.py -f C:\vazus\pyenv\dnts_core\utils.py` |
 
 ---
 

@@ -6,7 +6,7 @@ Empirically stress-test R2 implementation (Unified SuperGraph & 768D Embeddings 
 ## 🔒 My Identity
 - Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
-- Working directory: C:\dnts\.agents\teamwork_preview_challenger_m3_1
+- Working directory: C:\vazus\.agents\teamwork_preview_challenger_m3_1
 - Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
 - Milestone: Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration)
 - Instance: 1 of 1
@@ -21,7 +21,7 @@ Empirically stress-test R2 implementation (Unified SuperGraph & 768D Embeddings 
 - Updated: 2026-07-22T14:23:00Z
 
 ## Review Scope
-- **Files to review**: `C:\dnts\pyenv\scripts\test_supergraph_integration.py`, `C:\dnts\pyenv\dnts_core\supergraph_linker.py`, SQLite database (`kg_edges` table).
+- **Files to review**: `C:\vazus\pyenv\scripts\test_supergraph_integration.py`, `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, SQLite database (`kg_edges` table).
 - **Interface contracts**: SuperGraph architecture contracts, 768-dim embedding specs.
 - **Review criteria**: Empirical correctness, edge cases, vector dimension mismatch handling, DB transaction/insertion resilience, metric weight boundary conditions.
 
@@ -45,10 +45,10 @@ Empirically stress-test R2 implementation (Unified SuperGraph & 768D Embeddings 
 - **Untested angles**: Multi-threaded concurrent writes to `dnts.db` during active WAL checkpoints.
 
 ## Artifact Index
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\ORIGINAL_REQUEST.md — Original request log
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\BRIEFING.md — Working memory index
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\progress.md — Liveness heartbeat
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\stress_test_supergraph.py — Empirical stress test script
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\test_extra_edge_cases.py — NaN and SQLite primary key proof script
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\stress_test_results.json — Stress test raw JSON output
-- C:\dnts\.agents\teamwork_preview_challenger_m3_1\handoff.md — Final 5-component handoff report
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\ORIGINAL_REQUEST.md — Original request log
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\BRIEFING.md — Working memory index
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\progress.md — Liveness heartbeat
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\stress_test_supergraph.py — Empirical stress test script
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\test_extra_edge_cases.py — NaN and SQLite primary key proof script
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\stress_test_results.json — Stress test raw JSON output
+- C:\vazus\.agents\teamwork_preview_challenger_m3_1\handoff.md — Final 5-component handoff report

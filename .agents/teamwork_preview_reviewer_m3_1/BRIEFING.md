@@ -6,7 +6,7 @@ Review and verify R2 implementation (Unified SuperGraph & 768D Embeddings Integr
 ## 🔒 My Identity
 - Archetype: reviewer / critic
 - Roles: reviewer, critic
-- Working directory: C:\dnts\.agents\teamwork_preview_reviewer_m3_1
+- Working directory: C:\vazus\.agents\teamwork_preview_reviewer_m3_1
 - Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
 - Milestone: Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration)
 - Instance: 1 of 1
@@ -20,8 +20,8 @@ Review and verify R2 implementation (Unified SuperGraph & 768D Embeddings Integr
 - Updated: 2026-07-22T14:23:00Z
 
 ## Review Scope
-- **Files to review**: `C:\dnts\pyenv\dnts_core\supergraph_linker.py`, `C:\dnts\pyenv\scripts\test_supergraph_integration.py`
-- **Database to inspect**: `C:\dnts\memory\dnts.db` (`kg_nodes`, `kg_edges`, `llm_cache`)
+- **Files to review**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
+- **Database to inspect**: `C:\vazus\memory\dnts.db` (`kg_nodes`, `kg_edges`, `llm_cache`)
 - **Review criteria**: 768D Google Gemini Embeddings (`UnifiedGoogleEmbedder`), 4-component hybrid metric formula (0.45 * S_cosine + 0.25 * S_fts + 0.20 * S_structural + 0.10 * S_provenance), DB persistence, verification tests pass, code integrity & zero shortcuts.
 
 ## Review Checklist
@@ -30,7 +30,7 @@ Review and verify R2 implementation (Unified SuperGraph & 768D Embeddings Integr
   - `embeddings.py` (UnifiedGoogleEmbedder 768D)
   - `test_supergraph_integration.py` (Integration test suite)
   - `test_dnts_system.py` (Portless native system test suite)
-  - `C:\dnts\memory\dnts.db` (`kg_nodes` [976 rows], `kg_edges` [4,855 rows], `llm_cache` [976 rows])
+  - `C:\vazus\memory\dnts.db` (`kg_nodes` [976 rows], `kg_edges` [4,855 rows], `llm_cache` [976 rows])
 - **Verdict**: PASS
 - **Unverified claims**: None. All core claims directly verified via source inspection, execution of test scripts, and DB inspection.
 
@@ -46,8 +46,8 @@ Review and verify R2 implementation (Unified SuperGraph & 768D Embeddings Integr
 - Confirmed full compliance with Milestone 3 requirements and issued verdict: **PASS**.
 
 ## Artifact Index
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_1\ORIGINAL_REQUEST.md — Original request prompt
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_1\BRIEFING.md — Working briefing context
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_1\progress.md — Progress tracking log
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_1\inspect_db.py — DB verification script
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_1\handoff.md — Final review report
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_1\ORIGINAL_REQUEST.md — Original request prompt
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_1\BRIEFING.md — Working briefing context
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_1\progress.md — Progress tracking log
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_1\inspect_db.py — DB verification script
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_1\handoff.md — Final review report

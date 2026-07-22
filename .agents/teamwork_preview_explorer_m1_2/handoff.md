@@ -1,8 +1,8 @@
 # Handoff Report: R2 — Unified SuperGraph & 768D Embeddings Integration Investigation
 
 **Agent**: Explorer 2 (Milestone 1)  
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_explorer_m1_2`  
-**Project Root**: `C:\dnts`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_explorer_m1_2`  
+**Project Root**: `C:\vazus`  
 **Date**: 2026-07-22  
 
 ---
@@ -11,8 +11,8 @@
 
 Direct observations from source code, filesystem state, configuration, and verification executions:
 
-### 1.1 Embeddings Module (`C:\dnts\pyenv\dnts_core\embeddings.py` & `config.py`)
-- **File Location**: `C:\dnts\pyenv\dnts_core\embeddings.py` (43 lines) and configuration in `C:\dnts\pyenv\dnts_core\config.py` (29 lines).
+### 1.1 Embeddings Module (`C:\vazus\pyenv\dnts_core\embeddings.py` & `config.py`)
+- **File Location**: `C:\vazus\pyenv\dnts_core\embeddings.py` (43 lines) and configuration in `C:\vazus\pyenv\dnts_core\config.py` (29 lines).
 - **Gemini Embedding Model**: In `config.py` (Line 19): `EMBEDDING_MODEL_LOCAL: str = "google/embeddinggemma-300m"`.
 - **Vector Dimension**: In `config.py` (Line 18): `EMBEDDING_DIM: int = 768`.
 - **Execution Mode**: Pure portless in-process local execution. Zero HTTP server sockets or network calls.
@@ -42,7 +42,7 @@ Direct observations from source code, filesystem state, configuration, and verif
             return vec
     ```
 - **Tests**:
-  - `C:\dnts\pyenv\tests\test_dnts_system.py` (Lines 35-39):
+  - `C:\vazus\pyenv\tests\test_dnts_system.py` (Lines 35-39):
     ```python
     from dnts_core.embeddings import UnifiedGoogleEmbedder
     embedder = UnifiedGoogleEmbedder()
@@ -50,22 +50,22 @@ Direct observations from source code, filesystem state, configuration, and verif
     assert len(vec) == 768, f"Ошибка! Ожидалось 768, получено {len(vec)}"
     ```
 
-### 1.2 Karpathy Memory Wiki & Database Schema (`C:\dnts\memory\semantic\wiki` & `dnts.db`)
-- **Memory Wiki Path**: `C:\dnts\memory\semantic\wiki\` containing 5 markdown files:
+### 1.2 Karpathy Memory Wiki & Database Schema (`C:\vazus\memory\semantic\wiki` & `dnts.db`)
+- **Memory Wiki Path**: `C:\vazus\memory\semantic\wiki\` containing 5 markdown files:
   1. `AI_Lessons_and_Mistakes.md`: 5.2 KB timestamped memory log (`- **[2026-05-24 03:58]**: ...`, rules, lessons, vision benchmark results, agent reliability improvements).
   2. `Dialog_Context.md`: 194 bytes chat interaction context with timestamps.
   3. `auto_test_insights.md`: Automated test execution logs.
   4. `system_test_insights.md`: System test insights.
   5. `test_insights.md`: General test execution insights.
-- **Graph Database Schema**: In `C:\dnts\pyenv\gomcp\tools\db.go` and SQLite database `C:\dnts\memory\dnts.db`:
+- **Graph Database Schema**: In `C:\vazus\pyenv\gomcp\tools\db.go` and SQLite database `C:\vazus\memory\dnts.db`:
   - `kg_nodes` table schema (Lines 635-661 in `db.go`): `id` (TEXT PRIMARY KEY), `name`, `domain`, `node_type`, `description`, `difficulty`, `mastery_level`, `tags`, `properties`, `source_file`, `source_url`, `fts_tokens`.
   - `kg_edges` table schema (Lines 668-680 in `db.go`): `id` (SERIAL/INTEGER PRIMARY KEY), `source_id`, `target_id`, `relation`, `strength` (REAL weight), `properties`.
   - `llm_cache` table: includes `embedding BLOB DEFAULT NULL` column for 768D semantic caching.
 
-### 1.3 OpenVINO NPU Setup & Verification (`C:\dnts\verify_ov_npu.py`)
-- **File Location**: `C:\dnts\verify_ov_npu.py` (22 lines).
+### 1.3 OpenVINO NPU Setup & Verification (`C:\vazus\verify_ov_npu.py`)
+- **File Location**: `C:\vazus\verify_ov_npu.py` (22 lines).
 - **Imports**: `import sys`, `import openvino as ov`.
-- **Execution Output**: Command executed via `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\verify_ov_npu.py`:
+- **Execution Output**: Command executed via `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py`:
   ```
   Python version: 3.12.10 (tags/v3.12.10:0cc8128, Apr 8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
   OpenVINO version: 2026.2.1-21919-ede283a88e3-releases/2026/2
@@ -140,7 +140,7 @@ ON CONFLICT(source_id, target_id, relation) DO UPDATE SET strength=excluded.stre
 
 ## 4. Caveats
 
-1. **Local Model Package Requirement**: `sentence-transformers` must be present in `C:\dnts\pyenv\.venv` for full transformer embedding generation; if missing, `embeddings.py` smoothly falls back to deterministic SHA256 768D vectors without crashing.
+1. **Local Model Package Requirement**: `sentence-transformers` must be present in `C:\vazus\pyenv\.venv` for full transformer embedding generation; if missing, `embeddings.py` smoothly falls back to deterministic SHA256 768D vectors without crashing.
 2. **OpenVINO NPU Model Warmup**: While OpenVINO runtime detects Intel NPU (`Intel(R) AI Boost`), initial model compilation for NPU target takes a short warmup period during startup.
 
 ---
@@ -160,15 +160,15 @@ To independently verify these findings:
 
 1. **Verify OpenVINO NPU Detection**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\verify_ov_npu.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py
    ```
    *Expected result*: Displays OpenVINO 2026.2.1, CPU, GPU, NPU devices, and `[VERIFIED] OpenVINO runtime detects Intel NPU acceleration!`.
 
 2. **Verify 768D Embeddings & System Integration Test**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\tests\test_dnts_system.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py
    ```
    *Expected result*: All 5 tests pass, confirming `EMBEDDING_DIM == 768` and `len(vec) == 768`.
 
 3. **Inspect Handoff Artifact**:
-   Read `C:\dnts\.agents\teamwork_preview_explorer_m1_2\handoff.md`.
+   Read `C:\vazus\.agents\teamwork_preview_explorer_m1_2\handoff.md`.

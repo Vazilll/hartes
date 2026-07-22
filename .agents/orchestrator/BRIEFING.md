@@ -6,13 +6,13 @@ Full integration of DNTS OS SuperGraph Architecture connecting GitHub wrappers (
 ## 🔒 My Identity
 - Archetype: Project Orchestrator
 - Roles: orchestrator, user_liaison, human_reporter, successor
-- Working directory: C:\dnts\.agents\orchestrator
+- Working directory: C:\vazus\.agents\orchestrator
 - Original parent: parent
 - Original parent conversation ID: 01f597e0-66d4-4f7c-a23e-476769238b26
 
 ## 🔒 My Workflow
 - **Pattern**: Project Pattern
-- **Scope document**: C:\dnts\.agents\orchestrator\plan.md
+- **Scope document**: C:\vazus\.agents\orchestrator\plan.md
 1. **Decompose**: Decomposed work into 5 milestones (M1: Exploration, M2: Native Subagents & GitHub Wrappers Bridge [R1], M3: Unified SuperGraph & 768D Embeddings [R2], M4: Token Economy & AST Pruning [R3], M5: E2E Verification & Forensic Audit).
 2. **Dispatch & Execute**: Direct iteration loop per milestone delegating to Explorer, Worker, Reviewer, Challenger, Auditor subagents.
 3. **On failure**: Retry -> Replace -> Skip -> Redistribute -> Redesign.
@@ -28,8 +28,8 @@ Full integration of DNTS OS SuperGraph Architecture connecting GitHub wrappers (
 
 ## 🔒 Key Constraints
 - NEVER write source code directly (dispatch workers via invoke_subagent).
-- NEVER run build/test commands directly (require workers to run in C:\dnts\pyenv\.venv and report results).
-- All changes must be verified with execution in C:\dnts\pyenv\.venv.
+- NEVER run build/test commands directly (require workers to run in C:\vazus\pyenv\.venv and report results).
+- All changes must be verified with execution in C:\vazus\pyenv\.venv.
 - Forensic Auditor must pass CLEAN before milestone completion.
 
 ## Current Parent
@@ -38,7 +38,7 @@ Full integration of DNTS OS SuperGraph Architecture connecting GitHub wrappers (
 
 ## Key Decisions Made
 - Decomposed architecture into 5 sequential milestones.
-- Standardized Python environment to C:\dnts\pyenv\.venv.
+- Standardized Python environment to C:\vazus\pyenv\.venv.
 
 ## Team Roster
 | Agent | Type | Work Item | Status | Conv ID |
@@ -78,6 +78,6 @@ Full integration of DNTS OS SuperGraph Architecture connecting GitHub wrappers (
 - Safety timer: none
 
 ## Artifact Index
-- C:\dnts\.agents\orchestrator\plan.md — Master project plan and milestone specification
-- C:\dnts\.agents\orchestrator\progress.md — Execution tracking and heartbeat log
-- C:\dnts\.agents\orchestrator\context.md — System context and architectural background
+- C:\vazus\.agents\orchestrator\plan.md — Master project plan and milestone specification
+- C:\vazus\.agents\orchestrator\progress.md — Execution tracking and heartbeat log
+- C:\vazus\.agents\orchestrator\context.md — System context and architectural background

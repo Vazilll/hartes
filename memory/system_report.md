@@ -21,7 +21,7 @@
 - Глобальный конфиг очищен (~/.config/opencode/opencode.json)
 
 ### SYCL GPU (Intel iGPU 64EU)
-- Билд: C:\dnts\llama.cpp\build_sycl (minimal flags)
+- Билд: C:\vazus\llama.cpp\build_sycl (minimal flags)
 - GPU: Intel Graphics, 64 EU, 5558 MB, Reorder: YES
 - Jamba на SYCL: prompt 102 tok/s, generation 9 tok/s
 - Запуск: setvars.bat + llama-server-sycl.exe
@@ -113,7 +113,7 @@ Cogito 3B:    19.9 tok/s (быстрее Jamba, extended thinking)
 ## 6. КЛЮЧЕВЫЕ ФАЙЛЫ
 
 ```
-C:\dnts\
+C:\vazus\
 ├── gomcp\dnts-brain.exe           — Go MCP сервер (2.9 MB)
 ├── opencode.json                  — MCP конфиг для OpenCode
 ├── .mcp.json                      — MCP конфиг для Claude Code

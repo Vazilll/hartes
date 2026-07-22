@@ -9,7 +9,7 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_PATH = r"C:\dnts\memory\dnts.db"
+DB_PATH = r"C:\vazus\memory\dnts.db"
 BACKUP_PATH = DB_PATH + ".bak"
 
 

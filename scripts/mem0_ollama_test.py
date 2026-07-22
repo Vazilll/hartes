@@ -37,7 +37,7 @@ m = Memory(config=config)
 print("\nWriting test facts...")
 facts = [
     "Vaz prefers concise responses with tables",
-    "gomcp Go MCP servers at C:/dnts/gomcp",
+    "gomcp Go MCP servers at C:/vazus/gomcp",
     "VPS at 213.165.36.252 with Postgres Langfuse Redis OpenSearch",
     "Pixel 10 projects: PIT 2.0 Flutter, OfflineHookChat",
     "Agy CLI v1.1.1 OAuth-based no API key",

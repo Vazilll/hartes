@@ -2,7 +2,7 @@
 
 **Target**: DNTS OS SuperGraph Architecture (R2 Integration)  
 **Evaluator**: Challenger Agent (`teamwork_preview_challenger_m3_1`)  
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_challenger_m3_1`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_challenger_m3_1`  
 **Execution Timestamp**: 2026-07-22T14:23:00Z  
 
 ---
@@ -10,7 +10,7 @@
 ## 1. Observation
 
 ### Baseline Integration Execution
-- **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py`
+- **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
 - **Output**:
   ```text
   [Embedder] Notice: sentence-transformers not loaded (No module named 'sentence_transformers'). Using deterministic 768 vector.
@@ -33,7 +33,7 @@
      - Verified llm_cache entry: key='a9b0dc46e0226970...', embedding_dim=768
   ```
 
-### Codebase Inspection (`C:\dnts\pyenv\dnts_core\supergraph_linker.py`)
+### Codebase Inspection (`C:\vazus\pyenv\dnts_core\supergraph_linker.py`)
 - **`calculate_cosine_similarity`** (lines 34-48):
   ```python
   def calculate_cosine_similarity(vec_a: List[float], vec_b: List[float]) -> float:
@@ -153,15 +153,15 @@ To independently verify these empirical findings:
 
 1. **Run the baseline integration test**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py
    ```
 2. **Run the empirical stress test suite**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\.agents\teamwork_preview_challenger_m3_1\stress_test_supergraph.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\.agents\teamwork_preview_challenger_m3_1\stress_test_supergraph.py
    ```
 3. **Verify Python `min(1.0, nan)` and SQLite NULL primary key proof**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\.agents\teamwork_preview_challenger_m3_1\test_extra_edge_cases.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\.agents\teamwork_preview_challenger_m3_1\test_extra_edge_cases.py
    ```
 4. **Inspect JSON test results**:
-   Check `C:\dnts\.agents\teamwork_preview_challenger_m3_1\stress_test_results.json`.
+   Check `C:\vazus\.agents\teamwork_preview_challenger_m3_1\stress_test_results.json`.

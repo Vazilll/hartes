@@ -1,0 +1,131 @@
+{
+  "schema_name": "SourceMapV1",
+  "schema_version": "1.4.0",
+  "id_scheme_version": "1",
+  "extensions": {},
+  "source_map_id": "srcmap_3fc3532904f1141e58547ce4e3fea659c681f29a05913e85cb90ae499e4112a4",
+  "installation_id": "install_c8787b50bf78e3fa1603b6dae78b85ea3160f8e28483bb29fb8d8c79f81ec773",
+  "roots": [
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_54a15255709583c10a52189e6dd4098b1fa8cccea05ec2f9e02f69b6848809f4",
+      "relative_path": "docs",
+      "source_type": "software",
+      "adapter": "adapter:software",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_and_graph",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    },
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_9b22ae6b55e5841af68849c2de7e6f437e13ebed86275699a45b529fc1818e0b",
+      "relative_path": "examples",
+      "source_type": "software",
+      "adapter": "adapter:software",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_and_graph",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    },
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_0dceebf47cb1fd05c9b03047f222c8cb10977ae78bd88b104f5096df08c1dfd3",
+      "relative_path": "rlm",
+      "source_type": "software",
+      "adapter": "adapter:software",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_and_graph",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    },
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_cc3dd84385e2a26e972f7a0455b9909acf9a21ada2c2e37b487456221d48cbf0",
+      "relative_path": "rlms.egg-info",
+      "source_type": "markdown",
+      "adapter": "adapter:markdown",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_only",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    },
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_c3159c108d8738e93b078dc0346cc319af99fd3a11e30341cfa9b92952577726",
+      "relative_path": "tests",
+      "source_type": "software",
+      "adapter": "adapter:software",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_and_graph",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    },
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_47484ce95a33e1abbd398f6c86b772510b89ece3276d78c86b764743783f1be3",
+      "relative_path": "training",
+      "source_type": "software",
+      "adapter": "adapter:software",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_and_graph",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    },
+    {
+      "schema_name": "SourceRootV1",
+      "schema_version": "1.4.0",
+      "id_scheme_version": "1",
+      "extensions": {},
+      "source_root_id": "srcroot_25756d2e5f7e32e903fcbd637e2c7c978264f66393ab7830e822feabd9acbba6",
+      "relative_path": "visualizer",
+      "source_type": "software",
+      "adapter": "adapter:software",
+      "sensitivity": "internal",
+      "trust_class": "user",
+      "policy": "index_and_graph",
+      "provenance": [
+        "detected:bootstrap"
+      ],
+      "confidence": "high"
+    }
+  ],
+  "map_sha256": "9215745351538261dc959c5c4976f04976ea0919adcbc6940ee742321d2b48c8",
+  "created_at": "2026-07-18T14:55:41.999587Z"
+}

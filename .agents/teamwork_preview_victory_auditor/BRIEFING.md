@@ -6,7 +6,7 @@ Independently audit and verify the orchestrator's claimed full project completio
 ## 🔒 My Identity
 - Archetype: victory_auditor
 - Roles: critic, specialist, auditor, victory_verifier
-- Working directory: C:\dnts\.agents\teamwork_preview_victory_auditor
+- Working directory: C:\vazus\.agents\teamwork_preview_victory_auditor
 - Original parent: 01f597e0-66d4-4f7c-a23e-476769238b26
 - Target: Full Project Victory Audit
 
@@ -21,7 +21,7 @@ Independently audit and verify the orchestrator's claimed full project completio
 - Updated: 2026-07-22T17:58:20Z
 
 ## Audit Scope
-- **Work product**: Full DNTS OS SuperGraph Integration codebase in C:\dnts
+- **Work product**: Full DNTS OS SuperGraph Integration codebase in C:\vazus
 - **Profile loaded**: General Project Victory Audit
 - **Audit type**: Victory Audit
 
@@ -34,7 +34,7 @@ Independently audit and verify the orchestrator's claimed full project completio
 ## Key Decisions Made
 - Executed full 3-phase audit.
 - Confirmed zero integrity violations or facades.
-- Confirmed all 7 target test scripts pass with Exit Code 0 in C:\dnts\pyenv\.venv.
+- Confirmed all 7 target test scripts pass with Exit Code 0 in C:\vazus\pyenv\.venv.
 
 ## Attack Surface
 - **Hypotheses tested**: Hardcoded mock stubs, missing dependencies, graph linking failure, prompt caching failure, NPU detection failure.
@@ -45,8 +45,8 @@ Independently audit and verify the orchestrator's claimed full project completio
 - None explicitly loaded.
 
 ## Artifact Index
-- C:\dnts\.agents\teamwork_preview_victory_auditor\ORIGINAL_REQUEST.md — Audit request record
-- C:\dnts\.agents\teamwork_preview_victory_auditor\BRIEFING.md — Working memory briefing
-- C:\dnts\.agents\teamwork_preview_victory_auditor\progress.md — Audit heartbeat log
-- C:\dnts\.agents\teamwork_preview_victory_auditor\audit_runner.py — Test execution script
-- C:\dnts\.agents\teamwork_preview_victory_auditor\handoff.md — Detailed handoff report
+- C:\vazus\.agents\teamwork_preview_victory_auditor\ORIGINAL_REQUEST.md — Audit request record
+- C:\vazus\.agents\teamwork_preview_victory_auditor\BRIEFING.md — Working memory briefing
+- C:\vazus\.agents\teamwork_preview_victory_auditor\progress.md — Audit heartbeat log
+- C:\vazus\.agents\teamwork_preview_victory_auditor\audit_runner.py — Test execution script
+- C:\vazus\.agents\teamwork_preview_victory_auditor\handoff.md — Detailed handoff report

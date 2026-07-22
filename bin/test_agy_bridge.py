@@ -9,8 +9,8 @@ from mcp.client.stdio import stdio_client
 
 async def main():
     server_params = StdioServerParameters(
-        command=r"C:\dnts\pyenv\.venv\Scripts\python.exe",
-        args=[r"C:\dnts\pyenv\scripts\agy_bridge_mcp.py"],
+        command=r"C:\vazus\pyenv\.venv\Scripts\python.exe",
+        args=[r"C:\vazus\pyenv\scripts\agy_bridge_mcp.py"],
     )
     
     print("🔌 Connecting to agy-bridge MCP server...")

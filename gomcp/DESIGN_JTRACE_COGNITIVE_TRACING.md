@@ -13,7 +13,7 @@
 ### 1.1. Общая структура
 
 ```
-C:\dnts\pyenv\gomcp\
+C:\vazus\pyenv\gomcp\
 ├── main.go                         # dnts-brain (основной MCP сервер, 22–93 tools)
 ├── cmd/
 │   ├── dnts-core/main.go           # DNTS Core (8 tools, focused profile)
@@ -303,7 +303,7 @@ parent_span_id = span_id родительского события
 
 | Формат | Назначение | Путь |
 |--------|-----------|------|
-| **JSON Lines** (основной) | Real-time поток, log rotation | `C:\dnts\logs\jtrace\YYYY-MM-DD.jsonl` |
+| **JSON Lines** (основной) | Real-time поток, log rotation | `C:\vazus\logs\jtrace\YYYY-MM-DD.jsonl` |
 | **SQLite events** (зеркало) | Быстрый поиск, агрегация | `events` table в dnts.db |
 | **MCP Resource** (live) | Чтение через MCP | `dnts://trace/live` (последние 100) |
 

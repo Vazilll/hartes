@@ -4,7 +4,7 @@ Last visited: 2026-07-22T17:49:45Z
 
 ## Status
 - [x] Initialized workspace and briefing
-- [x] Explore codebase structure under `C:\dnts`
+- [x] Explore codebase structure under `C:\vazus`
 - [x] Design and execute adversarial stress tests for AST pruner boundary limits, invalid flags, missing directories, vector dimensions
 - [x] Stress test subagent bridges (rlm_bridge, research_bridge, verifier_bridge) & 768D embedding database persistence
 - [x] Confirm system stability, zero regression, and robust fallback handling

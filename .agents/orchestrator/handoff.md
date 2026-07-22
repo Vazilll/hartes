@@ -11,8 +11,8 @@
 - None (All 6 subagents in Gen 2 completed cleanly).
 
 ## Summary of Milestone 5 Execution
-1. Updated `C:\dnts\AGENTS.md`, `C:\dnts\pyenv\dnts_core\AGENTS.md`, and `C:\dnts\pyenv\dnts_core\subagents\roles.py` to register all native subagent roles (`open_deep_researcher`, `rlm_code_engineer`, `verifier_worker`) and repository/bridge paths.
-2. Executed all 7 acceptance criteria scripts with `C:\dnts\pyenv\.venv\Scripts\python.exe` in `C:\dnts`, achieving 100% pass rate with Exit Code 0.
+1. Updated `C:\vazus\AGENTS.md`, `C:\vazus\pyenv\dnts_core\AGENTS.md`, and `C:\vazus\pyenv\dnts_core\subagents\roles.py` to register all native subagent roles (`open_deep_researcher`, `rlm_code_engineer`, `verifier_worker`) and repository/bridge paths.
+2. Executed all 7 acceptance criteria scripts with `C:\vazus\pyenv\.venv\Scripts\python.exe` in `C:\vazus`, achieving 100% pass rate with Exit Code 0.
 3. Gate Verification:
    - Reviewer M5_1: VERDICT: APPROVE
    - Reviewer M5_2: VERDICT: APPROVE
@@ -20,8 +20,8 @@
    - Forensic Auditor M5_1: UNAMBIGUOUS FINAL VERDICT: CLEAN
 
 ## Key Artifacts
-- Master Plan: `C:\dnts\.agents\orchestrator\plan.md`
-- Progress Log: `C:\dnts\.agents\orchestrator\progress.md`
-- Briefing: `C:\dnts\.agents\orchestrator\BRIEFING.md`
-- Original User Request: `C:\dnts\.agents\ORIGINAL_REQUEST.md`
-- Final Forensic Audit: `C:\dnts\.agents\teamwork_preview_auditor_m5_1\handoff.md`
+- Master Plan: `C:\vazus\.agents\orchestrator\plan.md`
+- Progress Log: `C:\vazus\.agents\orchestrator\progress.md`
+- Briefing: `C:\vazus\.agents\orchestrator\BRIEFING.md`
+- Original User Request: `C:\vazus\.agents\ORIGINAL_REQUEST.md`
+- Final Forensic Audit: `C:\vazus\.agents\teamwork_preview_auditor_m5_1\handoff.md`

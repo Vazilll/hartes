@@ -2,14 +2,14 @@
 
 **Explorer**: Explorer 1  
 **Milestone**: Milestone 1 - DNTS OS SuperGraph Architecture Integration  
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_explorer_m1_1`  
-**Project Root**: `C:\dnts`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_explorer_m1_1`  
+**Project Root**: `C:\vazus`  
 
 ---
 
 ## 1. Observation
 
-### 1.1 `C:\dnts\pyenv\rlm-mit` (MIT Recursive Language Models)
+### 1.1 `C:\vazus\pyenv\rlm-mit` (MIT Recursive Language Models)
 - **Package & Meta**:
   - `pyproject.toml` (lines 2, 6, 21-30): Package name `rlms` (v0.1.3), `requires-python = ">=3.11"`. Core dependencies: `anthropic>=0.75.0`, `google-genai>=1.56.0`, `openai>=2.14.0`, `portkey-ai>=2.1.0`, `pytest>=9.0.2`, `python-dotenv>=1.2.1`, `requests>=2.32.5`, `rich>=13.0.0`. Optional dependencies include `ipython`, `modal`, `e2b`, `daytona`, `prime`.
   - Exposed module: imported via Python as `import rlm` or `from rlm import RLM` (`rlm/__init__.py` lines 1-18).
@@ -21,7 +21,7 @@
   - Python API: `from rlm import RLM`; `rlm = RLM(backend="openai", environment="local")`; `res = rlm.completion(prompt)`.
   - CLI: No binary script in `pyproject.toml`; uses Makefile (`make quickstart`, `make check`).
 
-### 1.2 `C:\dnts\pyenv\open-deep-research` (Open Deep Research Agent)
+### 1.2 `C:\vazus\pyenv\open-deep-research` (Open Deep Research Agent)
 - **Package & Meta**:
   - `pyproject.toml` (lines 2-3, 11-47): Package name `open_deep_research` (v0.0.16), requires Python `>=3.10`.
   - Dependencies: `langgraph>=0.5.4`, `langchain-community`, `langchain-openai`, `langchain-anthropic`, `langchain-google-vertexai`, `langchain-google-genai`, `langchain-mcp-adapters`, `tavily-python`, `duckduckgo-search`, `exa-py`, `azure-search-documents`, `mcp`, `linkup-sdk`, `pandas`, `beautifulsoup4`, `markdownify`, `requests`, `rich`, `langgraph-cli`.
@@ -33,7 +33,7 @@
   - Python API: `from open_deep_research.deep_researcher import deep_researcher_builder`; `graph = deep_researcher_builder.compile(...)`; `await graph.ainvoke({"messages": [...]}, config)`.
   - Scripts: `run_research.py`, `run_google_research.py`, `run_evolution_research.py`, `run_harness_research.py`, `run_hybrid_research.py`, `run_prompt_research.py`, `run_self_evolution_research.py`.
 
-### 1.3 `C:\dnts\pyenv\dnts_core` (DNTS OS Core V2)
+### 1.3 `C:\vazus\pyenv\dnts_core` (DNTS OS Core V2)
 - **Structure & Modules**:
   - `config.py`: System configuration (`WORKSPACE_DIR`, `EMBEDDING_DIM = 768`, model endpoint settings).
   - `embeddings.py`: `UnifiedGoogleEmbedder` (lines 12-42) implementing a 768-dim DeepMind vector space using `SentenceTransformer` with deterministic sha256 fallback.
@@ -46,11 +46,11 @@
   - `workers/ldr.py`: Long-Distance Retrieval / Open Deep Research worker wrapper.
   - `evolution/jules_verifier.py`: `JulesCloudEscalator` (lines 12-50) for background code repairs via Google DeepMind Jules VM / CLI, staging tasks to `jules/auto-proposals` branch.
 
-### 1.4 `C:\dnts\pyenv\scripts` & Environment Setup (`C:\dnts\pyenv\.venv`)
-- **Scripts Directory** (`C:\dnts\pyenv\scripts`):
+### 1.4 `C:\vazus\pyenv\scripts` & Environment Setup (`C:\vazus\pyenv\.venv`)
+- **Scripts Directory** (`C:\vazus\pyenv\scripts`):
   - Contains 43 files including MCP wrappers (`rlm_mcp.py`, `ldr_mcp.py`, `agy_bridge_mcp.py`, `evolution_mcp.py`, `hybrid_search_mcp.py`, `langgraph-mcp.py`, `leann-mcp.py`, `shell_mcp.py`), pipeline tests (`test_unified_graph.py`, `test_nexus_graph.py`, `run_rlm_local_test.py`), and system services (`unified_worker.py`, `worker_monitor.py`, `dnts_rag.py`).
-- **Environment Setup** (`C:\dnts\pyenv\.venv`):
-  - Created at `C:\dnts\pyenv\.venv` using Python 3.12.10 (`pyvenv.cfg`).
+- **Environment Setup** (`C:\vazus\pyenv\.venv`):
+  - Created at `C:\vazus\pyenv\.venv` using Python 3.12.10 (`pyvenv.cfg`).
   - Pre-installed packages verified in `Lib/site-packages`:
     - PyTorch CPU: `torch-2.13.0+cpu`, `torchaudio`, `torchvision`
     - OpenVINO: `openvino-2026.2.1`, `openvino_tokenizers-2026.2.1.0`
@@ -70,7 +70,7 @@
    - `subagents/roles.py` defines the 3 visual subagents (`research_coordinator`, `rlm_code_engineer`, `hermes_evolution_agent`) matching the system rules.
    - `git_provenance.py` and `evolution/jules_verifier.py` implement provenance tracking and fallback repair loops (Jules cloud escalation).
    - `embeddings.py` unifies semantic indexing into a 768-dim vector space.
-4. **Observation 1.4** verifies that `scripts` directory contains existing FastMCP server wrappers (`rlm_mcp.py`, `ldr_mcp.py`, `agy_bridge_mcp.py`) bridging these Python packages into the MCP tool ecosystem, and that `C:\dnts\pyenv\.venv` is fully configured with Python 3.12.10, PyTorch, OpenVINO, EasyOCR, PyNeuroML, and all required packages.
+4. **Observation 1.4** verifies that `scripts` directory contains existing FastMCP server wrappers (`rlm_mcp.py`, `ldr_mcp.py`, `agy_bridge_mcp.py`) bridging these Python packages into the MCP tool ecosystem, and that `C:\vazus\pyenv\.venv` is fully configured with Python 3.12.10, PyTorch, OpenVINO, EasyOCR, PyNeuroML, and all required packages.
 
 ---
 
@@ -96,16 +96,16 @@ The repository structure across `rlm-mit`, `open-deep-research`, `dnts_core`, an
 
 To independently verify these findings:
 1. **Inspect package configuration**:
-   - `C:\dnts\pyenv\rlm-mit\pyproject.toml`
-   - `C:\dnts\pyenv\open-deep-research\pyproject.toml`
-   - `C:\dnts\pyenv\.venv\pyvenv.cfg`
+   - `C:\vazus\pyenv\rlm-mit\pyproject.toml`
+   - `C:\vazus\pyenv\open-deep-research\pyproject.toml`
+   - `C:\vazus\pyenv\.venv\pyvenv.cfg`
 2. **Inspect SuperGraph entrypoints**:
-   - `C:\dnts\pyenv\dnts_core\unified_graph.py`
-   - `C:\dnts\pyenv\dnts_core\subagents\roles.py`
-   - `C:\dnts\pyenv\dnts_core\workers\rlm.py`
-   - `C:\dnts\pyenv\dnts_core\evolution\jules_verifier.py`
+   - `C:\vazus\pyenv\dnts_core\unified_graph.py`
+   - `C:\vazus\pyenv\dnts_core\subagents\roles.py`
+   - `C:\vazus\pyenv\dnts_core\workers\rlm.py`
+   - `C:\vazus\pyenv\dnts_core\evolution\jules_verifier.py`
 3. **Verify `.venv` site-packages**:
-   - Check directory existence of `C:\dnts\pyenv\.venv\Lib\site-packages\torch`
-   - Check directory existence of `C:\dnts\pyenv\.venv\Lib\site-packages\openvino`
-   - Check directory existence of `C:\dnts\pyenv\.venv\Lib\site-packages\easyocr`
-   - Check directory existence of `C:\dnts\pyenv\.venv\Lib\site-packages\pyneuroml`
+   - Check directory existence of `C:\vazus\pyenv\.venv\Lib\site-packages\torch`
+   - Check directory existence of `C:\vazus\pyenv\.venv\Lib\site-packages\openvino`
+   - Check directory existence of `C:\vazus\pyenv\.venv\Lib\site-packages\easyocr`
+   - Check directory existence of `C:\vazus\pyenv\.venv\Lib\site-packages\pyneuroml`

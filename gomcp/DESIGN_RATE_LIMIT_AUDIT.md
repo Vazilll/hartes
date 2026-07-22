@@ -14,7 +14,7 @@
 ### 1.1. Общая структура
 
 ```
-C:\dnts\pyenv\gomcp\
+C:\vazus\pyenv\gomcp\
 ├── main.go                         # dnts-brain (основной MCP сервер, 22–93 tools)
 ├── cmd/
 │   └── dnts-agent/
@@ -29,7 +29,7 @@ C:\dnts\pyenv\gomcp\
 │   ├── agent_router.go             # ProxyToHermes, GetActiveAgent
 │   ├── profiles.go                 # RegisterAgent() — 6 tools для dnts-agent
 │   ├── register_agent.go           # RegisterAgentTools() — расширенный набор для dnts-brain
-│   ├── db.go                       # SQLite schema (C:\dnts\memory\dnts.db)
+│   ├── db.go                       # SQLite schema (C:\vazus\memory\dnts.db)
 │   ├── states.go                   # Phase state machine
 │   └── phase_control.go            # phase_control tool
 ```

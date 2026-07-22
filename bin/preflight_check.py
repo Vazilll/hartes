@@ -103,9 +103,9 @@ def check_hive_running() -> tuple:
 
 def check_antigravity_bridge() -> tuple:
     """Проверить, что SQLite bridge цел."""
-    bridge_py = r'C:\dnts\pyenv\scripts\agy_bridge_mcp.py'
-    bridge_go = r'C:\dnts\pyenv\gomcp\tools\antigravity.go'
-    db_path = r'C:\dnts\memory\dnts.db'
+    bridge_py = r'C:\vazus\pyenv\scripts\agy_bridge_mcp.py'
+    bridge_go = r'C:\vazus\pyenv\gomcp\tools\antigravity.go'
+    db_path = r'C:\vazus\memory\dnts.db'
 
     issues = []
     # Go bridge обязателен
@@ -175,7 +175,7 @@ def main():
 
     failed_count = len([r for r in results if not r['ok']])
     # Сохранить лог
-    log_path = r'C:\dnts\logs\preflight.jsonl'
+    log_path = r'C:\vazus\logs\preflight.jsonl'
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     with open(log_path, 'a') as f:
         f.write(json.dumps({

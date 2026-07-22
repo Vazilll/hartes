@@ -5,7 +5,7 @@ Monitor project progress, maintain prompt/request context, manage orchestrator l
 
 ## 🔒 My Identity
 - Archetype: sentinel
-- Working directory: C:\dnts\.agents\sentinel
+- Working directory: C:\vazus\.agents\sentinel
 - Orchestrator: 912b3520-5853-40ab-961a-acf7137b1695
 - Victory Auditor: ba01430b-363a-480a-9794-a00c9863c0f0
 
@@ -28,7 +28,7 @@ Monitor project progress, maintain prompt/request context, manage orchestrator l
 - **Retry count**: 0
 
 ## Artifact Index
-- C:\dnts\.agents\ORIGINAL_REQUEST.md — Verbatim user request
-- C:\dnts\.agents\sentinel\BRIEFING.md — Sentinel operational briefing
-- C:\dnts\.agents\sentinel\handoff.md — Sentinel final handoff report
-- C:\dnts\.agents\teamwork_preview_victory_auditor\handoff.md — Victory Auditor final audit report
+- C:\vazus\.agents\ORIGINAL_REQUEST.md — Verbatim user request
+- C:\vazus\.agents\sentinel\BRIEFING.md — Sentinel operational briefing
+- C:\vazus\.agents\sentinel\handoff.md — Sentinel final handoff report
+- C:\vazus\.agents\teamwork_preview_victory_auditor\handoff.md — Victory Auditor final audit report

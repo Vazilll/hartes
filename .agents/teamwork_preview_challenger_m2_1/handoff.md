@@ -1,12 +1,12 @@
 # Empirical Stress-Test Report: R1 Native Subagents & GitHub Wrappers Bridge (Milestone 2)
 
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_challenger_m2_1`  
-**Project Root**: `C:\dnts`  
-**Python Environment**: `C:\dnts\pyenv\.venv\Scripts\python.exe`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_challenger_m2_1`  
+**Project Root**: `C:\vazus`  
+**Python Environment**: `C:\vazus\pyenv\.venv\Scripts\python.exe`  
 **Target Scripts**:
-1. `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
-2. `C:\dnts\pyenv\scripts\subagent_research_bridge.py`
-3. `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+1. `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
+2. `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
+3. `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 
 ---
 
@@ -21,7 +21,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
 ## 1. Observation
 
 ### Observation 1: `subagent_rlm_bridge.py` Nominal Execution & Fallback Behavior
-- **Command executed**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
+- **Command executed**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
 - **Output verbatim**:
   ```text
   [MCP] Failed to connect to MCP server: HTTPConnectionPool(host='127.0.0.1', port=3000): Max retries exceeded with url: /mcp/tools ...
@@ -39,7 +39,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
     subagent: rlm_code_engineer
   ============================================================
   ```
-- **Dry-run Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
+- **Dry-run Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
 - **Dry-run Output**:
   ```text
   ============================================================
@@ -49,7 +49,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
     status: SUCCESS
     mode: dry_run_verification
     prompt: Write and execute python function to verify prime numbers under 20.
-    rlm_repo: C:\dnts\pyenv\rlm-mit
+    rlm_repo: C:\vazus\pyenv\rlm-mit
     rlm_class: <class 'rlm.core.rlm.RLM'>
     tools_loaded_count: 0
     tools: []
@@ -58,12 +58,12 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
   ```
 
 ### Observation 2: `subagent_research_bridge.py` StateGraph Compilation & Error Handling
-- **Command executed**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py`
+- **Command executed**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py`
 - **Output verbatim**:
   ```text
   [ResearchBridge] Workflow execution note: Initializing ChatOpenAI requires the langchain-openai package. Please install it with `pip install langchain-openai`
   [ResearchBridge] Subagent open_deep_researcher starting research on: 'SuperGraph Memory Wiki and AST Code Topology Architecture'
-  [ResearchBridge] Target repo: C:\dnts\pyenv\open-deep-research
+  [ResearchBridge] Target repo: C:\vazus\pyenv\open-deep-research
   [ResearchBridge] Search API: ddg, Dry-run: False
 
   ============================================================
@@ -78,7 +78,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
     note: LangGraph research workflow compiled and validated successfully.
   ============================================================
   ```
-- **Dry-run Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py --dry-run`
+- **Dry-run Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run`
 - **Dry-run Output**:
   ```text
   ============================================================
@@ -88,7 +88,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
     status: SUCCESS
     mode: dry_run_verification
     query: SuperGraph Memory Wiki and AST Code Topology Architecture
-    research_repo: C:\dnts\pyenv\open-deep-research
+    research_repo: C:\vazus\pyenv\open-deep-research
     graph_compiled: True
     workflow_nodes: ['__start__', 'clarify_with_user', 'write_research_brief', 'research_supervisor', 'final_report_generation']
     config: {'thread_id': '6b5523da-67b6-4d21-8afd-5b68c1261d7d', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'ddg', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
@@ -96,7 +96,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
   ```
 
 ### Observation 3: `subagent_verifier_bridge.py` Pipeline & Bug Discoveries
-- **Nominal Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+- **Nominal Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 - **Output verbatim**:
   ```text
   [GitProvenance] Warning: Could not checkout branch feature/google-deepmind/jules-verifier-bridge: fatal: not a git repository (or any of the parent directories): .git
@@ -115,7 +115,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
     Git Provenance: {'status': 'TRACKED', 'previous_branch': 'main', 'active_provenance_branch': 'feature/google-deepmind/jules-verifier-bridge', 'committed': False}
   ============================================================
   ```
-- **Syntax Error File Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py --code-file C:\dnts\.agents\teamwork_preview_challenger_m2_1\bad_syntax_test.py --escalate-jules`
+- **Syntax Error File Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py --code-file C:\vazus\.agents\teamwork_preview_challenger_m2_1\bad_syntax_test.py --escalate-jules`
 - **Output verbatim**:
   ```text
   [JulesEscalator] Submitting task to Google DeepMind Jules VM: Automated verification failed for snippet. Syntax: {'success': False, 'ast_parse...
@@ -132,7 +132,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
     Jules Escalation: {'status': 'STAGED', 'branch': 'jules/auto-proposals', 'message': 'Task payload prepared for Jules agent review', 'prompt': "Automated verification failed for snippet. Syntax: {'success': False, 'ast_parse': 'FAILED', 'error': 'SyntaxError at line 1, col 21: invalid syntax'}, Execution: {'success': False, 'skipped': True}"}
   ============================================================
   ```
-- **Non-Existent File Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py --code-file non_existent_file_12345.py`
+- **Non-Existent File Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py --code-file non_existent_file_12345.py`
 - **Code snippet in `subagent_verifier_bridge.py:193-196`**:
   ```python
   193:    if args.code_file and Path(args.code_file).exists():
@@ -155,7 +155,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
    - Observation 1 shows that `subagent_rlm_bridge.py` imports `rlm` and `dnts_core.workers.rlm` correctly.
    - When executed with `--dry-run`, it bypasses live network calls and returns structured metadata (`status: SUCCESS`, `mode: dry_run_verification`).
    - When executed live, `rlm_worker.run()` attempts to connect to local ports 3000 and 5001. When offline or when dependencies (`openai`) are missing, it attempts workspace rollback.
-   - During rollback, `[WinError 5] Access is denied: 'C:\dnts\pyenv\dnts_core\.agents\skills\graph'` is caught, returning a populated dict with the error message instead of letting the process crash.
+   - During rollback, `[WinError 5] Access is denied: 'C:\vazus\pyenv\dnts_core\.agents\skills\graph'` is caught, returning a populated dict with the error message instead of letting the process crash.
 
 2. **`subagent_research_bridge.py` Reasoning**:
    - Observation 2 demonstrates that `subagent_research_bridge.py` imports `deep_researcher_builder` from `open_deep_research.deep_researcher` and successfully compiles the LangGraph StateGraph.
@@ -174,7 +174,7 @@ While all 3 bridge scripts successfully compile, instantiate their core subagent
 ## 3. Caveats
 
 - **Network-dependent endpoints**: Ports `3000` (MCP Server) and `5001` (LLM Adapter) were offline during local testing. Live RLM completion could not be tested against a running LLM server, but error handling and dry-run paths were fully verified.
-- **Virtualenv dependency gaps**: `openai` and `langchain-openai` python packages are not installed in `C:\dnts\pyenv\.venv`. Bridge exception handling was verified against these missing packages.
+- **Virtualenv dependency gaps**: `openai` and `langchain-openai` python packages are not installed in `C:\vazus\pyenv\.venv`. Bridge exception handling was verified against these missing packages.
 - No other caveats.
 
 ---
@@ -192,37 +192,37 @@ All 3 R1 bridge scripts for Milestone 2 meet structural integration standards:
 2. **Make Contract Functions Configurable in `subagent_verifier_bridge.py`**:
    Add `--expected-functions` argument (or auto-derive from AST if `--code-file` is specified) instead of hardcoding `expected_functions=["calculate_fibonacci"]` in `main()`.
 3. **Fix Rollback Permission Error in `dnts_core` / RLM**:
-   Handle `PermissionError` (`[WinError 5]`) gracefully during directory cleanup of `C:\dnts\pyenv\dnts_core\.agents\skills\graph`.
+   Handle `PermissionError` (`[WinError 5]`) gracefully during directory cleanup of `C:\vazus\pyenv\dnts_core\.agents\skills\graph`.
 4. **Environment Dependencies**:
-   Install `openai` and `langchain-openai` in `C:\dnts\pyenv\.venv` if live model calls are required.
+   Install `openai` and `langchain-openai` in `C:\vazus\pyenv\.venv` if live model calls are required.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify these findings, run the following commands with `C:\dnts\pyenv\.venv\Scripts\python.exe`:
+To independently verify these findings, run the following commands with `C:\vazus\pyenv\.venv\Scripts\python.exe`:
 
 1. **Verify RLM Bridge Dry-Run**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run
    ```
    *Expected result*: `status: SUCCESS`, `mode: dry_run_verification`.
 
 2. **Verify Research Bridge Dry-Run & Graph Nodes**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py --dry-run
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run
    ```
    *Expected result*: `graph_compiled: True`, listing 5 workflow nodes.
 
 3. **Verify Verifier Bridge Default & AST Verification**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py
    ```
    *Expected result*: `Overall Success: True`, `Fibonacci(10) = 55`.
 
 4. **Verify Verifier Bug #1 (Silent Fallback on Missing File)**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py --code-file missing_file.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py --code-file missing_file.py
    ```
    *Expected result*: Prints `Overall Success: True` with `Fibonacci(10) = 55` (confirming silent fallback bug).
 

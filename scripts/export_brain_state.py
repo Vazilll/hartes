@@ -14,8 +14,8 @@ import sqlite3
 from datetime import datetime
 
 # --- Paths ---
-DB_PATH = r"C:\dnts\memory\dnts.db"
-USER_MD_PATH = r"C:\dnts\memory\USER.md"
+DB_PATH = r"C:\vazus\memory\dnts.db"
+USER_MD_PATH = r"C:\vazus\memory\USER.md"
 DIALOGUES_DIR = r"G:\Мой диск\ai\dialogues cli"
 OUTPUT_PATH = r"G:\Мой диск\ai\brain_state.md"
 
@@ -144,7 +144,7 @@ def get_knowledge_graph_stats():
     stats_lines = []
 
     # Try knowledge_graph.jsonl first
-    kg_path = r"C:\dnts\memory\knowledge_graph.jsonl"
+    kg_path = r"C:\vazus\memory\knowledge_graph.jsonl"
     if os.path.exists(kg_path):
         try:
             nodes = []
@@ -183,7 +183,7 @@ def get_knowledge_graph_stats():
         stats_lines.append("*Файл knowledge_graph.jsonl не найден*")
 
     # Try graph.db for additional stats
-    graph_db = r"C:\dnts\memory\graph.db"
+    graph_db = r"C:\vazus\memory\graph.db"
     if os.path.exists(graph_db):
         try:
             conn = sqlite3.connect(graph_db)

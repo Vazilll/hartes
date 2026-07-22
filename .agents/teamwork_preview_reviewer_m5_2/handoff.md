@@ -1,7 +1,7 @@
 # Milestone 5_2 Handoff & Review Report — E2E Acceptance & Script Execution
 
 **Reviewer Agent**: Reviewer M5_2 (E2E Acceptance & Script Execution Reviewer)  
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_reviewer_m5_2`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_reviewer_m5_2`  
 **Parent Conversation ID**: `912b3520-5853-40ab-961a-acf7137b1695`  
 **Verdict**: **APPROVE**  
 
@@ -9,15 +9,15 @@
 
 ## 1. Observation
 
-All 7 acceptance criteria scripts were independently executed using `C:\dnts\pyenv\.venv\Scripts\python.exe`. Direct execution logs, verbatim outputs, and exit codes were collected:
+All 7 acceptance criteria scripts were independently executed using `C:\vazus\pyenv\.venv\Scripts\python.exe`. Direct execution logs, verbatim outputs, and exit codes were collected:
 
-### Script 1: `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
-* **Command (Dry-Run)**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
+### Script 1: `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
+* **Command (Dry-Run)**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
 * **Verbatim Output**:
   ```text
   [RLMBridge] Subagent rlm_code_engineer executing task: 'Write and execute python function to verify prime numbers un...'
-  [RLMBridge] Target repo: C:\dnts\pyenv\rlm-mit
+  [RLMBridge] Target repo: C:\vazus\pyenv\rlm-mit
   [RLMBridge] Mode: environment=local, dry_run=True
   ============================================================
   RLM SUBAGENT BRIDGE EXECUTION RESULT
@@ -26,7 +26,7 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
     status: SUCCESS
     mode: dry_run_verification
     prompt: Write and execute python function to verify prime numbers under 20.
-    rlm_repo: C:\dnts\pyenv\rlm-mit
+    rlm_repo: C:\vazus\pyenv\rlm-mit
     rlm_class: <class 'rlm.core.rlm.RLM'>
     tools_loaded_count: 0
     tools: []
@@ -35,13 +35,13 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
   ```
 * **Exit Code**: `0`
 
-### Script 2: `C:\dnts\pyenv\scripts\subagent_research_bridge.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py`
+### Script 2: `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py`
 * **Verbatim Output**:
   ```text
   [ResearchBridge] Workflow execution note: Initializing ChatOpenAI requires the langchain-openai package. Please install it with `pip install langchain-openai`
   [ResearchBridge] Subagent open_deep_researcher starting research on: 'SuperGraph Memory Wiki and AST Code Topology Architecture'
-  [ResearchBridge] Target repo: C:\dnts\pyenv\open-deep-research
+  [ResearchBridge] Target repo: C:\vazus\pyenv\open-deep-research
   [ResearchBridge] Search API: ddg, Dry-run: False
   ============================================================
   RESEARCH SUBAGENT BRIDGE EXECUTION RESULT
@@ -57,8 +57,8 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
   ```
 * **Exit Code**: `0`
 
-### Script 3: `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+### Script 3: `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 * **Verbatim Output**:
   ```text
   [GitProvenance] Active branch: feature/google-deepmind/jules-verifier-bridge ✓
@@ -77,8 +77,8 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
   ```
 * **Exit Code**: `0`
 
-### Script 4: `C:\dnts\verify_ov_npu.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\verify_ov_npu.py`
+### Script 4: `C:\vazus\verify_ov_npu.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py`
 * **Verbatim Output**:
   ```text
   Python version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
@@ -93,14 +93,14 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
   ```
 * **Exit Code**: `0`
 
-### Script 5: `C:\dnts\pyenv\tests\test_dnts_system.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\tests\test_dnts_system.py`
+### Script 5: `C:\vazus\pyenv\tests\test_dnts_system.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py`
 * **Verbatim Output**:
   ```text
   ============================================================
   🧪 ЗАПУСК КОМПЛЕКСНОГО ТЕСТИРОВАНИЯ PORTLESS NATIVE СИСТЕМЫ DNTS
   ============================================================
-  1. Чистая Конфигурация: Workspace = C:\dnts\pyenv
+  1. Чистая Конфигурация: Workspace = C:\vazus\pyenv
      - Модель Fast: gemini-3.6-flash
      - Модель Pro: gemini-3.1-pro
      - Размерность векторов: 768
@@ -119,8 +119,8 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
   ```
 * **Exit Code**: `0`
 
-### Script 6: `C:\dnts\pyenv\scripts\test_supergraph_integration.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py`
+### Script 6: `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
 * **Verbatim Output**:
   ```text
   ============================================================
@@ -155,8 +155,8 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
   ```
 * **Exit Code**: `0`
 
-### Script 7: `C:\dnts\pyenv\scripts\test_token_economy.py`
-* **Command**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_token_economy.py`
+### Script 7: `C:\vazus\pyenv\scripts\test_token_economy.py`
+* **Command**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_token_economy.py`
 * **Verbatim Output**:
   ```text
   ==========================================================
@@ -192,7 +192,7 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
 
 ## 2. Logic Chain
 
-1. **Independent Execution (Observation 1-7)**: Every single script was executed directly against `C:\dnts\pyenv\.venv\Scripts\python.exe`. All 7 scripts exited cleanly with Exit Code 0, proving zero uncaught exceptions, runtime panics, or import failures.
+1. **Independent Execution (Observation 1-7)**: Every single script was executed directly against `C:\vazus\pyenv\.venv\Scripts\python.exe`. All 7 scripts exited cleanly with Exit Code 0, proving zero uncaught exceptions, runtime panics, or import failures.
 2. **100% Test Suite Pass Rates (Observation 5-7)**:
    - `test_dnts_system.py` passed all 5 integration sub-tests (portless config, Git provenance, 768D embeddings, Jules escalator, Telegram notifier).
    - `test_supergraph_integration.py` passed all 4 pipeline stages (768D vector space validation, 4-component hybrid metric computation, node linking across 972 AST nodes & 6 Memory Wiki notes generating 4855 edges, and SQLite database storage in `kg_nodes`, `kg_edges`, and `llm_cache`).
@@ -203,7 +203,7 @@ All 7 acceptance criteria scripts were independently executed using `C:\dnts\pye
    - `subagent_verifier_bridge.py` connects `verifier_worker` to static AST parsing, contract testing, subprocess code execution (`Fibonacci(10) = 55`), and Git provenance tracking (`feature/google-deepmind/jules-verifier-bridge`).
 4. **Hardware Acceleration & Integrity Check (Observation 4 & Code Inspection)**:
    - `verify_ov_npu.py` queries OpenVINO runtime 2026.2.1 directly and detects Intel NPU (`Intel(R) AI Boost`), iGPU (`Intel(R) Graphics`), and CPU.
-   - Code inspections revealed no hardcoded test stubs, fake facades, or self-certifying shortcuts. AST transformations use Python's native `ast.NodeTransformer`; vector embeddings interact with real 768D float arrays; SQLite operations execute real SQL queries against `C:\dnts\pyenv\dnts.db`.
+   - Code inspections revealed no hardcoded test stubs, fake facades, or self-certifying shortcuts. AST transformations use Python's native `ast.NodeTransformer`; vector embeddings interact with real 768D float arrays; SQLite operations execute real SQL queries against `C:\vazus\pyenv\dnts.db`.
 
 ---
 
@@ -224,13 +224,13 @@ All 7 acceptance criteria scripts satisfy 100% of functional requirements, code 
 
 To independently re-verify all 7 scripts:
 ```powershell
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py --dry-run
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\verify_ov_npu.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\tests\test_dnts_system.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_token_economy.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_token_economy.py
 ```
 * **Invalidation Condition**: Any script returning an exit code other than `0`, failing vector dimension assertions (not equal to 768), or throwing uncaught syntax/import exceptions.
 

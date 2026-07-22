@@ -2,16 +2,16 @@
 
 ## 1. Observation
 
-All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:\dnts\pyenv\.venv\Scripts\python.exe`.
+All 7 required acceptance criteria commands were executed in `C:\vazus` using `C:\vazus\pyenv\.venv\Scripts\python.exe`.
 
 ### Command Execution Log & Output Details
 
-1. **Command 1**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
+1. **Command 1**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
    - **Exit Code**: 0
    - **Output**:
      ```text
      [RLMBridge] Subagent rlm_code_engineer executing task: 'Write and execute python function to verify prime numbers un...'
-     [RLMBridge] Target repo: C:\dnts\pyenv\rlm-mit
+     [RLMBridge] Target repo: C:\vazus\pyenv\rlm-mit
      [RLMBridge] Mode: environment=local, dry_run=True
 
      ============================================================
@@ -21,7 +21,7 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
        status: SUCCESS
        mode: dry_run_verification
        prompt: Write and execute python function to verify prime numbers under 20.
-       rlm_repo: C:\dnts\pyenv\rlm-mit
+       rlm_repo: C:\vazus\pyenv\rlm-mit
        rlm_class: <class 'rlm.core.rlm.RLM'>
        tools_loaded_count: 0
        tools: []
@@ -29,12 +29,12 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
      ============================================================
      ```
 
-2. **Command 2**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py --dry-run`
+2. **Command 2**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run`
    - **Exit Code**: 0
    - **Output**:
      ```text
      [ResearchBridge] Subagent open_deep_researcher starting research on: 'SuperGraph Memory Wiki and AST Code Topology Architecture'
-     [ResearchBridge] Target repo: C:\dnts\pyenv\open-deep-research
+     [ResearchBridge] Target repo: C:\vazus\pyenv\open-deep-research
      [ResearchBridge] Search API: ddg, Dry-run: True
 
      ============================================================
@@ -44,14 +44,14 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
        status: SUCCESS
        mode: dry_run_verification
        query: SuperGraph Memory Wiki and AST Code Topology Architecture
-       research_repo: C:\dnts\pyenv\open-deep-research
+       research_repo: C:\vazus\pyenv\open-deep-research
        graph_compiled: True
        workflow_nodes: ['__start__', 'clarify_with_user', 'write_research_brief', 'research_supervisor', 'final_report_generation']
        config: {'thread_id': '5569d308-dfd8-44e7-9190-0040d86f082b', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'ddg', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
      ============================================================
      ```
 
-3. **Command 3**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+3. **Command 3**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
    - **Exit Code**: 0
    - **Output**:
      ```text
@@ -71,7 +71,7 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
      ============================================================
      ```
 
-4. **Command 4**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\verify_ov_npu.py`
+4. **Command 4**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py`
    - **Exit Code**: 0
    - **Output**:
      ```text
@@ -86,14 +86,14 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
      [VERIFIED] OpenVINO runtime detects Intel NPU acceleration!
      ```
 
-5. **Command 5**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\tests\test_dnts_system.py`
+5. **Command 5**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py`
    - **Exit Code**: 0
    - **Output**:
      ```text
      ============================================================
      🧪 ЗАПУСК КОМПЛЕКСНОГО ТЕСТИРОВАНИЯ PORTLESS NATIVE СИСТЕМЫ DNTS
      ============================================================
-     1. Чистая Конфигурация: Workspace = C:\dnts\pyenv
+     1. Чистая Конфигурация: Workspace = C:\vazus\pyenv
         - Модель Fast: gemini-3.6-flash
         - Модель Pro: gemini-3.1-pro
         - Размерность векторов: 768
@@ -111,7 +111,7 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
      ============================================================
      ```
 
-6. **Command 6**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py`
+6. **Command 6**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
    - **Exit Code**: 0
    - **Output**:
      ```text
@@ -146,7 +146,7 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
      ============================================================
      ```
 
-7. **Command 7**: `C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_token_economy.py`
+7. **Command 7**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_token_economy.py`
    - **Exit Code**: 0
    - **Output**:
      ```text
@@ -181,10 +181,10 @@ All 7 required acceptance criteria commands were executed in `C:\dnts` using `C:
 
 ## 2. Logic Chain
 
-1. Each command was launched using the specified Python executable (`C:\dnts\pyenv\.venv\Scripts\python.exe`) within the project root `C:\dnts`.
+1. Each command was launched using the specified Python executable (`C:\vazus\pyenv\.venv\Scripts\python.exe`) within the project root `C:\vazus`.
 2. All 7 commands ran their respective target Python scripts and modules, exercising real underlying functionality (MIT RLM, LangGraph StateGraph, Jules Verifier, OpenVINO NPU detection, 768-dim Embedder, SuperGraph database persistence, AST pruning token economy).
 3. Every single script executed cleanly to completion without throwing unhandled exceptions, returning Exit Code 0.
-4. No code edits or monkey patches were required, as all underlying modules and scripts in `C:\dnts` were already fully aligned and functionally complete.
+4. No code edits or monkey patches were required, as all underlying modules and scripts in `C:\vazus` were already fully aligned and functionally complete.
 
 ## 3. Caveats
 
@@ -198,14 +198,14 @@ All 7 acceptance criteria scripts have been executed, verified, and confirmed to
 ## 5. Verification Method
 
 To independently re-verify the execution:
-Run each command from `C:\dnts`:
+Run each command from `C:\vazus`:
 ```cmd
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py --dry-run
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\verify_ov_npu.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\tests\test_dnts_system.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py
-C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_token_economy.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py
+C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_token_economy.py
 ```
 Check `%ERRORLEVEL%` after each execution to confirm exit code 0.

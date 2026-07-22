@@ -5,7 +5,7 @@ from mem0 import Memory
 from mem0.configs.base import MemoryConfig, LlmConfig, EmbedderConfig, VectorStoreConfig
 
 # Get API key for LLM (opencode-go)
-key = open(r'C:\dnts\pyenv\hermes-home\.env').read().split('OPENCODE_GO_API_KEY=')[1].split('\n')[0].strip()
+key = open(r'C:\vazus\pyenv\hermes-home\.env').read().split('OPENCODE_GO_API_KEY=')[1].split('\n')[0].strip()
 os.environ['OPENAI_API_KEY'] = key
 
 print("Creating mem0 with HuggingFace embedding...")
@@ -38,7 +38,7 @@ m = Memory(config=config)
 print("\nWriting 7 test facts...")
 facts = [
     "Vaz prefers concise responses with tables",
-    "gomcp Go MCP servers at C:/dnts/gomcp",
+    "gomcp Go MCP servers at C:/vazus/gomcp",
     "VPS at 213.165.36.252 with Postgres Langfuse Redis OpenSearch",
     "Pixel 10 projects: PIT 2.0 Flutter, OfflineHookChat",
     "Agy CLI v1.1.1 OAuth-based no API key",

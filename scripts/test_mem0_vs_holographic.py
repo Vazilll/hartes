@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 A/B тест: Holographic (Hermes) vs mem0
-Запуск: . /c/dnts/pyenv/.venv/Scripts/activate && python C:/dnts/scripts/test_mem0_vs_holographic.py
+Запуск: . /c/dnts/pyenv/.venv/Scripts/activate && python C:/vazus/scripts/test_mem0_vs_holographic.py
 
 Сравнивает:
 1. Добавление памяти
@@ -13,7 +13,7 @@ import os, sys, json, time, hashlib
 from pathlib import Path
 
 HERMES_HOME = Path(os.environ.get('HERMES_HOME', 
-    os.path.expanduser('C:/dnts/pyenv/hermes-home')))
+    os.path.expanduser('C:/vazus/pyenv/hermes-home')))
 
 print("=" * 60)
 print("A/B TEST: Holographic (Hermes) vs mem0")
@@ -23,7 +23,7 @@ print("=" * 60)
 test_facts = [
     ("user", "Vaz prefers concise responses and structured progress reports with ✅❌ tables"),
     ("user", "Vaz uses Windows 10 with git-bash and Hermes v0.18.0 CLI"),
-    ("project", "gomcp is at C:/dnts/gomcp — Go MCP servers with 7 binaries"),
+    ("project", "gomcp is at C:/vazus/gomcp — Go MCP servers with 7 binaries"),
     ("project", "VPS at 213.165.36.252 — Ubuntu with Postgres+Langfuse+Redis+OpenSearch"),
     ("project", "Pixel 10 projects: PIT 2.0 Flutter, OfflineHookChat Gemini Nano"),
     ("tool", "Agy (Antigravity CLI) v1.1.1 — OAuth-based, no API key needed"),

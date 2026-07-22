@@ -1,8 +1,8 @@
 import sys
 import os
 
-sys.path.insert(0, r"C:\dnts")
-sys.path.insert(0, r"C:\dnts\pyenv")
+sys.path.insert(0, r"C:\vazus")
+sys.path.insert(0, r"C:\vazus\pyenv")
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding='utf-8')
 

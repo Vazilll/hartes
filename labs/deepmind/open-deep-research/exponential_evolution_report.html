@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Exponential Self-Evolution Report</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            line-height: 1.7; 
+            max-width: 900px; 
+            margin: 40px auto; 
+            padding: 0 20px; 
+            color: #24292e; 
+        }
+        h1, h2, h3 { color: #1a1a1a; font-family: "Outfit", -apple-system, sans-serif; }
+        h1 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }
+        h2 { border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; margin-top: 24px; }
+        pre { background: #f6f8fa; padding: 16px; border-radius: 6px; overflow: auto; }
+        code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 85%; background: rgba(27,31,35,0.05); padding: 0.2em 0.4em; border-radius: 3px; }
+        pre code { background: transparent; padding: 0; font-size: 100%; }
+        blockquote { border-left: 0.25em solid #dfe2e5; color: #6a737d; padding: 0 1em; margin: 20px 0; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <h1>Exponential Self-Evolution Report</h1>
+    <p style="color: #6a737d; font-size: 0.9em;">Generated via Open Deep Research &bull; bff6f0c0</p>
+    <hr>
+    <p>Error: agy CLI call timed out after 120 seconds. Output so far: # Designing and Implementing Self-Improving LLM Agent Systems</p>
+<p>In traditional Large Language Model (LLM) agent architectures, systems run as stateless, linear routines that struggle with cumulative execution errors, context window degradation ("context rot"), and high token redundancy due to repeated code generation. To transcend these boundaries, modern agentic research focuses on building self-evolving, closed-loop architectures that dynamically improve their execution capabilities over time. </p>
+<p>By analyzing and synthesizing paradigms from foundational frameworks—such as <strong>Recursive Language Models (RLMs)</strong> [1], <strong>Voyager</strong> [2], <strong>Large Language Models as Tool Makers (LATM)</strong> [3], and <strong>OpenMythos</strong> [5]—it is possible to design an agent system capable of exponential self-improvement. Such a system relies on three core pillars: <strong>Recursive Tool/Library Compilation</strong>, <strong>Experience Replay with Memory Consolidation</strong>, and <strong>Meta-cognitive Execution Optimization</strong>.</p>
+<hr />
+<h2 id="1-recursive-toollibrary-compilation">1. Recursive Tool/Library Compilation</h2>
+<p>An agent that writes code dynamically to interact with its environment must avoid regenerating common sub-routines from scratch. Regenerating code increases input token size, wastes generation cost, and introduces syntax or semantic drift. Recursive Tool Compilation establishes a protocol where the agent acts as a developer, building its own importable library of tools.</p>
+<pre><code>                    [Agent Solver Execution]
+                               │
+                No     ┌───────┴───────┐
+             ┌─────────┤ Tool Exists?  │
+             │         └───────┬───────┘
+             ▼                 │ Yes
+    ┌─────────────────┐        ▼
+    │ Generate Code   │   ┌───────────────────────────┐
+    │ Ad-hoc in REPL  │   │ Dynamic Retrieval (HNSW)  │
+    └────────┬────────┘   └────────────┬──────────────┘
+             │                         │
+             ▼                         ▼
+    ┌─────────────────┐   ┌───────────────────────────┐
+    │ Run in Sandbox  │   │ import skill_library.X    │
+    └────────┬────────┘   └────────────┬──────────────┘
+             │                         │
+             ▼                         ▼
+   ┌───────────────────┐               │
+   │ Verify (Assertions│               │
+   │ &amp; Environment Env)│               │
+   └─────────┬─────────┘               │
+             │ Success                 │
+             ▼                         ▼
+    ┌─────────────────┐       ┌─────────────────┐
+    │  Compile Tool   │──────►│  Execute Tool   │
+    └─────────────────┘       └─────────────────┘
+</code></pre>
+<h3 id="algorithmic-routine-detection">Algorithmic Routine Detection</h3>
+<p>The compilation system operates in the background, scanning the execution history (the Python REPL environment) to identify code segments that are executed repeatedly. Routine detection can be implemented through two parallel mechanisms:
+1. <strong>Abstract Syntax Tree (AST) Subtree Matching:</strong> A static analysis daemon parses the code executed in each REPL step. By converting statements into ASTs, the daemon identifies repeated subtrees or structural patterns (e.g., repeating a nested loop structure for data filtration or custom mathematical calculations).
+2. <strong>LLM Reflection (Self-Analysis):</strong> The agent periodically reviews its own trace logs. A dedicated evaluation prompt asks the model to identify which code steps were manually repeated and would benefit from parameterization.</p>
+<h3 id="tool-creation-verification-and-self-healing">Tool Creation, Verification, and Self-Healing</h3>
+<p>Once a routine is marked for compilation, the agent initiates the <strong>Tool Maker</strong> pipeline [3]:
+- <strong>Generalization:</strong> An LLM refactors the ad-hoc code into a clean, reusable Python function. The function is given explicit type hints, a docstring defining its purpose and input/output structure, and rigorous error boundaries.
+- <strong>Unit Testing:</strong> The Tool Maker generates a suite of unit tests containing standard and edge-case inputs alongside expected outputs (e.g., testing empty data arrays or division-by-zero boundaries).
+- <strong>Execution in Isolated Sandboxes:</strong> To prevent security risks, arbitrary code execution must be isolated. The generated code and unit tests are executed in a sandboxed environment, such as <strong>Docker containers</strong> [4], <strong>Modal Sandboxes</strong> [7], or <strong>E2B/Prime Sandboxes</strong> [8].
+- <strong>Refinement Loop (Self-Healing):</strong> If the execution raises a runtime exception or fails a unit test, the traceback and local variables are routed to a <strong>Tool Refiner</strong> module. The refiner rewrites the function to resolve the bug, looping until all unit tests pass or the iteration limit is reached.</p>
+<h3 id="library-consolidation-version-control-and-dynamic-import">Library Consolidation, Version Control, and Dynamic Import</h3>
+<p>When a tool passes verification, it is saved into the agent's persistent skill library:
+- <strong>Module Storage:</strong> The code is written to a structured repository (e.g., <code>skill_library/data_analytics/clean_outliers.py</code>).
+- <strong>Semantic Versioning:</strong> Each tool contains a metadata block specifying its version (e.g., <code>__version__ = "1.2.0"</code>). If the implementation changes, semantic versioning rules ensure that older execution traces dependent on v1.0.0 do not break when v1.2.0 is compiled.
+- <strong>Dynamic Importing:</strong> In future tasks, the agent writes a standard Python import statement (e.g., <code>from skill_library.data_analytics.clean_outliers import clean_outliers</code>). The execution environment resolves this import dynamically using Python's <code>importlib</code> library. This reduces the LLM's generation requirements from hundreds of lines of code to a single import and call statement, reducing context length and preventing syntax errors.</p>
+<hr />
+<h2 id="2-experience-replay-and-memory-consolidation">2. Experience Replay and Memory Consolidation</h2>
+<p>An agent system needs to maintain coherence over long timelines. Without proper memory systems, the context window fills with raw, verbose logs that degrade retrieval quality. Memory consolidation addresses this by indexing, summarizing, and dynamically retrieving past experiences.</p>
+<h3 id="trajectory-trees-and-context-compaction">Trajectory Trees and Context Compaction</h3>
+<p>A trajectory trace consists of the sequences of states, actions (REPL commands), and environmental rewards or execution outcomes:
+$$\tau = (s_0, a_0, r_0, \dots, s_n, a_n, r_n)$$
+To handle extremely long contexts, the system implements <strong>compaction loops</strong> inspired by RLM [1]. As the active chat history grows, the context usage is checked against a threshold (typically 85% of the model's native limit):
+- <strong>Variable Persistence:</strong> The current state of the Python REPL (variables, loaded modules, and functions) is preserved intact in the sandboxed runtime.
+- <strong>Context Summarization:</strong> A background compaction process compresses the conversational history. The chat messages containing past outputs, trial-and-error attempts, and intermediate logs are summarized into a concise list of structural milestones and stored in a REPL variable (e.g., <code>history</code>). The original raw text is removed from the active context window, freeing up space.</p>
+<h3 id="_1"></h3>
+</body>
+</html>

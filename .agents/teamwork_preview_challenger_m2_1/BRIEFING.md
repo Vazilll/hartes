@@ -6,14 +6,14 @@ Empirically stress-test R1 bridge scripts (`subagent_rlm_bridge.py`, `subagent_r
 ## 🔒 My Identity
 - Archetype: critic / empirical challenger
 - Roles: critic, specialist
-- Working directory: C:\dnts\.agents\teamwork_preview_challenger_m2_1
+- Working directory: C:\vazus\.agents\teamwork_preview_challenger_m2_1
 - Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
 - Milestone: Milestone 2 (R1: Native Subagents & GitHub Wrappers Bridge)
 - Instance: 1 of 1
 
 ## 🔒 Key Constraints
 - Review & Stress-testing only — do NOT modify target implementation code (report bugs/findings to parent).
-- Empirically execute and stress test script invocations with python executable `C:\dnts\pyenv\.venv\Scripts\python.exe`.
+- Empirically execute and stress test script invocations with python executable `C:\vazus\pyenv\.venv\Scripts\python.exe`.
 - Test nominal functionality, dry-run modes, custom parameters, and edge cases (invalid args, missing parameters, error paths).
 
 ## Current Parent
@@ -22,9 +22,9 @@ Empirically stress-test R1 bridge scripts (`subagent_rlm_bridge.py`, `subagent_r
 
 ## Review Scope
 - **Files to review**:
-  - `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`
-  - `C:\dnts\pyenv\scripts\subagent_research_bridge.py`
-  - `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`
+  - `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
+  - `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
+  - `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 - **Interface contracts**: CLI entry points, argument parser, return codes, output formats, AST verification, Git provenance tracking.
 - **Review criteria**: Robustness, error handling, edge cases, correct verification & execution, compliance with specification.
 
@@ -45,7 +45,7 @@ Empirically stress-test R1 bridge scripts (`subagent_rlm_bridge.py`, `subagent_r
 - None
 
 ## Key Decisions Made
-- Executed 12 empirical tests across the 3 bridge scripts using `C:\dnts\pyenv\.venv\Scripts\python.exe`.
+- Executed 12 empirical tests across the 3 bridge scripts using `C:\vazus\pyenv\.venv\Scripts\python.exe`.
 - Created bad syntax artifact `bad_syntax_test.py` to empirically verify AST syntax error handling and execution bypass.
 
 ## Artifact Index

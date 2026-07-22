@@ -1,7 +1,7 @@
 import sqlite3
 import json
 
-db_path = "C:/dnts/memory/dnts.db"
+db_path = "C:/vazus/memory/dnts.db"
 conn = sqlite3.connect(db_path)
 conn.row_factory = sqlite3.Row
 cursor = conn.cursor()

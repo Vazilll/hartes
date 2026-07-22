@@ -6,7 +6,7 @@ Independently review and verify Milestone 3 R2 implementation (Unified SuperGrap
 ## 🔒 My Identity
 - Archetype: reviewer / critic
 - Roles: reviewer, critic
-- Working directory: C:\dnts\.agents\teamwork_preview_reviewer_m3_2
+- Working directory: C:\vazus\.agents\teamwork_preview_reviewer_m3_2
 - Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
 - Milestone: Milestone 3 (R2)
 - Instance: 2 of 2
@@ -22,17 +22,17 @@ Independently review and verify Milestone 3 R2 implementation (Unified SuperGrap
 - Updated: 2026-07-22T14:20:35Z
 
 ## Review Scope
-- **Files to review**: `C:\dnts\pyenv\dnts_core\supergraph_linker.py`, `C:\dnts\pyenv\scripts\test_supergraph_integration.py`
+- **Files to review**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
 - **Database to inspect**: `dnts.db` (checking 768D vectors storage in `kg_nodes`, `kg_edges`, `llm_cache`)
-- **Verification execution**: Run tests in `C:\dnts\pyenv\.venv`
+- **Verification execution**: Run tests in `C:\vazus\pyenv\.venv`
 
 ## Review Checklist
 - **Items reviewed**:
-  - `C:\dnts\pyenv\dnts_core\supergraph_linker.py` (SuperGraphLinker implementation, 4-component hybrid metric, database persistence)
-  - `C:\dnts\pyenv\scripts\test_supergraph_integration.py` (Integration test suite)
-  - `C:\dnts\pyenv\dnts_core\embeddings.py` (UnifiedGoogleEmbedder 768D vector generation)
-  - `C:\dnts\pyenv\dnts_core\config.py` (Settings, EMBEDDING_DIM=768)
-  - `C:\dnts\memory\dnts.db` (SQLite schema & data verification)
+  - `C:\vazus\pyenv\dnts_core\supergraph_linker.py` (SuperGraphLinker implementation, 4-component hybrid metric, database persistence)
+  - `C:\vazus\pyenv\scripts\test_supergraph_integration.py` (Integration test suite)
+  - `C:\vazus\pyenv\dnts_core\embeddings.py` (UnifiedGoogleEmbedder 768D vector generation)
+  - `C:\vazus\pyenv\dnts_core\config.py` (Settings, EMBEDDING_DIM=768)
+  - `C:\vazus\memory\dnts.db` (SQLite schema & data verification)
 - **Verdict**: PASS
 - **Unverified claims**: None. All core claims independently tested and verified.
 
@@ -51,7 +51,7 @@ Independently review and verify Milestone 3 R2 implementation (Unified SuperGrap
 - Issued verdict: PASS.
 
 ## Artifact Index
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_2\ORIGINAL_REQUEST.md — Original user request
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_2\BRIEFING.md — Persistent briefing file
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_2\progress.md — Progress and liveness log
-- C:\dnts\.agents\teamwork_preview_reviewer_m3_2\handoff.md — Final review report
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\ORIGINAL_REQUEST.md — Original user request
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\BRIEFING.md — Persistent briefing file
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\progress.md — Progress and liveness log
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\handoff.md — Final review report

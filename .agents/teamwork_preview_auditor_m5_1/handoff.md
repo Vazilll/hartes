@@ -1,7 +1,7 @@
 # Forensic Audit Handoff Report — Milestone 1-5
 
 **Auditor**: Forensic Auditor M5_1  
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_auditor_m5_1`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_auditor_m5_1`  
 **Verdict**: **CLEAN**  
 **Audit Target**: Milestones 1-5 Codebase Modifications & Subagent Architecture Documentation  
 
@@ -9,53 +9,53 @@
 
 ## 1. Observation
 
-Direct empirical analysis was performed across all specified target files, core modules, and test suites using static AST analysis, source code inspection, and real-time Python execution in `C:\dnts\pyenv\.venv`.
+Direct empirical analysis was performed across all specified target files, core modules, and test suites using static AST analysis, source code inspection, and real-time Python execution in `C:\vazus\pyenv\.venv`.
 
 ### Target Codebase Modifications Inspected:
-1. **`C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`** (Lines 1-172):
+1. **`C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`** (Lines 1-172):
    - Implements `RLMSubagentBridge` connecting `rlm_code_engineer` directly to `rlm-mit` (`from rlm import RLM`) and `dnts_core.workers.rlm`.
    - Live execution delegates to `rlm_worker.run()` with LocalREPL configuration. CLI `--dry-run` is an explicit structural check option, not a cheating bypass.
-2. **`C:\dnts\pyenv\scripts\subagent_research_bridge.py`** (Lines 1-164):
+2. **`C:\vazus\pyenv\scripts\subagent_research_bridge.py`** (Lines 1-164):
    - Implements `ResearchSubagentBridge` connecting `open_deep_researcher` directly to `open-deep-research` (`open_deep_research.deep_researcher.deep_researcher_builder`).
    - Compiles LangGraph `StateGraph` workflows with configurable thread IDs, clarification flags, search providers (`ddg`, `tavily`, `google`), and invokes `graph.ainvoke(...)`.
-3. **`C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`** (Lines 1-246):
+3. **`C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`** (Lines 1-246):
    - Implements `VerifierSubagentBridge` connecting `verifier_worker` to:
      - Static AST syntax parsing (`ast.parse()`).
      - Function/class signature contract checking.
      - Isolated subprocess code execution (`CodeVerifier`).
      - DeepMind Git provenance branch management (`GitProvenanceManager`).
      - Cloud failure escalation to Google DeepMind Jules VM (`JulesCloudEscalator`).
-4. **`C:\dnts\pyenv\dnts_core\supergraph_linker.py`** (Lines 1-497):
+4. **`C:\vazus\pyenv\dnts_core\supergraph_linker.py`** (Lines 1-497):
    - Implements `SuperGraphLinker` calculating the exact 4-component hybrid metric:
      $$\text{S}(u, v) = 0.45 \cdot S_{\text{cosine}}(E(u), E(v)) + 0.25 \cdot S_{\text{fts}}(u, v) + 0.20 \cdot S_{\text{structural}}(u, v) + 0.10 \cdot S_{\text{provenance}}(u, v)$$
    - Integrates `UnifiedGoogleEmbedder` generating 768-dim Gemini vector embeddings.
-   - Persists nodes/embeddings into SQLite tables `kg_nodes` and `llm_cache`, and edge records into `kg_edges` in `C:\dnts\memory\dnts.db`.
-5. **`C:\dnts\pyenv\dnts_core\ast_pruner.py`** (Lines 1-123):
+   - Persists nodes/embeddings into SQLite tables `kg_nodes` and `llm_cache`, and edge records into `kg_edges` in `C:\vazus\memory\dnts.db`.
+5. **`C:\vazus\pyenv\dnts_core\ast_pruner.py`** (Lines 1-123):
    - Implements `ASTPrunerTransformer(ast.NodeTransformer)` replacing Python function and method statement bodies with `ast.Expr(value=ast.Constant(value=Ellipsis))` (`...`).
    - Preserves module docstrings, function docstrings, argument type annotations, return types, class attributes, decorators, and imports.
    - Computes character, line, and token reduction metrics via `compute_compression_metrics()`.
-6. **`C:\dnts\pyenv\dnts_core\context_caching.py`** (Lines 1-149):
+6. **`C:\vazus\pyenv\dnts_core\context_caching.py`** (Lines 1-149):
    - Implements `build_cached_prompt(...)` enforcing strict 3-tier prefix ordering for LLM KV cache optimization:
      - Tier 1: Static System & Persona (`TIER1_HEADER`)
      - Tier 2: Semi-Static AST & AGENTS Topology (`TIER2_HEADER`)
      - Tier 3: Dynamic Suffix & Execution Context (`TIER3_HEADER`)
-7. **`C:\dnts\AGENTS.md` & `C:\dnts\pyenv\dnts_core\subagents\roles.py`**:
+7. **`C:\vazus\AGENTS.md` & `C:\vazus\pyenv\dnts_core\subagents\roles.py`**:
    - `AGENTS.md` (75 lines) and `roles.py` (75 lines) contain 100% synchronized metadata for native subagents (`open_deep_researcher`, `rlm_code_engineer`, `verifier_worker`, `research_coordinator`, `hermes_evolution_agent`).
 
 ### Empirical Execution Results:
-- **`C:\dnts\pyenv\scripts\test_supergraph_integration.py`**:
+- **`C:\vazus\pyenv\scripts\test_supergraph_integration.py`**:
   - `768D Vector Dimension Verified` (Length: 768 floats).
   - `4-Component Hybrid Metric Verified` (S_cosine=0.6445, S_fts=0.4317, S_structural=0.6000, S_provenance=0.0000 -> Total=0.5180).
   - Robustness checks for `NaN`, zero norm, and missing provenance passed.
   - Linked 972 AST nodes with 6 Memory Wiki notes, creating 4,855 edges in `dnts.db`.
   - SQLite persistence verified for `kg_nodes`, `kg_edges`, and `llm_cache`.
   - **Exit Code: 0 (SUCCESS)**.
-- **`C:\dnts\pyenv\scripts\test_token_economy.py`**:
+- **`C:\vazus\pyenv\scripts\test_token_economy.py`**:
   - Synthetic AST pruning verified (function bodies converted to `...`, docstrings preserved).
   - Real module pruning verified: `embeddings.py` (64.65% char reduction), `supergraph_linker.py` (81.67% char reduction, 77.57% token reduction).
   - 3-Tier KV cache prefix prompt ordering verified (`idx1 < idx2 < idx3`).
   - **Exit Code: 0 (SUCCESS)**.
-- **`C:\dnts\pyenv\scripts\subagent_verifier_bridge.py -f C:\dnts\pyenv\dnts_core\ast_pruner.py`**:
+- **`C:\vazus\pyenv\scripts\subagent_verifier_bridge.py -f C:\vazus\pyenv\dnts_core\ast_pruner.py`**:
   - Syntax: `PASSED`, Contract: `PASSED`, Execution: `{'success': True, 'exit_code': 0}`, Provenance: `TRACKED`.
   - **Exit Code: 0 (SUCCESS)**.
 
@@ -102,18 +102,18 @@ To independently verify this audit:
 
 1. **Run SuperGraph & 768D Embeddings Integration Test**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py
    ```
    *Expected Output*: `🎉 UNIFIED SUPERGRAPH & 768D EMBEDDINGS INTEGRATION TEST PASSED!` with Exit Code 0.
 
 2. **Run DeepMind Token Economy & AST Pruner Test**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_token_economy.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_token_economy.py
    ```
    *Expected Output*: `ALL VERIFICATION TESTS PASSED SUCCESSFULLY! Exit Code 0.`
 
 3. **Run Verifier Subagent Bridge Pipeline**:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py -f C:\dnts\pyenv\dnts_core\ast_pruner.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py -f C:\vazus\pyenv\dnts_core\ast_pruner.py
    ```
    *Expected Output*: `Overall Success: True`, `Syntax: PASSED`, `Contract: PASSED`, `Execution: exit_code: 0`.

@@ -2,8 +2,8 @@
 
 Здесь ИИ сохраняет выводы, чтобы не повторять ошибки в будущих сессиях.
 
-- **[2026-05-24 03:58]**: Создан центральный оркестратор C:\dnts\bin\godmode.py, объединяющий Whisper STT, Edge TTS, screen_vision (LFM), SOM (Windows UIA), hwmon (PowerShell) и LLM (локальный llama-server + внешний deepseek-v4-flash). Режимы: command, voice, screen, monitor, status, learn, recall, improve, react, interactive. Точка входа: godmode.cmd + dnts godmode из dnts.cmd. Все компоненты проверены и работают. ...
-- **[2026-05-24 04:09]**: Code Intelligence System (code_intel.py) created at C:\dnts\bin\code_intel.py. Supports 4 commands: review (git pre-commit check), analyze (file/dir analysis), improve (suggest + apply fixes), learn (index code patterns). Uses opencode-go API with local llama-server fallback. Integrates with dnts-memory for pattern storage. Git pre-commit hook installed at C:\dnts\.git\hooks\pre-commit. Batch wrapper at C:\dnts\bin\code_intel.cmd.
+- **[2026-05-24 03:58]**: Создан центральный оркестратор C:\vazus\bin\godmode.py, объединяющий Whisper STT, Edge TTS, screen_vision (LFM), SOM (Windows UIA), hwmon (PowerShell) и LLM (локальный llama-server + внешний deepseek-v4-flash). Режимы: command, voice, screen, monitor, status, learn, recall, improve, react, interactive. Точка входа: godmode.cmd + dnts godmode из dnts.cmd. Все компоненты проверены и работают. ...
+- **[2026-05-24 04:09]**: Code Intelligence System (code_intel.py) created at C:\vazus\bin\code_intel.py. Supports 4 commands: review (git pre-commit check), analyze (file/dir analysis), improve (suggest + apply fixes), learn (index code patterns). Uses opencode-go API with local llama-server fallback. Integrates with dnts-memory for pattern storage. Git pre-commit hook installed at C:\vazus\.git\hooks\pre-commit. Batch wrapper at C:\vazus\bin\code_intel.cmd.
 - **[2026-05-24 04:30]**: ## Vision Pipeline Benchmark Results (2026-05-24)
 
 **Цель:** Accelerate vision inference to <5s on CPU-only (Intel Core Ultra 5 125U, 16GB).

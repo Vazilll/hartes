@@ -1,5 +1,5 @@
 # PowerShell Setup Script for DNTS SOTA Native Windows Environment
-# Location: C:\dnts\setup_windows_sota.ps1
+# Location: C:\vazus\setup_windows_sota.ps1
 
 $ErrorActionPreference = "Stop"
 
@@ -90,8 +90,8 @@ try {
 # ---------------------------------------------------------------------
 Write-Header "Шаг 2: Создание изолированного виртуального окружения"
 
-$dntsDir = "C:\dnts"
-$venvDir = "C:\dnts\.venv"
+$dntsDir = "C:\vazus"
+$venvDir = "C:\vazus\.venv"
 
 if (-not (Test-Path $dntsDir)) {
     Write-Info "Создание рабочей директории $dntsDir..."
@@ -169,4 +169,4 @@ try {
 
 Write-Header "Среда DNTS SOTA Native Windows успешно развернута!"
 Write-Host 'Для активации виртуального окружения в терминале выполните:' -ForegroundColor Yellow
-Write-Host '  & C:\dnts\.venv\Scripts\Activate.ps1' -ForegroundColor Green
+Write-Host '  & C:\vazus\.venv\Scripts\Activate.ps1' -ForegroundColor Green

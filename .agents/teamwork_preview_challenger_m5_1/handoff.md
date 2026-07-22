@@ -1,7 +1,7 @@
 # ADVERSARIAL STRESS TEST REPORT & HANDOFF — M5_1 (DNTS OS SuperGraph Architecture)
 
 **Agent**: Challenger M5_1 (SuperGraph System Adversarial Challenger)  
-**Working Directory**: `C:\dnts\.agents\teamwork_preview_challenger_m5_1`  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_challenger_m5_1`  
 **Date**: 2026-07-22T17:49:45Z  
 **Verdict**: **PASS (SYSTEM STABLE, ZERO REGRESSIONS, ROBUST FALLBACK HANDLING)**
 
@@ -9,7 +9,7 @@
 
 ## 1. Observation
 
-Direct empirical observations obtained by authoring and executing `run_stress_harness.py` via `C:\dnts\pyenv\.venv\Scripts\python.exe`:
+Direct empirical observations obtained by authoring and executing `run_stress_harness.py` via `C:\vazus\pyenv\.venv\Scripts\python.exe`:
 
 ### Test Execution Summary
 - **Total Adversarial Tests Executed**: 25
@@ -18,19 +18,19 @@ Direct empirical observations obtained by authoring and executing `run_stress_ha
 - **Total Execution Time**: 79.62 seconds
 
 ### Verified Codebase Files & Lines Inspected
-1. `C:\dnts\pyenv\dnts_core\ast_pruner.py`: Lines 1–123
+1. `C:\vazus\pyenv\dnts_core\ast_pruner.py`: Lines 1–123
    - `prune_python_code`, `prune_python_file`, `compute_compression_metrics`, `ASTPrunerTransformer`.
-2. `C:\dnts\pyenv\dnts_core\embeddings.py`: Lines 1–43
+2. `C:\vazus\pyenv\dnts_core\embeddings.py`: Lines 1–43
    - `UnifiedGoogleEmbedder` (768D vector dimension).
-3. `C:\dnts\pyenv\dnts_core\supergraph_linker.py`: Lines 1–497
+3. `C:\vazus\pyenv\dnts_core\supergraph_linker.py`: Lines 1–497
    - `SuperGraphLinker`, `calculate_cosine_similarity`, `calculate_fts_similarity`, `calculate_structural_similarity`, `calculate_provenance_similarity`.
-4. `C:\dnts\pyenv\scripts\subagent_rlm_bridge.py`: Lines 1–172
+4. `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`: Lines 1–172
    - `RLMSubagentBridge`, `--dry-run`, fallback handling.
-5. `C:\dnts\pyenv\scripts\subagent_research_bridge.py`: Lines 1–164
+5. `C:\vazus\pyenv\scripts\subagent_research_bridge.py`: Lines 1–164
    - `ResearchSubagentBridge`, `--dry-run`, fallback handling.
-6. `C:\dnts\pyenv\scripts\subagent_verifier_bridge.py`: Lines 1–246
+6. `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`: Lines 1–246
    - `VerifierSubagentBridge`, syntax error handling, contract check missing function handling.
-7. `C:\dnts\pyenv\scripts\test_supergraph_integration.py`: Lines 1–162
+7. `C:\vazus\pyenv\scripts\test_supergraph_integration.py`: Lines 1–162
    - End-to-end integration test.
 
 ### Detailed Test Results per Suite
@@ -38,8 +38,8 @@ Direct empirical observations obtained by authoring and executing `run_stress_ha
 #### Suite 1: AST Pruner Boundary Limits & Edge Cases
 - **Test 1.1 (Empty String Code)**: `prune_python_code("")` returned `""` with `char_reduction_percent = 0.0`. `PASS`
 - **Test 1.2 (Syntax Error Input)**: `prune_python_code("def broken_syntax(: pass")` raised `ast.SyntaxError: invalid syntax` as expected. `PASS`
-- **Test 1.3 (Non-existent File Input)**: `prune_python_file("C:/dnts/non_existent_file.py")` raised `FileNotFoundError` as expected. `PASS`
-- **Test 1.4 (Directory Path as File)**: `prune_python_file("C:/dnts/pyenv/dnts_core")` raised `PermissionError` / `FileNotFoundError` as expected. `PASS`
+- **Test 1.3 (Non-existent File Input)**: `prune_python_file("C:/vazus/non_existent_file.py")` raised `FileNotFoundError` as expected. `PASS`
+- **Test 1.4 (Directory Path as File)**: `prune_python_file("C:/vazus/pyenv/dnts_core")` raised `PermissionError` / `FileNotFoundError` as expected. `PASS`
 - **Test 1.5 (Complex Python Constructs)**: Tested async methods, decorators (`@decorator_b(arg=123)`), type hints, docstrings, and static/class methods. Token reduction achieved: `22.67%`. Docstring retention logic (`keep_docstrings=True` vs `False`) operated correctly. `PASS`
 - **Test 1.6 (Code With No Functions)**: Handled code containing only top-level imports, variables, and class definitions without method bodies cleanly (`reduction = 1.15%`). `PASS`
 - **Test 1.7 (1000 Functions Stress Performance)**: Pruned 1,000 python functions (containing non-ASCII Unicode comments: `Привет 🚀⚡`) in `0.239s` achieving `52.39%` token compression. `PASS`
@@ -99,20 +99,20 @@ The DNTS OS SuperGraph Architecture and native subagent bridges demonstrate **10
 
 To independently verify this stress test report:
 
-1. Open PowerShell terminal in `C:\dnts`.
+1. Open PowerShell terminal in `C:\vazus`.
 2. Run the adversarial stress test harness:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\.agents\teamwork_preview_challenger_m5_1\run_stress_harness.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\.agents\teamwork_preview_challenger_m5_1\run_stress_harness.py
    ```
 3. Confirm output displays `Total Tests Executed: 25`, `Passed: 25`, `Failed: 0`, and `FINAL STRESS TEST VERDICT: ALL ADVERSARIAL STRESS TESTS PASSED!`.
 4. Inspect the saved JSON report:
    ```powershell
-   Get-Content C:\dnts\.agents\teamwork_preview_challenger_m5_1\stress_test_results.json
+   Get-Content C:\vazus\.agents\teamwork_preview_challenger_m5_1\stress_test_results.json
    ```
 5. Run individual subagent bridges in dry-run mode:
    ```powershell
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_rlm_bridge.py --dry-run
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_research_bridge.py --dry-run
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\subagent_verifier_bridge.py
-   C:\dnts\pyenv\.venv\Scripts\python.exe C:\dnts\pyenv\scripts\test_supergraph_integration.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py
+   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py
    ```

@@ -9,16 +9,16 @@ import sys
 import subprocess
 from pathlib import Path
 
-PYTHON_EXE = r"C:\dnts\pyenv\.venv\Scripts\python.exe"
+PYTHON_EXE = r"C:\vazus\pyenv\.venv\Scripts\python.exe"
 
 TEST_COMMANDS = [
-    ("1. RLM Bridge Dry-Run", [PYTHON_EXE, r"C:\dnts\pyenv\scripts\subagent_rlm_bridge.py", "--dry-run"]),
-    ("2. Research Bridge Dry-Run", [PYTHON_EXE, r"C:\dnts\pyenv\scripts\subagent_research_bridge.py", "--dry-run"]),
-    ("3. Verifier Bridge Pipeline", [PYTHON_EXE, r"C:\dnts\pyenv\scripts\subagent_verifier_bridge.py"]),
-    ("4. OpenVINO NPU Verification", [PYTHON_EXE, r"C:\dnts\verify_ov_npu.py"]),
-    ("5. System Test Suite (test_dnts_system.py)", [PYTHON_EXE, r"C:\dnts\pyenv\tests\test_dnts_system.py"]),
-    ("6. SuperGraph Integration Test", [PYTHON_EXE, r"C:\dnts\pyenv\scripts\test_supergraph_integration.py"]),
-    ("7. Token Economy & AST Pruning Test", [PYTHON_EXE, r"C:\dnts\pyenv\scripts\test_token_economy.py"]),
+    ("1. RLM Bridge Dry-Run", [PYTHON_EXE, r"C:\vazus\pyenv\scripts\subagent_rlm_bridge.py", "--dry-run"]),
+    ("2. Research Bridge Dry-Run", [PYTHON_EXE, r"C:\vazus\pyenv\scripts\subagent_research_bridge.py", "--dry-run"]),
+    ("3. Verifier Bridge Pipeline", [PYTHON_EXE, r"C:\vazus\pyenv\scripts\subagent_verifier_bridge.py"]),
+    ("4. OpenVINO NPU Verification", [PYTHON_EXE, r"C:\vazus\verify_ov_npu.py"]),
+    ("5. System Test Suite (test_dnts_system.py)", [PYTHON_EXE, r"C:\vazus\pyenv\tests\test_dnts_system.py"]),
+    ("6. SuperGraph Integration Test", [PYTHON_EXE, r"C:\vazus\pyenv\scripts\test_supergraph_integration.py"]),
+    ("7. Token Economy & AST Pruning Test", [PYTHON_EXE, r"C:\vazus\pyenv\scripts\test_token_economy.py"]),
 ]
 
 def main():

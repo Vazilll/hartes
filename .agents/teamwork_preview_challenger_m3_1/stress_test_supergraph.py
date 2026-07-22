@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 # Add pyenv to sys.path
-PYENV_DIR = Path("C:/dnts/pyenv")
+PYENV_DIR = Path("C:/vazus/pyenv")
 if str(PYENV_DIR) not in sys.path:
     sys.path.insert(0, str(PYENV_DIR))
 
@@ -393,7 +393,7 @@ if failed_count > 0:
             print(f"[FAIL - {r['severity']}] {r['name']}: {r['details']}")
 
 # Write results to json file for reference
-results_path = Path("C:/dnts/.agents/teamwork_preview_challenger_m3_1/stress_test_results.json")
+results_path = Path("C:/vazus/.agents/teamwork_preview_challenger_m3_1/stress_test_results.json")
 with open(results_path, "w", encoding="utf-8") as f:
     json.dump(TEST_RESULTS, f, indent=2)
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 HERMES_HOME = Path(os.environ.get('HERMES_HOME', 
-    os.path.expanduser('C:/dnts/pyenv/hermes-home')))
+    os.path.expanduser('C:/vazus/pyenv/hermes-home')))
 
 
 class Mem0Provider:
@@ -103,7 +103,7 @@ if __name__ == "__main__":
     
     test_data = [
         "Vaz prefers concise responses with tables",
-        "gomcp Go MCP servers at C:/dnts/gomcp",
+        "gomcp Go MCP servers at C:/vazus/gomcp",
         "VPS at 213.165.36.252 with Postgres Langfuse Redis OpenSearch",
         "Pixel 10 projects: PIT 2.0 Flutter, OfflineHookChat",
         "Agy CLI v1.1.1 OAuth-based no API key",
