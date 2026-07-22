@@ -22,7 +22,7 @@ Investigate 768D Embeddings and Memory Graph structure for R2 (Unified SuperGrap
 ## Investigation State
 - **Explored paths**:
   - `C:\vazus\pyenv\dnts_core\embeddings.py` & `config.py`
-  - `C:\vazus\memory\semantic\wiki\` (5 files: AI_Lessons_and_Mistakes.md, Dialog_Context.md, etc.)
+  - `C:\vazus\services\memory\semantic\wiki\` (5 files: AI_Lessons_and_Mistakes.md, Dialog_Context.md, etc.)
   - `C:\vazus\pyenv\gomcp\tools\db.go` & SQLite schema (`kg_nodes`, `kg_edges`, `llm_cache`)
   - `C:\vazus\verify_ov_npu.py`
   - `C:\vazus\pyenv\gomcp\graphify-out\graph.json` (Graphify AST Code Topology)

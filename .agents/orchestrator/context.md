@@ -4,7 +4,7 @@
 - **Root Directory**: `C:\vazus`
 - **Python Virtualenv**: `C:\vazus\pyenv\.venv`
 - **Go Core MCP**: `C:\vazus\services\gomcp\dnts-brain.exe`
-- **Memory Storage**: `C:\vazus\memory\semantic\wiki\` and `C:\vazus\memory\graph.db`
+- **Memory Storage**: `C:\vazus\services\memory\semantic\wiki\` and `C:\vazus\services\memory\graph.db`
 
 ## Target Architecture Integration
 1. **R1: Native Subagents & GitHub Wrappers Bridge**
@@ -12,7 +12,7 @@
    - Target bridge scripts: `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`, `C:\vazus\pyenv\scripts\subagent_research_bridge.py`, and verifier worker bridge linking to `C:\vazus\pyenv\rlm-mit`, `C:\vazus\pyenv\open-deep-research`, and `C:\vazus\pyenv\dnts_core`.
 
 2. **R2: Unified SuperGraph & 768D Embeddings Integration**
-   - Bind `C:\vazus\pyenv\dnts_core\embeddings.py` (768D Gemini Embeddings) with `codebase-memory-mcp` (AST Code Topology) and `C:\vazus\memory\semantic\wiki` (Karpathy Memory Wiki).
+   - Bind `C:\vazus\pyenv\dnts_core\embeddings.py` (768D Gemini Embeddings) with `codebase-memory-mcp` (AST Code Topology) and `C:\vazus\services\memory\semantic\wiki` (Karpathy Memory Wiki).
    - Use hybrid node-linking metric to map AST code nodes and semantic memory nodes into a unified 768D vector space.
 
 3. **R3: DeepMind Token Economy & Prompt Compression**

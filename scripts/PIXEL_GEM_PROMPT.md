@@ -42,7 +42,7 @@
 
 ## Контекст системы DNTS
 
-- Go-монолит читает из `C:\vazus\memory\` (USER.md, SOUL.md, system_report.md)
+- Go-монолит читает из `C:\vazus\services\memory\` (USER.md, SOUL.md, system_report.md)
 - MCP-серверы: dnts-core, dnts-memory, dnts-reason, dnts-agent
 - Базы данных: vazus.db (основная), graph.db, epistemic.db, events.db
 - Vault синхронизируется через Google Drive → Obsidian на Pixel 10

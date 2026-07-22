@@ -32,7 +32,7 @@ Independently review and verify Milestone 3 R2 implementation (Unified SuperGrap
   - `C:\vazus\pyenv\scripts\test_supergraph_integration.py` (Integration test suite)
   - `C:\vazus\pyenv\dnts_core\embeddings.py` (UnifiedGoogleEmbedder 768D vector generation)
   - `C:\vazus\pyenv\dnts_core\config.py` (Settings, EMBEDDING_DIM=768)
-  - `C:\vazus\memory\vazus.db` (SQLite schema & data verification)
+  - `C:\vazus\services\memory\vazus.db` (SQLite schema & data verification)
 - **Verdict**: PASS
 - **Unverified claims**: None. All core claims independently tested and verified.
 

@@ -8,7 +8,7 @@ Direct observations from source inspection, database verification, and execution
    - `C:\vazus\pyenv\dnts_core\supergraph_linker.py`:
      - Implements `SuperGraphLinker` class connecting Layer A (AST Code Topology) and Layer B (Karpathy Memory Wiki Notes).
      - Calculates 4-component hybrid metric $S(u, v) = 0.45 \cdot S_{\text{cosine}} + 0.25 \cdot S_{\text{fts}} + 0.20 \cdot S_{\text{structural}} + 0.10 \cdot S_{\text{provenance}}$ (lines 341–346).
-     - Stores 768D embeddings into `llm_cache` and `kg_nodes` tables in `C:\vazus\memory\vazus.db` (lines 286–318).
+     - Stores 768D embeddings into `llm_cache` and `kg_nodes` tables in `C:\vazus\services\memory\vazus.db` (lines 286–318).
      - Stores linked cross-layer edges into `kg_edges` with metadata in `properties` JSON column (lines 390–418).
    - `C:\vazus\pyenv\dnts_core\embeddings.py`:
      - Implements `UnifiedGoogleEmbedder` returning 768-dimensional float vectors (`self.dim = 768`).
@@ -56,7 +56,7 @@ Direct observations from source inspection, database verification, and execution
 3. **Integrity & Quality Check**:
    - No hardcoded test assertions or mock returns found in production files.
    - No facade implementations: vector calculations, string similarity, path overlap, and provenance scoring process live inputs dynamically.
-   - Database operations execute real SQLite SQL queries against `C:\vazus\memory\vazus.db`.
+   - Database operations execute real SQLite SQL queries against `C:\vazus\services\memory\vazus.db`.
 
 ---
 

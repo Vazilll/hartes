@@ -29,7 +29,7 @@ Direct empirical analysis was performed across all specified target files, core 
    - Implements `SuperGraphLinker` calculating the exact 4-component hybrid metric:
      $$\text{S}(u, v) = 0.45 \cdot S_{\text{cosine}}(E(u), E(v)) + 0.25 \cdot S_{\text{fts}}(u, v) + 0.20 \cdot S_{\text{structural}}(u, v) + 0.10 \cdot S_{\text{provenance}}(u, v)$$
    - Integrates `UnifiedGoogleEmbedder` generating 768-dim Gemini vector embeddings.
-   - Persists nodes/embeddings into SQLite tables `kg_nodes` and `llm_cache`, and edge records into `kg_edges` in `C:\vazus\memory\vazus.db`.
+   - Persists nodes/embeddings into SQLite tables `kg_nodes` and `llm_cache`, and edge records into `kg_edges` in `C:\vazus\services\memory\vazus.db`.
 5. **`C:\vazus\pyenv\dnts_core\ast_pruner.py`** (Lines 1-123):
    - Implements `ASTPrunerTransformer(ast.NodeTransformer)` replacing Python function and method statement bodies with `ast.Expr(value=ast.Constant(value=Ellipsis))` (`...`).
    - Preserves module docstrings, function docstrings, argument type annotations, return types, class attributes, decorators, and imports.

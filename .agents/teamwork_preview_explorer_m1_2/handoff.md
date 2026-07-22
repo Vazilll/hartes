@@ -50,14 +50,14 @@ Direct observations from source code, filesystem state, configuration, and verif
     assert len(vec) == 768, f"Ошибка! Ожидалось 768, получено {len(vec)}"
     ```
 
-### 1.2 Karpathy Memory Wiki & Database Schema (`C:\vazus\memory\semantic\wiki` & `vazus.db`)
-- **Memory Wiki Path**: `C:\vazus\memory\semantic\wiki\` containing 5 markdown files:
+### 1.2 Karpathy Memory Wiki & Database Schema (`C:\vazus\services\memory\semantic\wiki` & `vazus.db`)
+- **Memory Wiki Path**: `C:\vazus\services\memory\semantic\wiki\` containing 5 markdown files:
   1. `AI_Lessons_and_Mistakes.md`: 5.2 KB timestamped memory log (`- **[2026-05-24 03:58]**: ...`, rules, lessons, vision benchmark results, agent reliability improvements).
   2. `Dialog_Context.md`: 194 bytes chat interaction context with timestamps.
   3. `auto_test_insights.md`: Automated test execution logs.
   4. `system_test_insights.md`: System test insights.
   5. `test_insights.md`: General test execution insights.
-- **Graph Database Schema**: In `C:\vazus\pyenv\gomcp\tools\db.go` and SQLite database `C:\vazus\memory\vazus.db`:
+- **Graph Database Schema**: In `C:\vazus\pyenv\gomcp\tools\db.go` and SQLite database `C:\vazus\services\memory\vazus.db`:
   - `kg_nodes` table schema (Lines 635-661 in `db.go`): `id` (TEXT PRIMARY KEY), `name`, `domain`, `node_type`, `description`, `difficulty`, `mastery_level`, `tags`, `properties`, `source_file`, `source_url`, `fts_tokens`.
   - `kg_edges` table schema (Lines 668-680 in `db.go`): `id` (SERIAL/INTEGER PRIMARY KEY), `source_id`, `target_id`, `relation`, `strength` (REAL weight), `properties`.
   - `llm_cache` table: includes `embedding BLOB DEFAULT NULL` column for 768D semantic caching.

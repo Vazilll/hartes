@@ -4,7 +4,7 @@
 
 ### Code & Database Inspection
 - **File**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`
-  - Lines 27-29: Imports `UnifiedGoogleEmbedder` and sets `DEFAULT_DB_PATH = Path("C:/vazus/memory/vazus.db")`.
+  - Lines 27-29: Imports `UnifiedGoogleEmbedder` and sets `DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")`.
   - Lines 34-49: `calculate_cosine_similarity(vec_a, vec_b)` implements dot product over norms, bounded in `[0.0, 1.0]`.
   - Lines 51-76: `calculate_fts_similarity(text_a, text_b)` computes tokenized Jaccard and containment metrics (`0.5 * jaccard + 0.5 * containment`).
   - Lines 78-106: `calculate_structural_similarity(node_a, node_b)` evaluates AST community match (+0.4), path component overlap (+0.2 per part up to 0.4), and tag overlap (+0.2).
@@ -83,7 +83,7 @@
     ```
   - Result: Returncode 0.
 
-- **Database Inspection**: `C:\vazus\memory\vazus.db`
+- **Database Inspection**: `C:\vazus\services\memory\vazus.db`
   - `kg_nodes` table count: 976 rows. Sample node `cleardb` contains 768D vector.
   - `kg_edges` table count: 4,855 rows. Sample edge `cleardb -> wiki:AI_Lessons_and_Mistakes` has `strength` 0.3905, properties `{'s_cosine': 0.7567, 's_fts': 0.0, 's_structural': 0.0, 's_provenance': 0.5, 'total_score': 0.3905, 'vector_dim': 768}`.
   - `llm_cache` table count: 976 rows. Keyed by SHA256, storing 768D vector JSON.
@@ -93,7 +93,7 @@
 1. **768D Google Gemini Embeddings Verification**:
    - `UnifiedGoogleEmbedder` in `dnts_core/embeddings.py` generates 768D vectors (`EMBEDDING_DIM = 768`).
    - Execution of `test_supergraph_integration.py` explicitly asserted `len(vec) == 768` and element type `float`.
-   - Inspection of `kg_nodes` and `llm_cache` in `C:\vazus\memory\vazus.db` confirmed JSON arrays containing 768 float values.
+   - Inspection of `kg_nodes` and `llm_cache` in `C:\vazus\services\memory\vazus.db` confirmed JSON arrays containing 768 float values.
 
 2. **4-Component Hybrid Metric Verification**:
    - The metric formula $S(u,v) = 0.45 \cdot S_{\text{cosine}} + 0.25 \cdot S_{\text{fts}} + 0.20 \cdot S_{\text{structural}} + 0.10 \cdot S_{\text{provenance}}$ is implemented verbatim in `SuperGraphLinker.compute_hybrid_metric()` (lines 341-346).
@@ -102,7 +102,7 @@
 
 3. **Database Persistence Verification**:
    - SQLite tables `kg_nodes`, `kg_edges`, and `llm_cache` are schema-defined in `SuperGraphLinker._init_db()` and populated upon linking.
-   - Direct database inspection confirmed 976 nodes, 4,855 edges, and 976 cached embeddings persisted to `C:\vazus\memory\vazus.db`.
+   - Direct database inspection confirmed 976 nodes, 4,855 edges, and 976 cached embeddings persisted to `C:\vazus\services\memory\vazus.db`.
 
 4. **Integrity & Quality Assessment**:
    - No hardcoded test values, no facade shortcuts, no mock self-certifications were found.
@@ -126,5 +126,5 @@ To independently re-verify this report:
    `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
 2. Run system test script:
    `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py`
-3. Inspect database tables in `C:\vazus\memory\vazus.db`:
+3. Inspect database tables in `C:\vazus\services\memory\vazus.db`:
    Check `kg_nodes`, `kg_edges`, and `llm_cache` table schemas and row counts via SQLite connection.

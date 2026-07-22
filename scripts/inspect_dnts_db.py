@@ -1,6 +1,6 @@
 import sqlite3, os
 
-db_path = r"C:\vazus\memory\vazus.db"
+db_path = r"C:\vazus\services\memory\vazus.db"
 print("DB Path:", db_path, "Exists:", os.path.exists(db_path))
 
 if not os.path.exists(db_path):

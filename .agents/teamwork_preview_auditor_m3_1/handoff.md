@@ -1,6 +1,6 @@
 # Forensic Audit Report: Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration)
 
-**Work Product**: `pyenv\dnts_core\supergraph_linker.py`, `pyenv\dnts_core\embeddings.py`, `pyenv\scripts\test_supergraph_integration.py`, and database `C:\vazus\memory\vazus.db`  
+**Work Product**: `pyenv\dnts_core\supergraph_linker.py`, `pyenv\dnts_core\embeddings.py`, `pyenv\scripts\test_supergraph_integration.py`, and database `C:\vazus\services\memory\vazus.db`  
 **Profile**: General Project (Integrity Forensics)  
 **Verdict**: CLEAN  
 
@@ -24,8 +24,8 @@ Direct empirical observations from source code inspection and tool execution log
    - `embed_query(text)` generates a 768-dimensional float vector. In the absence of the optional `sentence-transformers` library in `.venv`, it uses a deterministic text-to-vector generator via SHA-256 hash byte array expansion (`(hash_bytes * 24)[:768]`).
    - Every string input yields a unique, repeatable 768D float vector. No fixed hardcoded vector constants or static pre-computed matrices exist.
 
-3. **Database Reads and Writes (`C:\vazus\memory\vazus.db`)**:
-   - `SuperGraphLinker` connects to `C:\vazus\memory\vazus.db` using Python's standard `sqlite3` driver with WAL journal mode (`PRAGMA journal_mode=WAL`).
+3. **Database Reads and Writes (`C:\vazus\services\memory\vazus.db`)**:
+   - `SuperGraphLinker` connects to `C:\vazus\services\memory\vazus.db` using Python's standard `sqlite3` driver with WAL journal mode (`PRAGMA journal_mode=WAL`).
    - `_init_db()` creates tables `kg_nodes`, `kg_edges`, and `llm_cache` with index structures.
    - `get_or_compute_embedding()` reads from and writes to `llm_cache` and upserts records into `kg_nodes` with JSON-serialized 768D embedding vectors.
    - `link_nodes()` executes `executemany` into `kg_edges` inserting `(source_id, target_id, relation, strength, properties)`. No database mocks or in-memory stubs are present.
@@ -79,7 +79,7 @@ Direct empirical observations from source code inspection and tool execution log
    - The test script asserts vector length `len(vec) == 768` and element type `isinstance(vec[0], float)`, both of which pass strictly.
 
 3. **Database Operations Verification**:
-   - Inspection confirmed actual SQLite execution targeting `C:\vazus\memory\vazus.db`.
+   - Inspection confirmed actual SQLite execution targeting `C:\vazus\services\memory\vazus.db`.
    - The test run loaded 972 AST nodes and 6 Memory Wiki notes, successfully linking and persisting 4,855 edges into `kg_edges`, storing 768D embeddings into `kg_nodes` and `llm_cache`.
 
 4. **Integration Test Verification**:
@@ -90,7 +90,7 @@ Direct empirical observations from source code inspection and tool execution log
 ## 3. Caveats
 
 1. **Dependency Fallback**: `sentence-transformers` is not currently installed in `C:\vazus\pyenv\.venv`. As designed in `dnts_core\embeddings.py`, `UnifiedGoogleEmbedder` smoothly falls back to a deterministic 768D SHA-256 text-hash vector generator. This fallback is fully operational and mathematically valid for similarity calculations, but installing `sentence-transformers` in the virtualenv will enable loading the local `google/embeddinggemma-300m` model.
-2. **Database State**: The audit test populated `C:\vazus\memory\vazus.db` with 4,855 graph edges and cached embeddings from current repository files.
+2. **Database State**: The audit test populated `C:\vazus\services\memory\vazus.db` with 4,855 graph edges and cached embeddings from current repository files.
 
 ---
 
@@ -102,7 +102,7 @@ The Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration) implement
 - Zero hardcoded vectors, fake similarity scores, or mocked database calls.
 - Genuine 768D embedding generation via `UnifiedGoogleEmbedder`.
 - Genuine 4-component hybrid metric formula $S(u, v) = 0.45 S_{\text{cosine}} + 0.25 S_{\text{fts}} + 0.20 S_{\text{structural}} + 0.10 S_{\text{provenance}}$.
-- Genuine SQLite persistence in `C:\vazus\memory\vazus.db` (`kg_nodes`, `kg_edges`, `llm_cache`).
+- Genuine SQLite persistence in `C:\vazus\services\memory\vazus.db` (`kg_nodes`, `kg_edges`, `llm_cache`).
 - Integration tests run cleanly with Exit Code 0.
 
 ---
@@ -119,12 +119,12 @@ To independently verify this audit:
 
 2. **Inspect SQLite Database**:
    ```powershell
-   C:\vazus\pyenv\.venv\Scripts\python.exe -c "import sqlite3, json; conn = sqlite3.connect('C:/vazus/memory/vazus.db'); print('Edges count:', conn.execute('SELECT count(*) FROM kg_edges').fetchone()[0]); print('Nodes count:', conn.execute('SELECT count(*) FROM kg_nodes').fetchone()[0]); print('Cache count:', conn.execute('SELECT count(*) FROM llm_cache').fetchone()[0])"
+   C:\vazus\pyenv\.venv\Scripts\python.exe -c "import sqlite3, json; conn = sqlite3.connect('C:/vazus/services/memory/vazus.db'); print('Edges count:', conn.execute('SELECT count(*) FROM kg_edges').fetchone()[0]); print('Nodes count:', conn.execute('SELECT count(*) FROM kg_nodes').fetchone()[0]); print('Cache count:', conn.execute('SELECT count(*) FROM llm_cache').fetchone()[0])"
    ```
    Verify non-zero counts for `kg_edges`, `kg_nodes`, and `llm_cache`.
 
 3. **Verify 768D Embedding Dimension in DB**:
    ```powershell
-   C:\vazus\pyenv\.venv\Scripts\python.exe -c "import sqlite3, json; conn = sqlite3.connect('C:/vazus/memory/vazus.db'); row = conn.execute('SELECT embedding_json FROM kg_nodes WHERE embedding_json IS NOT NULL LIMIT 1').fetchone(); print('Dim:', len(json.loads(row[0])))"
+   C:\vazus\pyenv\.venv\Scripts\python.exe -c "import sqlite3, json; conn = sqlite3.connect('C:/vazus/services/memory/vazus.db'); row = conn.execute('SELECT embedding_json FROM kg_nodes WHERE embedding_json IS NOT NULL LIMIT 1').fetchone(); print('Dim:', len(json.loads(row[0])))"
    ```
    Verify output `Dim: 768`.

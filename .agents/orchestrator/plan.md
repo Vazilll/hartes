@@ -4,7 +4,7 @@
 DNTS OS SuperGraph Architecture unifies:
 1. GitHub Wrappers: `rlm-mit` (C:\vazus\pyenv\rlm-mit), `open-deep-research` (C:\vazus\pyenv\open-deep-research), `dnts_core` (C:\vazus\pyenv\dnts_core)
 2. Native Subagents: `open_deep_researcher`, `rlm_code_engineer`, `verifier_worker`
-3. Embeddings & Graph Memory: 768D Gemini Embeddings (`embeddings.py`), AST Code Topology (`codebase-memory-mcp`), Karpathy Memory Wiki (`C:\vazus\memory\semantic\wiki`)
+3. Embeddings & Graph Memory: 768D Gemini Embeddings (`embeddings.py`), AST Code Topology (`codebase-memory-mcp`), Karpathy Memory Wiki (`C:\vazus\services\memory\semantic\wiki`)
 4. Token Economy: AST Pruning & Context Caching
 
 ## Milestones
@@ -23,5 +23,5 @@ DNTS OS SuperGraph Architecture unifies:
 - RLM Repository: `C:\vazus\pyenv\rlm-mit\`
 - Open Deep Research Repository: `C:\vazus\pyenv\open-deep-research\`
 - DNTS Core: `C:\vazus\pyenv\dnts_core\`
-- Memory Wiki: `C:\vazus\memory\semantic\wiki\`
+- Memory Wiki: `C:\vazus\services\memory\semantic\wiki\`
 - Verification Script: `C:\vazus\verify_ov_npu.py`

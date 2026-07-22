@@ -19,7 +19,7 @@ async def main():
     client = ArxivClient(rate_limit_delay=3.0)
     chunker = TextChunker(chunk_size=400, overlap=50)
     
-    conn = sqlite3.connect(r'C:\vazus\memory\vazus.db')
+    conn = sqlite3.connect(r'C:\vazus\services\memory\vazus.db')
     conn.execute("PRAGMA journal_mode=WAL")
     
     total_inserted = 0

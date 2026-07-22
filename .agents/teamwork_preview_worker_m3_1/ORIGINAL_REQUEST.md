@@ -10,11 +10,11 @@ Task:
 Implement R2 (Unified SuperGraph & 768D Embeddings Integration):
 1. Create/extend C:\vazus\pyenv\dnts_core\supergraph_linker.py:
    - Integrates 768D Google Gemini Embeddings (from dnts_core.embeddings import UnifiedGoogleEmbedder).
-   - Reads AST Code Topology nodes from codebase-memory-mcp / dnts_core (e.g. pyenv/gomcp/graphify-out/graph.json or kg_nodes in C:\vazus\memory\vazus.db).
-   - Reads Karpathy Memory Wiki notes from C:\vazus\memory\semantic\wiki.
+   - Reads AST Code Topology nodes from codebase-memory-mcp / dnts_core (e.g. pyenv/gomcp/graphify-out/graph.json or kg_nodes in C:\vazus\services\memory\vazus.db).
+   - Reads Karpathy Memory Wiki notes from C:\vazus\services\memory\semantic\wiki.
    - Implements the 4-component hybrid node-linking metric:
      S(u, v) = 0.45 * S_cosine(E(u), E(v)) + 0.25 * S_fts(u, v) + 0.20 * S_structural(u, v) + 0.10 * S_provenance(u, v)
-   - Links AST code nodes (Layer A) with Memory Wiki nodes (Layer B) in C:\vazus\memory\vazus.db kg_edges table.
+   - Links AST code nodes (Layer A) with Memory Wiki nodes (Layer B) in C:\vazus\services\memory\vazus.db kg_edges table.
    - Saves 768D embeddings into llm_cache / kg_nodes.
 
 2. Create/update a verification script C:\vazus\pyenv\scripts\test_supergraph_integration.py:

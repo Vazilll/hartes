@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Agy ↔ Hermes Task Queue Bridge — SQLite-based cross-agent messaging.
-Использует существующую таблицу agent_messages в C:\vazus\memory\vazus.db.
+Использует существующую таблицу agent_messages в C:\vazus\services\memory\vazus.db.
 
 Hermes:   INSERT tasks → Agy polls → Agy processes → UPDATE result
 Agy:      cron script polls pending, runs sub-agents, writes back
@@ -10,7 +10,7 @@ import sqlite3, json, os, sys, datetime, uuid
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 
-DB_PATH = r"C:\vazus\memory\vazus.db"
+DB_PATH = r"C:\vazus\services\memory\vazus.db"
 
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)

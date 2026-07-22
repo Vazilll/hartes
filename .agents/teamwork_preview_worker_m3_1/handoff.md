@@ -67,7 +67,7 @@
    - R2 requires unifying Layer A (AST Code Topology Nodes) and Layer B (Karpathy Memory Wiki Notes) into a single 768D vector space using `UnifiedGoogleEmbedder`.
    - The hybrid linking metric formula is strictly specified as:
      $$S(u, v) = 0.45 \cdot S_{\text{cosine}}(E(u), E(v)) + 0.25 \cdot S_{\text{fts}}(u, v) + 0.20 \cdot S_{\text{structural}}(u, v) + 0.10 \cdot S_{\text{provenance}}(u, v)$$
-   - The computed relationships must be persisted into `kg_edges`, with node embeddings stored in `kg_nodes` and `llm_cache` within SQLite database `C:\vazus\memory\vazus.db`.
+   - The computed relationships must be persisted into `kg_edges`, with node embeddings stored in `kg_nodes` and `llm_cache` within SQLite database `C:\vazus\services\memory\vazus.db`.
 
 2. **Component Metric Design**:
    - $S_{\text{cosine}}$: Vector dot product divided by the product of Euclidean norms, clamped to $[0.0, 1.0]$.
@@ -77,7 +77,7 @@
 
 3. **Data Ingestion & Storage**:
    - `SuperGraphLinker.load_ast_nodes()` parses AST nodes from `C:\vazus\pyenv\gomcp\graphify-out\graph.json` and database `kg_nodes`.
-   - `SuperGraphLinker.load_memory_wiki_nodes()` loads markdown notes from `C:\vazus\memory\semantic\wiki`.
+   - `SuperGraphLinker.load_memory_wiki_nodes()` loads markdown notes from `C:\vazus\services\memory\semantic\wiki`.
    - `SuperGraphLinker.get_or_compute_embedding()` calculates 768D float vectors via `UnifiedGoogleEmbedder`, caching results in `llm_cache` and updating `kg_nodes.embedding_json`.
    - Candidate node pairs meeting the similarity threshold are written to `kg_edges` with `relation='SUPERGRAPH_LINK'`, storing `strength` and detailed properties JSON.
 
@@ -92,7 +92,7 @@
 ## 4. Conclusion
 
 - Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration) has been fully implemented with zero hardcoded/mocked test data.
-- 972 AST Code Topology nodes (Layer A) and 6 Memory Wiki notes (Layer B) are unified in `C:\vazus\memory\vazus.db`.
+- 972 AST Code Topology nodes (Layer A) and 6 Memory Wiki notes (Layer B) are unified in `C:\vazus\services\memory\vazus.db`.
 - Both `C:\vazus\pyenv\scripts\test_supergraph_integration.py` and `C:\vazus\pyenv\tests\test_dnts_system.py` pass with Exit Code 0.
 
 ## 5. Verification Method

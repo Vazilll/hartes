@@ -9,7 +9,7 @@ import sqlite3
 import os
 from datetime import datetime
 
-DB_PATH = r"C:\vazus\memory\vazus.db"
+DB_PATH = r"C:\vazus\services\memory\vazus.db"
 BACKUP_PATH = DB_PATH + ".bak"
 
 
