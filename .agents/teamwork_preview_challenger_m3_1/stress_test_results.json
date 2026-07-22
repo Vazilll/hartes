@@ -1,0 +1,116 @@
+[
+  {
+    "name": "1.1 Vector Mismatch (768D vs 384D)",
+    "passed": true,
+    "details": "Returned cosine similarity = 0.0 (expected 0.0)",
+    "severity": "INFO"
+  },
+  {
+    "name": "1.2 Vector Mismatch (768D vs Empty Vector)",
+    "passed": true,
+    "details": "Returned cosine similarity = 0.0 (expected 0.0)",
+    "severity": "INFO"
+  },
+  {
+    "name": "1.3 Zero Vectors (768D zeros vs 768D zeros)",
+    "passed": true,
+    "details": "Returned cosine similarity = 0.0 (expected 0.0 without ZeroDivisionError)",
+    "severity": "INFO"
+  },
+  {
+    "name": "1.4 NaN Vector Handling",
+    "passed": true,
+    "details": "Returned similarity = 1.0 (math.isnan=False). Vulnerability: NaN propagates to similarity score!",
+    "severity": "INFO"
+  },
+  {
+    "name": "1.5 Inf Vector Handling",
+    "passed": true,
+    "details": "Returned similarity = 1.0 (math.isnan=False). Vulnerability: Inf propagates to similarity score!",
+    "severity": "INFO"
+  },
+  {
+    "name": "1.6 Overflow in Norm Calculation (1e200)",
+    "passed": true,
+    "details": "Returned similarity = 1.0 (expected 1.0)",
+    "severity": "INFO"
+  },
+  {
+    "name": "1.7 Corrupted Cache Dimension Fallback (384D in cache for 768D embedder)",
+    "passed": true,
+    "details": "Retrieved vector length = 768 (successfully ignored 384D cache entry)",
+    "severity": "INFO"
+  },
+  {
+    "name": "2.1 Node Attributes as None / Null",
+    "passed": true,
+    "details": "Handled cleanly: fts=0.0, struct=0.0, prov=0.5",
+    "severity": "INFO"
+  },
+  {
+    "name": "2.2 Provenance Baseline Score Bias",
+    "passed": false,
+    "details": "Unrelated nodes provenance score = 0.5. Flaw: Baseline hardcoded to 0.5 (+0.05 bonus to total score for ALL node pairs)",
+    "severity": "MEDIUM"
+  },
+  {
+    "name": "2.3 Large Text Input to FTS Similarity (100KB input)",
+    "passed": true,
+    "details": "FTS score = 1.0, execution time = 0.0324s",
+    "severity": "INFO"
+  },
+  {
+    "name": "2.4 Hybrid Score Bounds Check (Max scenario)",
+    "passed": true,
+    "details": "Total score = 0.9299999999999999 (components: cosine=0.9999999999999999, fts=1.0, struct=0.8, prov=0.7)",
+    "severity": "INFO"
+  },
+  {
+    "name": "3. Benchmark Linker Scale (10 AST x 5 Wiki = 50 pairs)",
+    "passed": true,
+    "details": "Linked 50 edges in 0.0620s (807.0 pair-evals/sec)",
+    "severity": "INFO"
+  },
+  {
+    "name": "3. Benchmark Linker Scale (50 AST x 10 Wiki = 500 pairs)",
+    "passed": true,
+    "details": "Linked 500 edges in 0.2752s (1816.7 pair-evals/sec)",
+    "severity": "INFO"
+  },
+  {
+    "name": "3. Benchmark Linker Scale (100 AST x 20 Wiki = 2000 pairs)",
+    "passed": true,
+    "details": "Linked 2000 edges in 0.8354s (2393.9 pair-evals/sec)",
+    "severity": "INFO"
+  },
+  {
+    "name": "3.4 SQLite Indices Verification",
+    "passed": true,
+    "details": "Found indices: {'idx_kg_edges_source', 'idx_kg_nodes_domain', 'sqlite_autoindex_kg_nodes_1', 'idx_kg_edges_target', 'sqlite_autoindex_kg_edges_1', 'sqlite_autoindex_llm_cache_1'}",
+    "severity": "INFO"
+  },
+  {
+    "name": "4.1 SQL Injection Resilience in kg_edges",
+    "passed": true,
+    "details": "SQL Injection string safely escaped. Table exists (check=1), inserted row count=1",
+    "severity": "INFO"
+  },
+  {
+    "name": "4.2 Primary Key (source, target, relation) Upsert Handling",
+    "passed": true,
+    "details": "Upsert successfully updated strength to 0.95 and properties to {\"updated\": true}",
+    "severity": "INFO"
+  },
+  {
+    "name": "4.3 SQLite Insertion of NaN Strength Value",
+    "passed": false,
+    "details": "Retrieved strength for NaN input: None. SQLite stores NaN as float NaN without validation!",
+    "severity": "MEDIUM"
+  },
+  {
+    "name": "4.4 Extremely Long Primary Keys (5KB ID, 50KB Payload)",
+    "passed": true,
+    "details": "Successfully inserted and retrieved long keys: source_id len=5000, properties len=50015",
+    "severity": "INFO"
+  }
+]

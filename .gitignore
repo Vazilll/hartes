@@ -1,0 +1,8 @@
+.venv/
+pyenv/.venv/
+__pycache__/
+*.pyc
+.tmp.driveupload/
+node_modules/
+*.db-wal
+*.db-shm

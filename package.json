@@ -1,0 +1,14 @@
+{
+  "name": "dnts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@codescene/codehealth-mcp": "latest",
+    "@modelcontextprotocol/server-filesystem": "latest",
+    "@modelcontextprotocol/server-memory": "^2026.1.26",
+    "@modelcontextprotocol/server-puppeteer": "^2025.5.12",
+    "@modelcontextprotocol/server-sequential-thinking": "latest",
+    "@wonderwhy-er/desktop-commander": "^0.2.41",
+    "deepseek-mcp-server": "latest"
+  }
+}

@@ -1,0 +1,7 @@
+_archive/
+third_party/
+.venv/
+node_modules/
+dist/
+__pycache__/
+.git/

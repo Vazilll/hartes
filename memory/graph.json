@@ -1,0 +1,23 @@
+{
+  "directed": true,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "status": "active",
+      "type": "project",
+      "id": "dnts"
+    },
+    {
+      "type": "tool",
+      "id": "ollama"
+    }
+  ],
+  "links": [
+    {
+      "label": "uses",
+      "source": "dnts",
+      "target": "ollama"
+    }
+  ]
+}
