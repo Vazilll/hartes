@@ -52,7 +52,7 @@ def test_suite_ast_pruner():
     print("=" * 70)
     suite = "AST_Pruner"
 
-    from dnts_core.ast_pruner import (
+    from vazus_core.ast_pruner import (
         prune_python_code,
         prune_python_file,
         compute_compression_metrics,
@@ -87,7 +87,7 @@ def test_suite_ast_pruner():
 
     # 1.4 Directory path passed as file to prune_python_file
     try:
-        prune_python_file("C:/vazus/pyenv/dnts_core")
+        prune_python_file("C:/vazus/pyenv/vazus_core")
         record_test(suite, "Directory Path as File", False, "Expected FileNotFoundError or IsADirectoryError but none raised!")
     except (FileNotFoundError, IsADirectoryError, PermissionError) as err:
         record_test(suite, "Directory Path as File", True, f"Caught expected error: {err}")
@@ -191,8 +191,8 @@ def test_suite_embeddings_and_metrics():
     print("=" * 70)
     suite = "Embeddings_Metrics"
 
-    from dnts_core.embeddings import UnifiedGoogleEmbedder
-    from dnts_core.supergraph_linker import (
+    from vazus_core.embeddings import UnifiedGoogleEmbedder
+    from vazus_core.supergraph_linker import (
         calculate_cosine_similarity,
         calculate_fts_similarity,
         calculate_structural_similarity,
@@ -267,8 +267,8 @@ def test_suite_embeddings_and_metrics():
         s1 = calculate_structural_similarity({}, {})
         s2 = calculate_structural_similarity({"community": None}, {"community": None})
         s3 = calculate_structural_similarity(
-            {"source_file": "dnts_core/supergraph_linker.py", "community": 1, "tags": "core,linker"},
-            {"source_file": "dnts_core/supergraph_linker.py", "community": 1, "tags": "core,linker"}
+            {"source_file": "vazus_core/supergraph_linker.py", "community": 1, "tags": "core,linker"},
+            {"source_file": "vazus_core/supergraph_linker.py", "community": 1, "tags": "core,linker"}
         )
         s4 = calculate_structural_similarity(
             {"source_file": 123, "tags": None},
@@ -326,7 +326,7 @@ def test_suite_db_and_persistence():
     print("=" * 70)
     suite = "DB_Persistence"
 
-    from dnts_core.supergraph_linker import SuperGraphLinker, DEFAULT_DB_PATH
+    from vazus_core.supergraph_linker import SuperGraphLinker, DEFAULT_DB_PATH
 
     temp_dir = Path(tempfile.mkdtemp(prefix="dnts_stress_"))
     try:

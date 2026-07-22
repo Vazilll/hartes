@@ -3,7 +3,7 @@ C:\\dnts\\pyenv\\scripts\\test_token_economy.py — Verification script for Deep
 
 Tests:
 1. ast_pruner.py:
-   - AST parsing, pruning, and unparsing on dnts_core/embeddings.py and dnts_core/supergraph_linker.py
+   - AST parsing, pruning, and unparsing on vazus_core/embeddings.py and vazus_core/supergraph_linker.py
    - Validates 100% syntax correctness of pruned code via ast.parse()
    - Validates preservation of signatures, type hints, docstrings, imports, decorators, and class attributes
    - Validates function body replacement with Ellipsis (...)
@@ -25,13 +25,13 @@ PYENV_DIR = Path(__file__).resolve().parent.parent
 if str(PYENV_DIR) not in sys.path:
     sys.path.insert(0, str(PYENV_DIR))
 
-from dnts_core.ast_pruner import (
+from vazus_core.ast_pruner import (
     prune_python_code,
     prune_python_file,
     compute_compression_metrics,
     ASTPrunerTransformer,
 )
-from dnts_core.context_caching import (
+from vazus_core.context_caching import (
     build_cached_prompt,
     Tier1Static,
     Tier2SemiStatic,
@@ -129,11 +129,11 @@ def helper_func(x: float, y: float = 1.0) -> float:
 
 
 def test_ast_pruner_real_files():
-    print("[2/4] Testing AST Pruner on real dnts_core modules...")
+    print("[2/4] Testing AST Pruner on real vazus_core modules...")
 
     target_files = [
-        PYENV_DIR / "dnts_core" / "embeddings.py",
-        PYENV_DIR / "dnts_core" / "supergraph_linker.py",
+        PYENV_DIR / "vazus_core" / "embeddings.py",
+        PYENV_DIR / "vazus_core" / "supergraph_linker.py",
     ]
 
     for file_path in target_files:

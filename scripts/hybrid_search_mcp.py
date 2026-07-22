@@ -16,7 +16,7 @@ sys.stderr.reconfigure(encoding="utf-8")
 sys.path.insert(0, "C:/vazus/pyenv")
 
 from fastmcp import FastMCP
-from dnts_core.workers import hybrid
+from vazus_core.workers import hybrid
 
 MCP = FastMCP("dnts-hybrid-search")
 

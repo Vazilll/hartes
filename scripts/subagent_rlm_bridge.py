@@ -1,6 +1,6 @@
 """
 subagent_rlm_bridge.py — Bridge script linking rlm_code_engineer subagent
-directly to MIT RLM engine (C:\\dnts\\pyenv\\rlm-mit) and dnts_core.workers.rlm.
+directly to MIT RLM engine (C:\\dnts\\pyenv\\rlm-mit) and vazus_core.workers.rlm.
 
 DNTS SuperGraph OS Architecture Integration (Milestone 2)
 """
@@ -28,7 +28,7 @@ for p in [str(PYENV_DIR), str(RLM_MIT_DIR)]:
 try:
     from rlm import RLM
     from rlm.logger import RLMLogger
-    from dnts_core.workers import rlm as rlm_worker
+    from vazus_core.workers import rlm as rlm_worker
 except ImportError as e:
     sys.stderr.write(f"[RLMBridge] Import Warning/Error: {e}\n")
     RLM = None
@@ -38,7 +38,7 @@ except ImportError as e:
 class RLMSubagentBridge:
     """
     Bridge connecting rlm_code_engineer subagent directly to the MIT RLM engine
-    with LocalREPL environment and dnts_core RLM worker routines.
+    with LocalREPL environment and vazus_core RLM worker routines.
     """
 
     def __init__(self, backend: str = "openai", environment: str = "local"):
@@ -94,7 +94,7 @@ class RLMSubagentBridge:
     ) -> dict:
         """
         Executes a task for the rlm_code_engineer subagent.
-        Uses dnts_core.workers.rlm worker loop or local dry-run test mode.
+        Uses vazus_core.workers.rlm worker loop or local dry-run test mode.
         """
         print(f"[RLMBridge] Subagent rlm_code_engineer executing task: '{prompt[:60]}...'")
         print(f"[RLMBridge] Target repo: {self.rlm_mit_path}")

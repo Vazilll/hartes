@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """dnts-rlm MCP — Recursive Language Model worker server.
 
-Routes RLM tasks to dnts_core.workers.rlm (MIT RLM engine).
+Routes RLM tasks to vazus_core.workers.rlm (MIT RLM engine).
 Each run is multi-step reasoning with tool execution.
 """
 import sys
@@ -12,8 +12,8 @@ sys.stderr.reconfigure(encoding="utf-8")
 sys.path.insert(0, "C:/vazus/pyenv")
 
 from fastmcp import FastMCP
-from dnts_core import database
-from dnts_core.workers import rlm as _rlm
+from vazus_core import database
+from vazus_core.workers import rlm as _rlm
 
 MCP = FastMCP("dnts-rlm")
 

@@ -11,8 +11,8 @@ sys.stderr.reconfigure(encoding="utf-8")
 sys.path.insert(0, "C:/vazus/pyenv")
 
 from fastmcp import FastMCP
-from dnts_core.workers import ldr as _ldr
-from dnts_core.workers import hybrid as _hybrid
+from vazus_core.workers import ldr as _ldr
+from vazus_core.workers import hybrid as _hybrid
 
 MCP = FastMCP("dnts-ldr")
 
@@ -57,7 +57,7 @@ def rag_search(query: str, limit: int = 5) -> str:
 ))
 def save_lesson(content: str, tags: str = "") -> str:
     try:
-        from dnts_core import database
+        from vazus_core import database
         task_id = database.create_task(
             task_type="lesson",
             payload={"content": content, "tags": tags}

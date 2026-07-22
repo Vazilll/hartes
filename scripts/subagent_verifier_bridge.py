@@ -26,9 +26,9 @@ if str(PYENV_DIR) not in sys.path:
     sys.path.insert(0, str(PYENV_DIR))
 
 try:
-    from dnts_core.evolution.jules_verifier import JulesCloudEscalator
-    from dnts_core.git_provenance import GitProvenanceManager
-    from dnts_core.workers.verifier import CodeVerifier
+    from vazus_core.evolution.jules_verifier import JulesCloudEscalator
+    from vazus_core.git_provenance import GitProvenanceManager
+    from vazus_core.workers.verifier import CodeVerifier
 except ImportError as e:
     sys.stderr.write(f"[VerifierBridge] Import Error: {e}\n")
     JulesCloudEscalator = None
@@ -100,7 +100,7 @@ class VerifierSubagentBridge:
         }
 
     def verify_execution(self, code: str) -> dict:
-        """Runs isolated subprocess execution using dnts_core CodeVerifier."""
+        """Runs isolated subprocess execution using vazus_core CodeVerifier."""
         if not self.verifier:
             return {"success": False, "error": "CodeVerifier module not available"}
         return self.verifier.verify(code)

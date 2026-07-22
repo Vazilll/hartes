@@ -3,7 +3,7 @@ sys.path.insert(0, 'C:/vazus/pyenv')
 import io
 sys.stderr = io.StringIO()  # suppress startup logs
 
-from dnts_core.mcp_server import orchestrate_task, run_leann_async, spawn_workers
+from vazus_core.mcp_server import orchestrate_task, run_leann_async, spawn_workers
 print("orchestrate_task: imported OK")
 
 import json

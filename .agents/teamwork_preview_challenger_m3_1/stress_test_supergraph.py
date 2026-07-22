@@ -19,14 +19,14 @@ PYENV_DIR = Path("C:/vazus/pyenv")
 if str(PYENV_DIR) not in sys.path:
     sys.path.insert(0, str(PYENV_DIR))
 
-from dnts_core.supergraph_linker import (
+from vazus_core.supergraph_linker import (
     SuperGraphLinker,
     calculate_cosine_similarity,
     calculate_fts_similarity,
     calculate_structural_similarity,
     calculate_provenance_similarity,
 )
-from dnts_core.embeddings import UnifiedGoogleEmbedder
+from vazus_core.embeddings import UnifiedGoogleEmbedder
 
 TEST_RESULTS = []
 
@@ -219,7 +219,7 @@ def benchmark_linker_scaling(num_ast: int, num_wiki: int):
             "domain": "ast_code",
             "node_type": "Function",
             "description": f"AST node processing function {i} in core engine module.",
-            "source_file": f"dnts_core/module_{i % 10}.py",
+            "source_file": f"vazus_core/module_{i % 10}.py",
             "community": i % 5,
             "_origin": "ast",
             "tags": f"ast,code,module_{i % 10}"

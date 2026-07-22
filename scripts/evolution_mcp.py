@@ -29,7 +29,7 @@ SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".agents", ".claude
 ))
 def run_prompt_evolution(prompt_id: str, iterations: int = 3) -> str:
     try:
-        from dnts_core.evolution.prompt_optimizer import run as _run
+        from vazus_core.evolution.prompt_optimizer import run as _run
         result = _run(prompt_id=prompt_id, iterations=iterations)
         if isinstance(result, dict):
             return json.dumps(result, ensure_ascii=False, indent=2, default=str)
@@ -44,7 +44,7 @@ def run_prompt_evolution(prompt_id: str, iterations: int = 3) -> str:
 ))
 def compile_hebbian_tool(name: str, description: str, code_snippets: str) -> str:
     try:
-        from dnts_core.evolution.hebbian_compiler import compile_tool
+        from vazus_core.evolution.hebbian_compiler import compile_tool
         result = compile_tool(name=name, description=description,
                               code_snippets=code_snippets)
         return json.dumps(result, ensure_ascii=False, indent=2, default=str)

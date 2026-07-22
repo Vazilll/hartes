@@ -1,5 +1,5 @@
 """
-dnts_core.embeddings — Двухуровневый векторный граф на технологиях Google DeepMind.
+vazus_core.embeddings — Двухуровневый векторный граф на технологиях Google DeepMind.
 Чистая in-process архитектура без HTTP-серверов и сетевых портов.
 Размерность: 768 dim.
 """
@@ -7,7 +7,7 @@ import json
 import sys
 import hashlib
 from typing import List
-from dnts_core.config import settings
+from vazus_core.config import settings
 
 class UnifiedGoogleEmbedder:
     """Универсальный векторизатор Google DeepMind (768-dim)."""

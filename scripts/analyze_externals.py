@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import requests
-from dnts_core.utils import load_adapter_key
+from vazus_core.utils import load_adapter_key
 
 def analyze():
     print("Gathering external snippets via fast keyword search...")

@@ -1,5 +1,5 @@
 """
-dnts_core.model_selector — Interactive & Programmatic Model and Reasoning Effort Selector.
+vazus_core.model_selector — Interactive & Programmatic Model and Reasoning Effort Selector.
 Supports Gemini 3.6 Flash, Claude Sonnet 4.6, GPT-OSS 120B, and preset configurations.
 Hot-reloads settings.json and environment variables without service interruption.
 """
@@ -7,7 +7,7 @@ Hot-reloads settings.json and environment variables without service interruption
 import json
 import os
 from typing import Dict, Any, Optional
-from dnts_core.reasoning_effort_controller import ReasoningEffortController
+from vazus_core.reasoning_effort_controller import ReasoningEffortController
 
 AVAILABLE_MODELS = {
     "gemini-3.6-flash": "Gemini 3.6 Flash (High)",

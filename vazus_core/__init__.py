@@ -1,1 +1,1 @@
-# dnts_core package initialization
+# vazus_core package initialization

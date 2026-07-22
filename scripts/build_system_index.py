@@ -9,7 +9,7 @@ SKIP_DIRS = {".venv", "__pycache__", ".git", "node_modules", "study",
              ".agents", ".claude", "_archive", "third_party"}
 
 ROOTS = [
-    ("dnts_core", Path("C:/vazus/pyenv/dnts_core"), [".py", ".md", ".json", ".yaml"]),
+    ("vazus_core", Path("C:/vazus/pyenv/vazus_core"), [".py", ".md", ".json", ".yaml"]),
     ("scripts",   Path("C:/vazus/pyenv/scripts"),   [".py", ".md", ".json", ".yaml"]),
     ("gomcp",     Path("C:/vazus/pyenv/gomcp/tools"),[".go", ".md"]),
     ("dnts-hub",  Path("D:/dnts"),                 [".py", ".md"]),

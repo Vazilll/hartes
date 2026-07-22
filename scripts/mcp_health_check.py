@@ -28,7 +28,7 @@ except Exception as e:
 # ── dnts-hybrid-search ───────────────────────────────────────────────────
 print("Testing dnts-hybrid-search...")
 try:
-    from dnts_core.workers import hybrid
+    from vazus_core.workers import hybrid
     test("fts_search()", lambda: hybrid.sqlite_search("worker", 3))
     test("leann_search(via hybrid)", lambda: hybrid.leann_search("search architecture", 2))
     test("hybrid.run()", lambda: hybrid.run("code search worker", limit=3)["result_count"])
@@ -38,10 +38,10 @@ except Exception as e:
 # ── dnts-rlm ─────────────────────────────────────────────────────────────
 print("Testing dnts-rlm...")
 try:
-    from dnts_core import database
+    from vazus_core import database
     tasks = database.list_tasks(limit=5)
     results.append((PASS, "dnts-rlm database", f"{len(tasks)} tasks in DB"))
-    from dnts_core.workers.rlm import load_compiled_tools
+    from vazus_core.workers.rlm import load_compiled_tools
     tools = load_compiled_tools()
     results.append((PASS, "rlm compiled tools", f"{len(tools)} tools loaded"))
 except Exception as e:
@@ -50,7 +50,7 @@ except Exception as e:
 # ── dnts-ldr ─────────────────────────────────────────────────────────────
 print("Testing dnts-ldr...")
 try:
-    from dnts_core.workers import ldr
+    from vazus_core.workers import ldr
     results.append((PASS, "dnts-ldr import", "OK"))
 except Exception as e:
     results.append((FAIL, "dnts-ldr", str(e)))
@@ -59,8 +59,8 @@ except Exception as e:
 print("Testing dnts-evolution...")
 try:
     exec(open("C:/vazus/pyenv/scripts/evolution_mcp.py", encoding="utf-8").read().split("if __name__")[0])
-    test("find_code_duplicates(dnts_core)", lambda: find_code_duplicates("C:/vazus/pyenv/dnts_core")[:60])
-    test("find_callers(load_adapter_key)", lambda: find_callers("load_adapter_key", "C:/vazus/pyenv/dnts_core")[:60])
+    test("find_code_duplicates(vazus_core)", lambda: find_code_duplicates("C:/vazus/pyenv/vazus_core")[:60])
+    test("find_callers(load_adapter_key)", lambda: find_callers("load_adapter_key", "C:/vazus/pyenv/vazus_core")[:60])
 except Exception as e:
     results.append((FAIL, "dnts-evolution import", str(e)))
 
@@ -78,7 +78,7 @@ except Exception as e:
 # ── dnts-orchestrator-v2 ─────────────────────────────────────────────────
 print("Testing dnts-orchestrator-v2...")
 try:
-    from dnts_core.mcp_server import list_tasks
+    from vazus_core.mcp_server import list_tasks
     r = list_tasks()
     results.append((PASS, "orchestrator list_tasks", f"{len(json.loads(r))} tasks"))
 except Exception as e:

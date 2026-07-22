@@ -6,9 +6,9 @@ sys.path.insert(0, r"C:\vazus\pyenv")
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding='utf-8')
 
-from dnts_core.model_selector import ModelSelector
-from dnts_core.reasoning_effort_controller import ReasoningEffortController
-from dnts_core.sota2027_jury import SOTA2027JuryEngine
+from vazus_core.model_selector import ModelSelector
+from vazus_core.reasoning_effort_controller import ReasoningEffortController
+from vazus_core.sota2027_jury import SOTA2027JuryEngine
 
 print("======================================================================")
 print("     DNTS UNIFIED SUPERGRAPH OS v5.0 — LIVE DEMONSTRATION")
@@ -32,7 +32,7 @@ print(f"  [+] SMT Z3 Depth:      {eff_cfg['smt_z3_depth']} proving steps")
 # 3. SuperGraph 768D Vector Space Linking
 print("\n--- 3. Unified SuperGraph 768D Gemini Vector Space ---")
 try:
-    from dnts_core.supergraph_linker import SuperGraphLinker
+    from vazus_core.supergraph_linker import SuperGraphLinker
     linker = SuperGraphLinker()
     stats = linker.get_supergraph_stats()
     print(f"  [+] Layer A AST Code Nodes:   {stats.get('layer_a_nodes', 972)}")
@@ -44,7 +44,7 @@ except Exception as e:
 # 4. DeepMind Token Economy (AST Pruning)
 print("\n--- 4. DeepMind Token Economy (AST Pruning) ---")
 try:
-    from dnts_core.ast_pruner import ASTPruner
+    from vazus_core.ast_pruner import ASTPruner
     sample_code = '''
 def complex_algorithm(x: int, y: int) -> int:
     """Calculates formal consensus."""
@@ -68,7 +68,7 @@ votes = [
     {"agent": "RLM_Code_Engineer", "verdict": "PASS"},
     {"agent": "Verifier_Worker", "verdict": "PASS"}
 ]
-res = jury.evaluate_code_proposal("C:\\dnts\\dnts_core\\demo.py", pruned, votes)
+res = jury.evaluate_code_proposal("C:\\dnts\\vazus_core\\demo.py", pruned, votes)
 print(f"  [+] Jury Verdict: {'APPROVED' if res['approved'] else 'REJECTED'} (Consensus: {res['consensus_ratio']*100:.0f}%)")
 print(f"  [+] SMT Z3 Verification: {res['smt_verification']['status']} (Depth: {res['smt_verification']['depth']})")
 

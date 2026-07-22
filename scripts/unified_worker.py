@@ -42,7 +42,7 @@ def run():
     # ── Code search via hybrid ────────────────────────────────────────────
     if params.get("search_code", True) or params.get("searchCode", True):
         try:
-            from dnts_core.workers import hybrid
+            from vazus_core.workers import hybrid
             results = hybrid.leann_search(query, top_k=code_results_n)
             code_results = [
                 {"text": r.get("text", ""), "score": r.get("score", 0),
@@ -55,7 +55,7 @@ def run():
     # ── File search via FTS ───────────────────────────────────────────────
     if params.get("search_files", True) or params.get("searchFiles", True):
         try:
-            from dnts_core.workers import hybrid
+            from vazus_core.workers import hybrid
             results = hybrid.sqlite_search(query, limit=file_results_n)
             file_results = [
                 {"text": r.get("text", ""), "score": r.get("score", 0),
@@ -68,7 +68,7 @@ def run():
     # ── RLM analysis (mode=full only) ─────────────────────────────────────
     if mode == "full":
         try:
-            from dnts_core.workers.rlm import run_rlm_sync
+            from vazus_core.workers.rlm import run_rlm_sync
             context = "\n".join([r["text"][:300] for r in (code_results + file_results)[:5]])
             rlm_out = run_rlm_sync(query, context=context, max_iterations=3, max_depth=1)
             rlm_result = {

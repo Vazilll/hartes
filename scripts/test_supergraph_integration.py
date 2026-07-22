@@ -23,8 +23,8 @@ if str(PYENV_DIR) not in sys.path:
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-from dnts_core.embeddings import UnifiedGoogleEmbedder
-from dnts_core.supergraph_linker import (
+from vazus_core.embeddings import UnifiedGoogleEmbedder
+from vazus_core.supergraph_linker import (
     SuperGraphLinker,
     calculate_cosine_similarity,
     calculate_fts_similarity,
@@ -52,12 +52,12 @@ def run_verification():
     # Step 2: Verify 4-Component Hybrid Metric Functions
     print("\n2. Testing 4-Component Hybrid Metric Functions...")
     sample_ast = {
-        "id": "ast:dnts_core_supergraph_linker_main",
+        "id": "ast:vazus_core_supergraph_linker_main",
         "name": "SuperGraphLinker",
         "domain": "ast_code",
         "node_type": "Class",
         "description": "Unified SuperGraph Linker for AST code and Memory Wiki 768D integration.",
-        "source_file": "dnts_core/supergraph_linker.py",
+        "source_file": "vazus_core/supergraph_linker.py",
         "community": 1,
         "_origin": "ast",
         "tags": "ast,code,supergraph,linker"

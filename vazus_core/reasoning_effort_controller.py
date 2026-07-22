@@ -1,5 +1,5 @@
 """
-dnts_core.reasoning_effort_controller — Dynamic Test-Time Compute Scaling & Effort Slider Engine.
+vazus_core.reasoning_effort_controller — Dynamic Test-Time Compute Scaling & Effort Slider Engine.
 Maps Effort score [0.0, 1.0] or level ('low', 'medium', 'high', 'xhigh', 'ultra') to 5 concrete execution budgets:
 - thinking_budget (tokens)
 - mcts_simulations

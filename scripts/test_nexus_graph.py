@@ -6,8 +6,8 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dnts_core.nexus_graph import nexus_graph
-from dnts_core.state import NexusState
+from vazus_core.nexus_graph import nexus_graph
+from vazus_core.state import NexusState
 
 async def run_test():
     # Provide the initial state

@@ -9,8 +9,8 @@ from pathlib import Path
 WORKSPACE = Path("C:/vazus/pyenv")
 sys.path.insert(0, str(WORKSPACE))
 
-from dnts_core import engine
-from dnts_core import database as db
+from vazus_core import engine
+from vazus_core import database as db
 
 def wait_for_task(task_id: str, timeout_sec: int = 1800) -> dict:
     start_time = time.time()

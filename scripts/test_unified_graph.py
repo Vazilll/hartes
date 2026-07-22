@@ -6,7 +6,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from dnts_core.unified_graph import unified_graph
+from vazus_core.unified_graph import unified_graph
 
 async def run_test():
     # Provide the initial state

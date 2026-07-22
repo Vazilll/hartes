@@ -1,10 +1,10 @@
 """
-dnts_core.sota2027_jury — SOTA 2027 Multi-Agent Jury Engine & SMT Proof-guided Verification.
+vazus_core.sota2027_jury — SOTA 2027 Multi-Agent Jury Engine & SMT Proof-guided Verification.
 Combines DeepMind Concordia Consensus, OpenAI Swarm Handoff, and SMT Z3 Verification.
 """
 
 from typing import List, Dict, Any
-from dnts_core.reasoning_effort_controller import ReasoningEffortController
+from vazus_core.reasoning_effort_controller import ReasoningEffortController
 
 class SOTA2027JuryEngine:
     """Multi-Agent Jury & Proof-Guided Verification Engine."""
@@ -41,5 +41,5 @@ if __name__ == "__main__":
         {"agent": "RLM_Coder", "verdict": "PASS"},
         {"agent": "Verifier", "verdict": "PASS"}
     ]
-    res = jury.evaluate_code_proposal("C:\\dnts\\dnts_core\\test.py", "def add(a,b): return a+b", votes)
+    res = jury.evaluate_code_proposal("C:\\dnts\\vazus_core\\test.py", "def add(a,b): return a+b", votes)
     print("Jury Result:", res)

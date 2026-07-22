@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, "C:/vazus/pyenv")
 
-from dnts_core.unified_graph import unified_graph
+from vazus_core.unified_graph import unified_graph
 
 def draw_graph():
     print("Generating graph visualization...")
