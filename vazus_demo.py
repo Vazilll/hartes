@@ -1,8 +1,3 @@
-"""
-vazus_demo.py — Live demonstration of vazus SuperGraph OS v0.1.0-beta.
-Executes end-to-end integration under the vazus ecosystem.
-"""
-
 import sys
 import os
 

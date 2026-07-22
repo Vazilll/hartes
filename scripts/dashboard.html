@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RLM Execution & Evolution Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --panel-bg: rgba(20, 22, 30, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-primary: #6366f1;
+            --accent-secondary: #a855f7;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: rgba(13, 14, 18, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        .logo-section h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-section p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            color: white;
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: var(--font-main);
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar for Logs List */
+        .sidebar {
+            width: 320px;
+            border-right: 1px solid var(--border-color);
+            background: rgba(15, 17, 23, 0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-bar {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: white;
+            font-family: var(--font-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-bar:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .logs-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .log-item {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .log-item:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: scale(1.01);
+        }
+
+        .log-item.active {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .log-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .log-status {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .log-status.success {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success-color);
+        }
+
+        .log-status.fail {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--error-color);
+        }
+
+        .log-date {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .log-prompt-preview {
+            font-size: 0.85rem;
+            color: var(--text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Detail View Area */
+        .detail-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: rgba(10, 11, 14, 0.2);
+        }
+
+        .detail-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(15, 17, 23, 0.7);
+            backdrop-filter: blur(8px);
+        }
+
+        .detail-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .detail-meta-grid {
+            display: flex;
+            gap: 2rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .detail-meta-item strong {
+            color: var(--text-color);
+        }
+
+        /* Visual Execution Tree & Inspector Layout */
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .tree-viewport {
+            flex: 2;
+            padding: 2rem;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            position: relative;
+            background: radial-gradient(circle at center, rgba(255,255,255,0.01) 0%, transparent 100%);
+        }
+
+        .inspector {
+            flex: 1.2;
+            border-left: 1px solid var(--border-color);
+            background: rgba(15, 17, 23, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .inspector-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .inspector-body {
+            padding: 1.5rem;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .inspector-section h4 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .code-block {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            color: #f8f8f2;
+        }
+
+        /* Custom Visual Tree Layout */
+        .tree-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .tree-row {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            position: relative;
+        }
+
+        .node-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            min-width: 220px;
+            max-width: 280px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .node-card:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .node-card.active {
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+            background: rgba(168, 85, 247, 0.05);
+        }
+
+        .node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .node-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .node-badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.08);
+            color: var(--text-muted);
+        }
+
+        .node-card.llm-call .node-badge {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--accent-secondary);
+        }
+
+        .node-card.rlm-child .node-badge {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent-primary);
+        }
+
+        .node-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .node-snippet {
+            font-size: 0.8rem;
+            color: var(--text-color);
+            background: rgba(0,0,0,0.2);
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* SVG Connectors */
+        .tree-line-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: var(--text-muted);
+            gap: 1rem;
+        }
+
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            stroke: var(--text-muted);
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-section">
+            <h1>RLM & Evolution Engine</h1>
+            <p>Visual Execution Trace & Optimizer Dashboard</p>
+        </div>
+        <div class="controls">
+            <button onclick="loadLogs()">Refresh Logs</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <input type="text" class="search-bar" id="search" placeholder="Search prompts..." oninput="filterLogs()">
+            </div>
+            <div class="logs-list" id="logsList">
+                <div class="empty-state">Loading logs...</div>
+            </div>
+        </div>
+
+        <!-- Detail View -->
+        <div class="detail-view" id="detailView">
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                </svg>
+                <p>Select an execution rollout from the list to view its reasoning tree.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allLogs = [];
+        let activeLogFilename = null;
+
+        async function loadLogs() {
+            try {
+                const res = await fetch('/api/logs');
+                allLogs = await res.json();
+                renderLogsList(allLogs);
+            } catch (err) {
+                console.error("Failed to load logs:", err);
+                document.getElementById('logsList').innerHTML = `<div class="empty-state" style="color: var(--error-color)">Error loading logs</div>`;
+            }
+        }
+
+        function renderLogsList(logs) {
+            const list = document.getElementById('logsList');
+            if (logs.length === 0) {
+                list.innerHTML = `<div class="empty-state">No logs found</div>`;
+                return;
+            }
+
+            list.innerHTML = logs.map(log => `
+                <div class="log-item ${log.filename === activeLogFilename ? 'active' : ''}" onclick="viewLogDetail('${log.filename}')">
+                    <div class="log-item-header">
+                        <span class="log-status ${log.success ? 'success' : 'fail'}">${log.success ? 'success' : 'failed'}</span>
+                        <span class="log-date">${log.date}</span>
+                    </div>
+                    <div class="log-prompt-preview">${escapeHtml(log.prompt || log.filename)}</div>
+                </div>
+            `).join('');
+        }
+
+        function filterLogs() {
+            const query = document.getElementById('search').value.toLowerCase();
+            const filtered = allLogs.filter(log => 
+                (log.prompt && log.prompt.toLowerCase().includes(query)) || 
+                log.filename.toLowerCase().includes(query)
+            );
+            renderLogsList(filtered);
+        }
+
+        async function viewLogDetail(filename) {
+            activeLogFilename = filename;
+            renderLogsList(allLogs); // Update active state class
+
+            const detailArea = document.getElementById('detailView');
+            detailArea.innerHTML = `<div class="empty-state">Loading rollout details...</div>`;
+
+            try {
+                const res = await fetch(`/api/logs/${filename}`);
+                const data = await res.json();
+                renderRollout(data);
+            } catch (err) {
+                console.error("Failed to fetch log details:", err);
+                detailArea.innerHTML = `<div class="empty-state" style="color: var(--error-color)">Error loading details</div>`;
+            }
+        }
+
+        function renderRollout(data) {
+            const meta = data.metadata || {};
+            const iterations = data.iterations || [];
+            
+            // Reconstruct the parent/child tree nodes
+            const detailArea = document.getElementById('detailView');
+            
+            detailArea.innerHTML = `
+                <div class="detail-header">
+                    <div class="detail-title">${escapeHtml(meta.prompt || "Rollout Trace")}</div>
+                    <div class="detail-meta-grid">
+                        <div class="detail-meta-item">Model: <strong>${escapeHtml(meta.root_model || 'unknown')}</strong></div>
+                        <div class="detail-meta-item">Max Depth: <strong>${meta.max_depth || 'N/A'}</strong></div>
+                        <div class="detail-meta-item">Turns: <strong>${iterations.length}</strong></div>
+                        <div class="detail-meta-item">Time: <strong>${meta.execution_time ? meta.execution_time.toFixed(2) + 's' : 'N/A'}</strong></div>
+                    </div>
+                </div>
+                <div class="workspace">
+                    <div class="tree-viewport" id="treeViewport">
+                        <div class="tree-container" id="treeContainer">
+                            <!-- Visual nodes populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="inspector" id="inspector">
+                        <div class="inspector-header">Node Inspector</div>
+                        <div class="inspector-body">
+                            <div class="empty-state">Select a node in the tree to inspect code and responses.</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            renderTree(meta, iterations);
+        }
+
+        function renderTree(meta, iterations) {
+            const container = document.getElementById('treeContainer');
+            
+            // Build simple linear/recursive tree cards
+            let html = '<div class="tree-row">';
+            
+            // Root card
+            html += `
+                <div class="node-card rlm-root active" onclick="inspectNode('root', ${JSON.stringify(meta).replace(/"/g, '&quot;')})">
+                    <div class="node-header">
+                        <span class="node-title">Parent RLM</span>
+                        <span class="node-badge">ROOT</span>
+                    </div>
+                    <div class="node-snippet">${escapeHtml(meta.prompt || "Start")}</div>
+                    <div class="node-meta">
+                        <span>Turns: ${iterations.length}</span>
+                    </div>
+                </div>
+            `;
+            html += '</div>';
+
+            // Add iterations as a row / children
+            if (iterations.length > 0) {
+                html += '<div class="tree-row" style="margin-top: 2rem; flex-wrap: wrap;">';
+                iterations.forEach((it, idx) => {
+                    const snippet = it.code_blocks && it.code_blocks.length > 0 ? it.code_blocks[0].code : (it.response || "");
+                    const isSubcall = it.code_blocks && it.code_blocks.some(b => b.code.includes('rlm_query'));
+                    
+                    html += `
+                        <div class="node-card ${isSubcall ? 'rlm-child' : 'llm-call'}" onclick="inspectNode('iteration', ${JSON.stringify(it).replace(/"/g, '&quot;')}, ${idx + 1})">
+                            <div class="node-header">
+                                <span class="node-title">Turn ${it.iteration || (idx + 1)}</span>
+                                <span class="node-badge">${isSubcall ? 'RECURSION' : 'TURN'}</span>
+                            </div>
+                            <div class="node-snippet">${escapeHtml(snippet)}</div>
+                            <div class="node-meta">
+                                <span>Output: ${it.final_answer ? 'ANSWER' : 'NEXT'}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        function inspectNode(type, data, turnIdx) {
+            const inspectorBody = document.querySelector('.inspector-body');
+            
+            // Deselect other cards, select current
+            document.querySelectorAll('.node-card').forEach(c => c.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            if (type === 'root') {
+                inspectorBody.innerHTML = `
+                    <div class="inspector-section">
+                        <h4>Prompt / Context</h4>
+                        <div class="code-block">${escapeHtml(data.prompt)}</div>
+                    </div>
+                    <div class="inspector-section">
+                        <h4>System Settings</h4>
+                        <p style="margin-bottom: 0.5rem">Model: <strong>${escapeHtml(data.root_model)}</strong></p>
+                        <p style="margin-bottom: 0.5rem">Max Depth: <strong>${data.max_depth}</strong></p>
+                        <p style="margin-bottom: 0.5rem">Execution Time: <strong>${data.execution_time ? data.execution_time.toFixed(2) + 's' : 'N/A'}</strong></p>
+                    </div>
+                `;
+            } else {
+                const codeBlocks = data.code_blocks || [];
+                const codeHtml = codeBlocks.map(b => `
+                    <div style="margin-bottom: 1rem">
+                        <div class="node-badge" style="display:inline-block; margin-bottom:0.3rem">REPL CODE</div>
+                        <div class="code-block">${escapeHtml(b.code)}</div>
+                        ${b.result ? `
+                            <div class="node-badge" style="display:inline-block; margin-top:0.5rem; margin-bottom:0.3rem; background:rgba(16,185,129,0.15); color:var(--success-color)">REPL OUTPUT</div>
+                            <div class="code-block" style="border-color: rgba(16,185,129,0.2);">${escapeHtml(b.result.stdout || b.result.stderr || "Success (no output)")}</div>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                inspectorBody.innerHTML = `
+                    <div class="inspector-section">
+                        <h4>Turn ${turnIdx} Plan & Thought</h4>
+                        <div style="font-size: 0.9rem; line-height: 1.5; color: var(--text-color); margin-bottom: 1rem;">
+                            ${escapeHtml(data.response || "No text plan generated.")}
+                        </div>
+                    </div>
+                    ${codeBlocks.length > 0 ? `
+                        <div class="inspector-section">
+                            <h4>REPL Execution Trace</h4>
+                            ${codeHtml}
+                        </div>
+                    ` : ''}
+                    ${data.final_answer ? `
+                        <div class="inspector-section" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                            <h4 style="color: var(--success-color)">Final Answer Submitted</h4>
+                            <div class="code-block" style="border-color: var(--success-color); background: rgba(16,185,129,0.05); font-weight: 600;">
+                                ${escapeHtml(data.final_answer)}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+            }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            return text.toString()
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Init
+        loadLogs();
+    </script>
+</body>
+</html>
