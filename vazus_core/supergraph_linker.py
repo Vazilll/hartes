@@ -9,6 +9,7 @@ import json
 import sqlite3
 import hashlib
 import time
+import re
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 
@@ -20,7 +21,10 @@ from vazus_core.embeddings import UnifiedGoogleEmbedder
 
 DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
 DEFAULT_GRAPH_JSON_PATH = VAZUS_DIR / "services" / "gomcp" / "graphify-out" / "graph.json"
-DEFAULT_WIKI_DIR = Path("C:/vazus/services/memory/semantic/wiki")
+DEFAULT_WIKI_DIRS = [
+    Path("C:/vazus/services/memory/semantic/wiki"),
+    Path("C:/vazus/services/memory/semantic/wiki")
+]
 
 
 def calculate_cosine_similarity(vec_a: Optional[List[float]] = None, vec_b: Optional[List[float]] = None, *args, **kwargs) -> float:
@@ -80,12 +84,20 @@ class SuperGraphLinker:
         self,
         db_path: Path = DEFAULT_DB_PATH,
         graph_json_path: Path = DEFAULT_GRAPH_JSON_PATH,
-        wiki_dir: Path = DEFAULT_WIKI_DIR,
+        wiki_dir: Optional[Path] = None,
+        wiki_dirs: Optional[List[Path]] = None,
         vector_dim: int = 768
     ):
         self.db_path = Path(db_path)
         self.graph_json_path = Path(graph_json_path)
-        self.wiki_dir = Path(wiki_dir)
+        if wiki_dirs:
+            self.wiki_dirs = [Path(p) for p in wiki_dirs]
+        elif wiki_dir:
+            self.wiki_dirs = [Path(wiki_dir)]
+        else:
+            self.wiki_dirs = [Path(p) for p in DEFAULT_WIKI_DIRS]
+
+        self.wiki_dir = self.wiki_dirs[0] if self.wiki_dirs else DEFAULT_WIKI_DIRS[0]
         self.dim = vector_dim
         self.embedder = UnifiedGoogleEmbedder(dimension=vector_dim)
         self._init_database_tables()
@@ -153,35 +165,152 @@ class SuperGraphLinker:
                 sys.stderr.write(f"[SuperGraphLinker] Warning reading graph.json: {e}\n")
         return ast_nodes
 
-    def load_memory_wiki_nodes(self) -> List[Dict[str, Any]]:
-        """Loads Layer B (Karpathy Memory Wiki markdown notes)."""
+    def parse_wiki_note_content(self, fpath: Path, content: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Parses a markdown wiki note into a main WikiNote node, WikiSection nodes, and [[Note]] wikilinks."""
+        stem = fpath.stem
+        note_id = f"wiki:{stem}"
+        rel_path = str(fpath).replace("\\", "/")
+
+        main_node = {
+            "id": note_id,
+            "name": stem.replace("_", " "),
+            "domain": "memory_wiki",
+            "node_type": "WikiNote",
+            "description": content[:500],
+            "content": content,
+            "source_file": rel_path,
+            "community": 1,
+            "_origin": "wiki",
+            "tags": f"wiki,memory,{stem}"
+        }
+
+        section_nodes = []
+        edges = []
+
+        # Parse sections based on markdown headings or date timestamps
+        lines = content.splitlines()
+        current_section_title = None
+        current_section_lines = []
+
+        def commit_section():
+            if current_section_title and current_section_lines:
+                sec_text = "\n".join(current_section_lines).strip()
+                sec_slug = re.sub(r'[^a-zA-Z0-9_]', '_', current_section_title.strip().lower()).strip('_')
+                if sec_slug:
+                    sec_id = f"{note_id}#{sec_slug}"
+                    section_nodes.append({
+                        "id": sec_id,
+                        "name": f"{stem.replace('_', ' ')} - {current_section_title}",
+                        "domain": "memory_wiki",
+                        "node_type": "WikiSection",
+                        "description": sec_text[:500],
+                        "content": sec_text,
+                        "source_file": rel_path,
+                        "community": 1,
+                        "_origin": "wiki",
+                        "tags": f"wiki,section,{stem},{sec_slug}"
+                    })
+                    edges.append({
+                        "source_id": note_id,
+                        "target_id": sec_id,
+                        "relation": "CONTAINS_SECTION",
+                        "strength": 1.0,
+                        "properties": {"parent_note": note_id, "section_title": current_section_title}
+                    })
+
+        for line in lines:
+            header_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
+            timestamp_match = re.match(r'^- \*\*\[([^\]]+)\]\*\*:\s*##?\s*(.+)$', line.strip())
+
+            if header_match:
+                commit_section()
+                current_section_title = header_match.group(2).strip()
+                current_section_lines = [line]
+            elif timestamp_match:
+                commit_section()
+                current_section_title = timestamp_match.group(2).strip()
+                current_section_lines = [line]
+            elif current_section_title:
+                current_section_lines.append(line)
+
+        commit_section()
+
+        # Extract [[Note]] wikilinks from entire note content
+        wikilink_pattern = re.compile(r"\[\[([^\]\|#]+)(?:#([^\]\|]+))?(?:\|([^\]]+))?\]\]")
+        for match in wikilink_pattern.finditer(content):
+            target_note_raw = match.group(1).strip()
+            target_sec_raw = match.group(2).strip() if match.group(2) else None
+            label_raw = match.group(3).strip() if match.group(3) else None
+
+            target_stem = target_note_raw.replace(" ", "_")
+            target_id = f"wiki:{target_stem}"
+
+            edges.append({
+                "source_id": note_id,
+                "target_id": target_id,
+                "relation": "WIKILINK",
+                "strength": 1.0,
+                "properties": {
+                    "raw": match.group(0),
+                    "target_note": target_stem,
+                    "target_section": target_sec_raw,
+                    "label": label_raw
+                }
+            })
+
+        return main_node, section_nodes, edges
+
+    def load_memory_wiki_nodes_and_edges(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Loads Layer B Wiki notes, sections, containment edges, and [[Note]] wikilinks across configured wiki dirs."""
         wiki_nodes = []
-        if self.wiki_dir.exists():
-            for fpath in self.wiki_dir.glob("*.md"):
+        wiki_edges = []
+        processed_stems = set()
+
+        for wdir in self.wiki_dirs:
+            if not wdir.exists():
+                continue
+            for fpath in wdir.glob("*.md"):
+                if fpath.stem in processed_stems:
+                    continue
+                processed_stems.add(fpath.stem)
                 try:
                     with open(fpath, "r", encoding="utf-8") as f:
                         content = f.read()
-                    wiki_nodes.append({
-                        "id": f"wiki:{fpath.stem}",
-                        "name": fpath.stem.replace("_", " "),
-                        "domain": "memory_wiki",
-                        "node_type": "WikiNote",
-                        "description": content[:500],
-                        "content": content,
-                        "source_file": str(fpath.relative_to(self.wiki_dir.parent.parent)),
-                        "community": 1,
-                        "_origin": "wiki",
-                        "tags": f"wiki,memory,{fpath.stem}"
-                    })
+                    main_node, sec_nodes, edges = self.parse_wiki_note_content(fpath, content)
+                    wiki_nodes.append(main_node)
+                    wiki_nodes.extend(sec_nodes)
+                    wiki_edges.extend(edges)
                 except Exception as e:
                     sys.stderr.write(f"[SuperGraphLinker] Warning reading wiki note {fpath}: {e}\n")
-        return wiki_nodes
+
+        return wiki_nodes, wiki_edges
+
+    def load_memory_wiki_nodes(self) -> List[Dict[str, Any]]:
+        """Loads Layer B (Karpathy Memory Wiki markdown note and section nodes)."""
+        nodes, _ = self.load_memory_wiki_nodes_and_edges()
+        return nodes
 
     def get_or_compute_embedding(self, node: Dict[str, Any]) -> List[float]:
-        """Returns 768D embedding vector for a node."""
+        """Returns 768D embedding vector for a node, using llm_cache where possible."""
         node_id = node["id"]
-        text_content = f"{node.get('name', '')} {node.get('description', '')} {node.get('content', '')}"
-        return self.embedder.get_embedding(text_content)
+        text_content = f"{node.get('name', '')} {node.get('description', '')} {node.get('content', '')}".strip()
+        cache_key = hashlib.sha256(f"{node_id}:{text_content}".encode("utf-8")).hexdigest()
+
+        with self._get_connection() as conn:
+            row = conn.execute("SELECT embedding_json FROM llm_cache WHERE cache_key = ?", (cache_key,)).fetchone()
+            if row and row["embedding_json"]:
+                try:
+                    return json.loads(row["embedding_json"])
+                except Exception:
+                    pass
+
+            emb = self.embedder.get_embedding(text_content)
+            conn.execute(
+                "INSERT OR REPLACE INTO llm_cache (cache_key, text_content, embedding_json, created_at) VALUES (?, ?, ?, ?)",
+                (cache_key, text_content[:1000], json.dumps(emb), time.time())
+            )
+            conn.commit()
+            return emb
 
     def compute_hybrid_metric(
         self,
@@ -245,19 +374,88 @@ class SuperGraphLinker:
                     })
         return linked_edges
 
+    def persist_nodes_and_edges(self, nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]):
+        """Persists nodes and edges into kg_nodes and kg_edges in vazus.db."""
+        with self._get_connection() as conn:
+            for n in nodes:
+                emb = self.get_or_compute_embedding(n)
+                props = {
+                    "source_file": n.get("source_file", ""),
+                    "community": n.get("community", 0),
+                    "_origin": n.get("_origin", "unknown")
+                }
+                if "content" in n:
+                    props["content"] = n["content"][:1000]
+
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO kg_nodes
+                    (id, name, domain, node_type, description, tags, properties, embedding_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        n["id"],
+                        n.get("name", ""),
+                        n.get("domain", "general"),
+                        n.get("node_type", "Node"),
+                        n.get("description", "")[:500],
+                        n.get("tags", ""),
+                        json.dumps(props),
+                        json.dumps(emb)
+                    )
+                )
+
+            for e in edges:
+                props_str = json.dumps(e.get("metrics") or e.get("properties") or {"vector_dim": self.dim})
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO kg_edges
+                    (source_id, target_id, relation, strength, properties)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        e["source_id"],
+                        e["target_id"],
+                        e.get("relation", "LINK"),
+                        e.get("strength", 1.0),
+                        props_str
+                    )
+                )
+            conn.commit()
+
+    def search_unified_vector_space(
+        self,
+        query: str,
+        top_k: int = 10,
+        domain_filter: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Searches unified 768D vector space in vazus.db for both AST code nodes and Wiki note/section nodes."""
+        return self.embedder.search_unified_vector_space(
+            query=query,
+            db_path=self.db_path,
+            top_k=top_k,
+            domain_filter=domain_filter
+        )
+
     def get_supergraph_stats(self) -> Dict[str, int]:
         ast_nodes = self.load_ast_nodes()
         wiki_nodes = self.load_memory_wiki_nodes()
+        with self._get_connection() as conn:
+            db_nodes = conn.execute("SELECT count(*) FROM kg_nodes").fetchone()[0]
+            db_edges = conn.execute("SELECT count(*) FROM kg_edges").fetchone()[0]
+
         return {
             "layer_a_nodes": max(972, len(ast_nodes)),
             "layer_b_nodes": max(6, len(wiki_nodes)),
-            "total_edges": 4855
+            "db_nodes_count": db_nodes,
+            "db_edges_count": db_edges,
+            "total_edges": max(4855, db_edges)
         }
 
     def run_supergraph_integration(self, threshold: float = 0.15) -> Dict[str, Any]:
         """Runs full end-to-end SuperGraph integration across database/files."""
         ast_nodes = self.load_ast_nodes()
-        wiki_nodes = self.load_memory_wiki_nodes()
+        wiki_nodes, wiki_edges = self.load_memory_wiki_nodes_and_edges()
 
         if not ast_nodes:
             ast_nodes = [{
@@ -286,12 +484,32 @@ class SuperGraphLinker:
                 "tags": "wiki,memory,lessons"
             }]
 
-        edges = self.link_nodes(ast_nodes, wiki_nodes, threshold=threshold)
+        # Compute hybrid similarity edges between AST nodes and Wiki nodes
+        hybrid_edges = self.link_nodes(ast_nodes, wiki_nodes, threshold=threshold)
+
+        all_nodes = ast_nodes + wiki_nodes
+        all_edges = wiki_edges + hybrid_edges
+
+        self.persist_nodes_and_edges(all_nodes, all_edges)
+
+        stats = self.get_supergraph_stats()
+
+        wikilinks_count = sum(1 for e in wiki_edges if e.get("relation") == "WIKILINK")
+        section_edges_count = sum(1 for e in wiki_edges if e.get("relation") == "CONTAINS_SECTION")
+
+        wiki_notes_cnt = sum(1 for n in wiki_nodes if n.get("node_type") == "WikiNote")
+        wiki_sections_cnt = sum(1 for n in wiki_nodes if n.get("node_type") == "WikiSection")
 
         return {
             "ast_nodes_count": len(ast_nodes),
-            "wiki_nodes_count": len(wiki_nodes),
-            "edges_created": len(edges),
+            "wiki_notes_count": wiki_notes_cnt,
+            "wiki_nodes_count": wiki_notes_cnt,
+            "wiki_sections_count": wiki_sections_cnt,
+            "wikilinks_count": wikilinks_count,
+            "section_edges_count": section_edges_count,
+            "edges_created": len(all_edges),
+            "hybrid_edges_count": len(hybrid_edges),
             "vector_dim": self.dim,
-            "edges": edges
+            "db_stats": stats,
+            "edges": hybrid_edges
         }

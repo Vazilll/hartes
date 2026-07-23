@@ -157,5 +157,10 @@ def run_verification():
     print("=" * 60)
 
 
+def test_supergraph_integration():
+    run_verification()
+
+
 if __name__ == "__main__":
     run_verification()
+
