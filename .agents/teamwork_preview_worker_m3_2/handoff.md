@@ -1,37 +1,105 @@
-# Handoff Report — Worker 4 (Milestone 3)
+# Handoff Report — Milestone 3 Worker 2 (Path Traversal Remediation)
 
 ## 1. Observation
-- File inspected: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`
-  - In `calculate_cosine_similarity` (lines 34-75): Previously, when vectors contained `NaN` values, `min(1.0, float('nan'))` evaluated to `1.0` in Python because comparison against `NaN` returns `False`, causing invalid/NaN vectors to return a similarity score of `1.0`.
-  - In `calculate_provenance_similarity` (lines 108-138): Previously, line 110 initialized `score = 0.5`, giving pairs without any provenance metadata an artificial 0.5 score boost.
-- Test files inspected:
-  - `C:\vazus\pyenv\scripts\test_supergraph_integration.py`: Verifies 768D vector generation, 4-component hybrid metric computation (`S(u, v) = 0.45 * S_cosine + 0.25 * S_fts + 0.20 * S_structural + 0.10 * S_provenance`), node linking, and SQLite database storage.
-  - `C:\vazus\pyenv\tests\test_dnts_system.py`: Verifies core configuration, Git provenance, 768D embedder, Jules escalator, and Telegram notifier.
+- **Vulnerability Location**: `C:\vazus\scripts\dashboard.py` in methods `handle_stream` (lines 158–167) and `handle_thumbnail` (lines 234–244).
+- **Vulnerability**: Previously, `handle_stream` and `handle_thumbnail` unquoted user-supplied query parameter `path` (`Path(urllib.parse.unquote(raw_path))`) and checked `file_path.exists()` directly without canonicalization or boundary validation. This allowed arbitrary file read/traversal across the filesystem (e.g. `C:/Windows/win.ini`).
+- **Remediation Implemented**:
+  In `scripts/dashboard.py`:
+  Added strict path canonicalization and boundary validation enforcing that all resolved file paths MUST reside within `allowed_base = Path("C:/vazus").resolve()`.
+  Boundary validation is performed BEFORE any `exists()` or `is_file()` check:
+  ```python
+  allowed_base = Path("C:/vazus").resolve()
+  try:
+      resolved_path = file_path.resolve()
+      resolved_path.relative_to(allowed_base)
+  except (ValueError, RuntimeError):
+      self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+      return
+  ```
+- **Test Results**:
+  1. `GET /api/v1/knowledge/stream?path=C:/Windows/win.ini` -> HTTP 403 Forbidden ("Access Denied: Path outside allowed workspace boundary")
+  2. `GET /api/v1/knowledge/stream?path=../../Windows/win.ini` -> HTTP 403 Forbidden ("Access Denied: Path outside allowed workspace boundary")
+  3. `GET /api/v1/knowledge/thumbnail?path=C:/Windows/win.ini` -> HTTP 403 Forbidden ("Access Denied: Path outside allowed workspace boundary")
+  4. Stream test on valid video in `C:/vazus/knowledge/telegram_courses/...` with `Range: bytes=0-100` -> HTTP 206 Partial Content (Content-Length: 101).
+  5. Stream test on valid video without Range header -> HTTP 200 OK.
+  6. Thumbnail test on valid thumbnail in `C:/vazus/knowledge/.thumbnails/...` -> HTTP 200 OK.
+  7. `python scripts/knowledge_chat.py --query "тест"` -> Exit code 0 (5 matches found).
 
 ## 2. Logic Chain
-1. **Observation 1**: Python's `min(1.0, float('nan'))` returns `1.0`. Any vector with `NaN` elements would bypass zero checks and produce a clamped score of `1.0`.
-   - **Reasoning**: Checking `any(math.isnan(float(x)) for x in vec)` for input vectors and verifying `norm_a != 0.0`, `norm_b != 0.0`, and `not math.isnan(sim)` guarantees that `calculate_cosine_similarity` returns `0.0` for all invalid or NaN vectors.
-2. **Observation 2**: Setting `score = 0.5` at the start of `calculate_provenance_similarity` assigned 0.5 similarity even when no metadata match existed between `node_a` and `node_b`.
-   - **Reasoning**: Changing the baseline score initialization from `0.5` to `0.0` ensures that node pairs without matching origins or file references receive a baseline score of `0.0`, preventing unearned score inflation in the hybrid metric calculation.
-3. **Observation 3**: `test_supergraph_integration.py` computes `s_provenance` dynamically and evaluates `metrics["total_score"]` against `0.45 * s_cosine + 0.25 * s_fts + 0.20 * s_structural + 0.10 * s_provenance`.
-   - **Reasoning**: Changing the baseline provenance score to `0.0` keeps the 4-component equation fully consistent and valid. Adding explicit assertion tests in `test_supergraph_integration.py` for NaN vectors (`calculate_cosine_similarity([float('nan'), 1.0], [1.0, 1.0]) == 0.0`), zero-norm vectors, and default provenance scores ensures complete test coverage.
+1. User requests to `/api/v1/knowledge/stream` or `/api/v1/knowledge/thumbnail` contain arbitrary `path` parameter values.
+2. `Path.resolve()` canonicalizes symlinks, relative traversal dots (`..`), and drive letter casing into absolute system paths.
+3. `resolved_path.relative_to(allowed_base)` verifies whether `resolved_path` is a subpath of `C:\vazus`. If `resolved_path` is outside `C:\vazus` (e.g. `C:\Windows\win.ini`), `relative_to` raises `ValueError`.
+4. Catching `(ValueError, RuntimeError)` and immediately returning `self.send_error(403, "Access Denied: Path outside allowed workspace boundary")` ensures unauthorized paths cannot be checked for existence or served.
+5. Performing `exists()` and `is_file()` checks on `resolved_path` ONLY after boundary validation guarantees no file-system information leakage for paths outside `C:\vazus`.
+6. Legitimate files within `C:\vazus` (such as course videos and thumbnails) pass boundary validation and continue to be served correctly via HTTP 200/206.
 
 ## 3. Caveats
-No caveats.
+- No caveats. The boundary validation strictly enforces `C:\vazus` workspace boundary for all file stream and thumbnail requests.
 
 ## 4. Conclusion
-Both robustness improvements requested by the Challenger have been successfully implemented in `C:\vazus\pyenv\dnts_core\supergraph_linker.py`:
-1. `calculate_cosine_similarity` now returns `0.0` whenever vector elements contain `NaN`, norms are zero, or division results in NaN/inf.
-2. `calculate_provenance_similarity` now sets default baseline score to `0.0` when no provenance match is present.
+- Security vulnerability (Path Traversal / Unsanitized File Access) in `scripts/dashboard.py` has been completely remediated and verified.
+- All requests for files outside `C:\vazus` now reliably fail with HTTP 403 Access Denied.
+- Legitimate files within `C:\vazus` continue to function as expected (HTTP 200/206), and `knowledge_chat.py` executes cleanly with exit code 0.
 
 ## 5. Verification Method
-To independently verify the implementation and integration test suite:
-1. Execute command:
-   `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
-   Expected result: All tests pass with output ending in `🎉 UNIFIED SUPERGRAPH & 768D EMBEDDINGS INTEGRATION TEST PASSED!` and Exit Code 0.
-2. Execute command:
-   `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py`
-   Expected result: All tests pass with output ending in `🎉 ВСЕ 5 ИНТЕГРАЦИОННЫХ ТЕСТОВ PORTLESS АРХИТЕКТУРЫ УСПЕШНО ПРОЙДЕНЫ!` and Exit Code 0.
-3. Inspect files:
-   - `C:\vazus\pyenv\dnts_core\supergraph_linker.py`
-   - `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
+To independently verify the fix:
+1. Syntax compilation check:
+   `C:\vazus\.venv\Scripts\python.exe -m py_compile scripts\dashboard.py`
+2. Run security and streaming test suite:
+   ```bash
+   C:\vazus\.venv\Scripts\python.exe -c "
+   import subprocess, sys, time, urllib.request, urllib.error, urllib.parse
+   from pathlib import Path
+
+   port = 8585
+   proc = subprocess.Popen([sys.executable, 'scripts/dashboard.py', '--port', str(port)], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+   time.sleep(2)
+
+   try:
+       base = f'http://127.0.0.1:{port}'
+       
+       # 1. Path traversal C:/Windows/win.ini on stream
+       url = f'{base}/api/v1/knowledge/stream?path=' + urllib.parse.quote('C:/Windows/win.ini')
+       try:
+           urllib.request.urlopen(url)
+           assert False, 'Expected HTTP 403'
+       except urllib.error.HTTPError as e:
+           assert e.code == 403
+
+       # 2. Relative traversal ../../Windows/win.ini on stream
+       url = f'{base}/api/v1/knowledge/stream?path=' + urllib.parse.quote('../../Windows/win.ini')
+       try:
+           urllib.request.urlopen(url)
+           assert False, 'Expected HTTP 403'
+       except urllib.error.HTTPError as e:
+           assert e.code == 403
+
+       # 3. Path traversal C:/Windows/win.ini on thumbnail
+       url = f'{base}/api/v1/knowledge/thumbnail?path=' + urllib.parse.quote('C:/Windows/win.ini')
+       try:
+           urllib.request.urlopen(url)
+           assert False, 'Expected HTTP 403'
+       except urllib.error.HTTPError as e:
+           assert e.code == 403
+
+       # 4. Valid video stream 206 Range
+       valid_vid = list(Path('C:/vazus/knowledge/telegram_courses').rglob('*.mp4'))[0]
+       url = f'{base}/api/v1/knowledge/stream?path=' + urllib.parse.quote(str(valid_vid))
+       req = urllib.request.Request(url, headers={'Range': 'bytes=0-100'})
+       with urllib.request.urlopen(req) as resp:
+           assert resp.status == 206
+
+       # 5. Valid thumbnail 200
+       valid_thumb = list(Path('C:/vazus/knowledge/.thumbnails').rglob('*.jpg'))[0]
+       url = f'{base}/api/v1/knowledge/thumbnail?path=' + urllib.parse.quote(str(valid_thumb))
+       with urllib.request.urlopen(url) as resp:
+           assert resp.status == 200
+
+       print('ALL VERIFICATION TESTS PASSED!')
+   finally:
+       proc.terminate()
+       proc.wait()
+   "
+   ```
+3. Run CLI Knowledge Chat test:
+   `C:\vazus\.venv\Scripts\python.exe scripts/knowledge_chat.py --query "тест"`

@@ -1,7 +1,7 @@
-# DNTS Unified SuperGraph OS & Subagent Architecture
+# vazus SuperGraph OS & Native Antigravity Subagent Architecture
 
 ## Overview
-This document specifies the native subagent roles, responsibilities, bridge interfaces, repository locations, and tool bindings within the DNTS SuperGraph OS architecture.
+This document specifies the native subagent roles, responsibilities, bridge interfaces, repository locations, and tool bindings within the **vazus SuperGraph OS** running on Antigravity CLI and IDE.
 
 ---
 
@@ -9,66 +9,53 @@ This document specifies the native subagent roles, responsibilities, bridge inte
 
 | Component / Subsystem | Directory Path | Description |
 |---|---|---|
-| **System Root** | `C:\vazus` | Root workspace for DNTS SuperGraph OS |
-| **Python Environment & Core** | `C:\vazus\pyenv` | Python 3.11 virtualenv, core modules, scripts, and logs |
-| **DNTS Core Module** | `C:\vazus\pyenv\dnts_core` | Core engine, AST pruner, embeddings, database, workers, and verifier |
-| **MIT RLM Engine** | `C:\vazus\pyenv\rlm-mit` | Recursive Language Modeling (RLM) engine with LocalREPL environment |
-| **Open Deep Research** | `C:\vazus\pyenv\open-deep-research` | LangGraph multi-step research workflow with Google Search Grounding |
-| **Scripts & Subagent Bridges** | `C:\vazus\pyenv\scripts` | Bridge execution scripts connecting subagents to target engines |
-| **Go Core MCP Monolith** | `C:\vazus\services\gomcp` / `C:\vazus\services\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
+| **System Root** | `C:\vazus` | Root workspace for vazus SuperGraph OS |
+| **Python Virtual Environment** | `C:\vazus\.venv` | Python 3.11 virtualenv (PyTorch CPU/NPU, OpenVINO, Optimum, pyNeuroML) |
+| **vazus Core Module** | `C:\vazus\vazus_core` | Core engine, AST pruner, embeddings, database, model selector, verifier |
+| **MIT RLM Engine** | `C:\vazus\vazus_core\workers\rlm` | Recursive Language Modeling (RLM) engine with LocalREPL environment |
+| **Open Deep Research** | `C:\vazus\scripts\subagent_research_bridge.py` | LangGraph multi-step research workflow with Google Search Grounding |
+| **Scripts & Subagent Bridges** | `C:\vazus\scripts` | Subagent bridge scripts and memory/vector index tools |
+| **Go Core MCP Monolith** | `C:\vazus\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
 
 ---
 
-## Native Subagent Roles & Responsibilities
+## Native Antigravity Subagent Roles & System Prompts
+
+Subagents are invoked natively in the Antigravity UI using `invoke_subagent` (or registered via `define_subagent`), allowing the user to observe real-time progress and subagent tool cards.
 
 ### 1. `open_deep_researcher`
 * **Role**: Open Deep Researcher Subagent
-* **Description**: LangGraph Open Deep Research + Google Search Grounding for web longreads & research synthesis. Performs multi-step web research, query clarification, and structured report synthesis.
-* **Repository Path**: `C:\vazus\pyenv\open-deep-research`
-* **Bridge Script**: `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
+* **Description**: LangGraph Open Deep Research + Google Search Grounding for web longreads & research synthesis.
+* **Bridge Script**: `C:\vazus\scripts\subagent_research_bridge.py`
+* **Execution Command**: `C:\vazus\.venv\Scripts\python.exe C:\vazus\scripts\subagent_research_bridge.py -q "<query>"`
 * **Responsibilities**:
-  - Compiles and executes LangGraph StateGraph research workflows.
-  - Integrates Google Search Grounding with fallback search providers (DuckDuckGo, Tavily).
-  - Synthesizes findings into comprehensive markdown research reports.
+  - Executes multi-step web research workflows.
+  - Integrates Google Search Grounding with fallback search providers.
+  - Synthesizes findings into structured Markdown research reports.
 
 ### 2. `rlm_code_engineer`
 * **Role**: RLM Code Engineer Subagent
-* **Description**: MIT RLM for REPL-based self-healing code generation, refactoring, and execution testing. Runs recursive code rollouts in LocalREPL.
-* **Repository Path**: `C:\vazus\pyenv\rlm-mit`
-* **Bridge Script**: `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
+* **Description**: MIT RLM for REPL-based self-healing code generation, refactoring, and execution testing.
+* **Bridge Script**: `C:\vazus\scripts\subagent_rlm_bridge.py`
+* **Execution Command**: `C:\vazus\.venv\Scripts\python.exe C:\vazus\scripts\subagent_rlm_bridge.py -p "<prompt>"`
 * **Responsibilities**:
-  - Connects directly to the MIT RLM engine and `dnts_core.workers.rlm`.
-  - Executes recursive code analysis, self-healing bug fixes, and REPL test execution.
-  - Manages LocalREPL environments and structured prompt optimization.
+  - Executes recursive code rollouts in LocalREPL environment.
+  - Performs automated bug fixing and self-healing refactoring.
+  - Validates AST signatures and code compliance.
 
 ### 3. `verifier_worker`
 * **Role**: Jules Verifier Worker Subagent
-* **Description**: Jules Verifier worker for syntax verification, contract testing, isolated execution testing, and Git provenance tracking.
-* **Repository Path**: `C:\vazus\pyenv\dnts_core`
-* **Bridge Script**: `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
+* **Description**: Static AST verifier, contract testing, isolated execution, and Git provenance tracking.
+* **Bridge Script**: `C:\vazus\scripts\subagent_verifier_bridge.py`
+* **Execution Command**: `C:\vazus\.venv\Scripts\python.exe C:\vazus\scripts\subagent_verifier_bridge.py -f "<target_file>"`
 * **Responsibilities**:
-  - Performs static AST syntax parsing and signature/contract compliance testing.
-  - Runs code in isolated subprocess execution via `CodeVerifier`.
-  - Manages Git provenance tracking (`GitProvenanceManager`) across DeepMind feature branches.
-  - Escalates persistent failures to Google DeepMind Jules Cloud VM (`JulesCloudEscalator`).
-
-### 4. Auxiliary & Coordination Roles
-* **`research_coordinator`**: High-level coordinator for multi-step scientific research and web synthesis, spawning `open_deep_researcher` and code inspectors.
-* **`hermes_evolution_agent`**: Prompt optimization agent utilizing GEPA (Genetic-Pareto Evolution) and Hebbian Plasticity to compile execution traces into Fast-Path tools.
+  - Performs AST syntax parsing and signature verification.
+  - Executes isolated code verification via `CodeVerifier`.
+  - Tracks Git provenance across feature branches (`vazus-main`, `vazus-dev`, `feature/subagent-bridges`).
 
 ---
 
-## Subagent Bridge Execution Interfaces
-
-| Subagent Role | Bridge File | Command Line Example |
-|---|---|---|
-| `open_deep_researcher` | `C:\vazus\pyenv\scripts\subagent_research_bridge.py` | `python C:\vazus\pyenv\scripts\subagent_research_bridge.py -q "SuperGraph Architecture" --dry-run` |
-| `rlm_code_engineer` | `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py` | `python C:\vazus\pyenv\scripts\subagent_rlm_bridge.py -p "Verify prime algorithms" --dry-run` |
-| `verifier_worker` | `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py` | `python C:\vazus\pyenv\scripts\subagent_verifier_bridge.py -f C:\vazus\pyenv\dnts_core\utils.py` |
-
----
-
-## Governance & Verification Rules
-1. **Integrity Mandate**: No hardcoded test stubs or facade implementations. All subagent bridges must invoke real engines and return verified state.
-2. **Minimal Change Principle**: Modifications must be surgical and directly traceable to specific architectural requirements.
-3. **Subagent Tooling**: All subagents registered in `dnts_core.subagents.roles` must have `enable_mcp_tools: true` and appropriate permission flags.
+## Governance & Verification Protocol
+1. **Antigravity First**: All subagent actions are visible in the Antigravity UI dashboard and logs.
+2. **Absolute Path Standard**: All internal components reference `C:\vazus` and `C:\vazus\.venv`.
+3. **No Facades**: Subagent bridges invoke real execution engines and return verifiable status.

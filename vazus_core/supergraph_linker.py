@@ -11,7 +11,8 @@ import hashlib
 import time
 import re
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Tuple, Optional, Union
+from contextlib import contextmanager
 
 VAZUS_DIR = Path("C:/vazus")
 if str(VAZUS_DIR) not in sys.path:
@@ -19,7 +20,10 @@ if str(VAZUS_DIR) not in sys.path:
 
 from vazus_core.embeddings import UnifiedGoogleEmbedder
 
-DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
+DEFAULT_DB_PATH = Path("C:/vazus/vazus.db")
+if not DEFAULT_DB_PATH.exists() and Path("C:/vazus/services/memory/vazus.db").exists():
+    DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
+
 DEFAULT_GRAPH_JSON_PATH = VAZUS_DIR / "services" / "gomcp" / "graphify-out" / "graph.json"
 DEFAULT_WIKI_DIRS = [
     Path("C:/vazus/services/memory/semantic/wiki"),
@@ -102,11 +106,21 @@ class SuperGraphLinker:
         self.embedder = UnifiedGoogleEmbedder(dimension=vector_dim)
         self._init_database_tables()
 
-    def _get_connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _get_connection(self):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
-        return conn
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA busy_timeout=30000;")
+        except Exception:
+            pass
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
 
     def _init_database_tables(self):
         """Ensures llm_cache, kg_nodes, and kg_edges tables exist."""
@@ -290,14 +304,22 @@ class SuperGraphLinker:
         nodes, _ = self.load_memory_wiki_nodes_and_edges()
         return nodes
 
-    def get_or_compute_embedding(self, node: Dict[str, Any]) -> List[float]:
-        """Returns 768D embedding vector for a node, using llm_cache where possible."""
-        node_id = node["id"]
-        text_content = f"{node.get('name', '')} {node.get('description', '')} {node.get('content', '')}".strip()
-        cache_key = hashlib.sha256(f"{node_id}:{text_content}".encode("utf-8")).hexdigest()
+    def get_or_compute_embedding(
+        self,
+        node_or_text: Union[Dict[str, Any], str],
+        conn: Optional[sqlite3.Connection] = None
+    ) -> List[float]:
+        """Returns 768D embedding vector for a node or text, using llm_cache where possible."""
+        if isinstance(node_or_text, dict):
+            node_id = node_or_text.get("id", "")
+            text_content = f"{node_or_text.get('name', '')} {node_or_text.get('description', '')} {node_or_text.get('content', '')}".strip()
+            cache_key = hashlib.sha256(f"{node_id}:{text_content}".encode("utf-8")).hexdigest()
+        else:
+            text_content = str(node_or_text).strip()
+            cache_key = hashlib.sha256(f"text:{text_content}".encode("utf-8")).hexdigest()
 
-        with self._get_connection() as conn:
-            row = conn.execute("SELECT embedding_json FROM llm_cache WHERE cache_key = ?", (cache_key,)).fetchone()
+        def _lookup_and_store(c: sqlite3.Connection) -> List[float]:
+            row = c.execute("SELECT embedding_json FROM llm_cache WHERE cache_key = ?", (cache_key,)).fetchone()
             if row and row["embedding_json"]:
                 try:
                     return json.loads(row["embedding_json"])
@@ -305,12 +327,17 @@ class SuperGraphLinker:
                     pass
 
             emb = self.embedder.get_embedding(text_content)
-            conn.execute(
+            c.execute(
                 "INSERT OR REPLACE INTO llm_cache (cache_key, text_content, embedding_json, created_at) VALUES (?, ?, ?, ?)",
                 (cache_key, text_content[:1000], json.dumps(emb), time.time())
             )
-            conn.commit()
             return emb
+
+        if conn is not None:
+            return _lookup_and_store(conn)
+        else:
+            with self._get_connection() as c:
+                return _lookup_and_store(c)
 
     def compute_hybrid_metric(
         self,
@@ -352,8 +379,9 @@ class SuperGraphLinker:
         if not ast_nodes or not wiki_nodes:
             return []
 
-        embeddings_u = {u["id"]: self.get_or_compute_embedding(u) for u in ast_nodes}
-        embeddings_v = {v["id"]: self.get_or_compute_embedding(v) for v in wiki_nodes}
+        with self._get_connection() as conn:
+            embeddings_u = {u["id"]: self.get_or_compute_embedding(u, conn=conn) for u in ast_nodes}
+            embeddings_v = {v["id"]: self.get_or_compute_embedding(v, conn=conn) for v in wiki_nodes}
 
         linked_edges = []
         for u in ast_nodes:
@@ -378,7 +406,7 @@ class SuperGraphLinker:
         """Persists nodes and edges into kg_nodes and kg_edges in vazus.db."""
         with self._get_connection() as conn:
             for n in nodes:
-                emb = self.get_or_compute_embedding(n)
+                emb = self.get_or_compute_embedding(n, conn=conn)
                 props = {
                     "source_file": n.get("source_file", ""),
                     "community": n.get("community", 0),
@@ -445,11 +473,11 @@ class SuperGraphLinker:
             db_edges = conn.execute("SELECT count(*) FROM kg_edges").fetchone()[0]
 
         return {
-            "layer_a_nodes": max(972, len(ast_nodes)),
-            "layer_b_nodes": max(6, len(wiki_nodes)),
+            "layer_a_nodes": len(ast_nodes),
+            "layer_b_nodes": len(wiki_nodes),
             "db_nodes_count": db_nodes,
             "db_edges_count": db_edges,
-            "total_edges": max(4855, db_edges)
+            "total_edges": db_edges
         }
 
     def run_supergraph_integration(self, threshold: float = 0.15) -> Dict[str, Any]:

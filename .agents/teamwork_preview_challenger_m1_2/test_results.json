@@ -1,0 +1,130 @@
+{
+  "db_reports": [
+    {
+      "db_path": "C:/vazus/vazus.db",
+      "exists": true,
+      "total_nodes": 937,
+      "media_scene_nodes": 10,
+      "nodes_domain_multimodal_av": 10,
+      "nodes_type_MediaScene": 10,
+      "embedding_json_valid_count": 10,
+      "embedding_dim_768_count": 10,
+      "embedding_dim_mismatch_count": 0,
+      "embedding_nan_or_inf_count": 0,
+      "total_edges": 1858,
+      "belongs_to_edges": 10,
+      "next_scene_edges": 9,
+      "errors": []
+    },
+    {
+      "db_path": "C:/vazus/services/memory/vazus.db",
+      "exists": true,
+      "total_nodes": 2034,
+      "media_scene_nodes": 10,
+      "nodes_domain_multimodal_av": 10,
+      "nodes_type_MediaScene": 10,
+      "embedding_json_valid_count": 10,
+      "embedding_dim_768_count": 10,
+      "embedding_dim_mismatch_count": 0,
+      "embedding_nan_or_inf_count": 0,
+      "total_edges": 7007,
+      "belongs_to_edges": 10,
+      "next_scene_edges": 9,
+      "errors": []
+    }
+  ],
+  "benchmarks": {
+    "1": {
+      "scene_count": 1,
+      "embed_time_sec": 0.00029,
+      "embed_scenes_per_sec": 3455.43,
+      "sqlite_write_time_sec": 0.03458,
+      "total_index_time_sec": 0.03487,
+      "total_scenes_per_sec": 28.68,
+      "nodes_written": 2,
+      "edges_written": 2
+    },
+    "10": {
+      "scene_count": 10,
+      "embed_time_sec": 0.00217,
+      "embed_scenes_per_sec": 4600.03,
+      "sqlite_write_time_sec": 0.05629,
+      "total_index_time_sec": 0.05847,
+      "total_scenes_per_sec": 171.04,
+      "nodes_written": 20,
+      "edges_written": 38
+    },
+    "50": {
+      "scene_count": 50,
+      "embed_time_sec": 0.01015,
+      "embed_scenes_per_sec": 4927.18,
+      "sqlite_write_time_sec": 0.16165,
+      "total_index_time_sec": 0.17179,
+      "total_scenes_per_sec": 291.05,
+      "nodes_written": 100,
+      "edges_written": 198
+    },
+    "100": {
+      "scene_count": 100,
+      "embed_time_sec": 0.01961,
+      "embed_scenes_per_sec": 5100.61,
+      "sqlite_write_time_sec": 0.3055,
+      "total_index_time_sec": 0.32511,
+      "total_scenes_per_sec": 307.59,
+      "nodes_written": 200,
+      "edges_written": 398
+    },
+    "250": {
+      "scene_count": 250,
+      "embed_time_sec": 0.0513,
+      "embed_scenes_per_sec": 4873.25,
+      "sqlite_write_time_sec": 0.68219,
+      "total_index_time_sec": 0.7335,
+      "total_scenes_per_sec": 340.83,
+      "nodes_written": 500,
+      "edges_written": 998
+    },
+    "500": {
+      "scene_count": 500,
+      "embed_time_sec": 0.10586,
+      "embed_scenes_per_sec": 4723.16,
+      "sqlite_write_time_sec": 1.37219,
+      "total_index_time_sec": 1.47805,
+      "total_scenes_per_sec": 338.28,
+      "nodes_written": 1000,
+      "edges_written": 1998
+    }
+  },
+  "edge_cases": [
+    {
+      "test": "Empty Transcript ('')",
+      "passed": true,
+      "details": "Indexed count: 1, schema errors: 0"
+    },
+    {
+      "test": "Unicode / Emoji / Special Chars",
+      "passed": true,
+      "details": "Indexed count: 1, schema errors: 0"
+    },
+    {
+      "test": "Large Transcript (110KB)",
+      "passed": true,
+      "details": "Indexed count: 1, schema errors: 0"
+    },
+    {
+      "test": "Single Scene (No Next Scene)",
+      "passed": true,
+      "details": "Indexed: 1, BELONGS_TO: 1, NEXT_SCENE: 0"
+    },
+    {
+      "test": "Re-indexing Idempotency (INSERT OR REPLACE)",
+      "passed": true,
+      "details": "Expected 5 distinct nodes after 2 index passes, found 5"
+    },
+    {
+      "test": "Real Media Scene Metadata Indexing (media_174.oga)",
+      "passed": true,
+      "details": "Indexed 2 scenes for real audio file, schema errors: 0"
+    }
+  ]
+}

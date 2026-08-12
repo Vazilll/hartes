@@ -1,116 +1,220 @@
-[
-  {
-    "name": "1.1 Vector Mismatch (768D vs 384D)",
-    "passed": true,
-    "details": "Returned cosine similarity = 0.0 (expected 0.0)",
-    "severity": "INFO"
-  },
-  {
-    "name": "1.2 Vector Mismatch (768D vs Empty Vector)",
-    "passed": true,
-    "details": "Returned cosine similarity = 0.0 (expected 0.0)",
-    "severity": "INFO"
-  },
-  {
-    "name": "1.3 Zero Vectors (768D zeros vs 768D zeros)",
-    "passed": true,
-    "details": "Returned cosine similarity = 0.0 (expected 0.0 without ZeroDivisionError)",
-    "severity": "INFO"
-  },
-  {
-    "name": "1.4 NaN Vector Handling",
-    "passed": true,
-    "details": "Returned similarity = 1.0 (math.isnan=False). Vulnerability: NaN propagates to similarity score!",
-    "severity": "INFO"
-  },
-  {
-    "name": "1.5 Inf Vector Handling",
-    "passed": true,
-    "details": "Returned similarity = 1.0 (math.isnan=False). Vulnerability: Inf propagates to similarity score!",
-    "severity": "INFO"
-  },
-  {
-    "name": "1.6 Overflow in Norm Calculation (1e200)",
-    "passed": true,
-    "details": "Returned similarity = 1.0 (expected 1.0)",
-    "severity": "INFO"
-  },
-  {
-    "name": "1.7 Corrupted Cache Dimension Fallback (384D in cache for 768D embedder)",
-    "passed": true,
-    "details": "Retrieved vector length = 768 (successfully ignored 384D cache entry)",
-    "severity": "INFO"
-  },
-  {
-    "name": "2.1 Node Attributes as None / Null",
-    "passed": true,
-    "details": "Handled cleanly: fts=0.0, struct=0.0, prov=0.5",
-    "severity": "INFO"
-  },
-  {
-    "name": "2.2 Provenance Baseline Score Bias",
-    "passed": false,
-    "details": "Unrelated nodes provenance score = 0.5. Flaw: Baseline hardcoded to 0.5 (+0.05 bonus to total score for ALL node pairs)",
-    "severity": "MEDIUM"
-  },
-  {
-    "name": "2.3 Large Text Input to FTS Similarity (100KB input)",
-    "passed": true,
-    "details": "FTS score = 1.0, execution time = 0.0324s",
-    "severity": "INFO"
-  },
-  {
-    "name": "2.4 Hybrid Score Bounds Check (Max scenario)",
-    "passed": true,
-    "details": "Total score = 0.9299999999999999 (components: cosine=0.9999999999999999, fts=1.0, struct=0.8, prov=0.7)",
-    "severity": "INFO"
-  },
-  {
-    "name": "3. Benchmark Linker Scale (10 AST x 5 Wiki = 50 pairs)",
-    "passed": true,
-    "details": "Linked 50 edges in 0.0620s (807.0 pair-evals/sec)",
-    "severity": "INFO"
-  },
-  {
-    "name": "3. Benchmark Linker Scale (50 AST x 10 Wiki = 500 pairs)",
-    "passed": true,
-    "details": "Linked 500 edges in 0.2752s (1816.7 pair-evals/sec)",
-    "severity": "INFO"
-  },
-  {
-    "name": "3. Benchmark Linker Scale (100 AST x 20 Wiki = 2000 pairs)",
-    "passed": true,
-    "details": "Linked 2000 edges in 0.8354s (2393.9 pair-evals/sec)",
-    "severity": "INFO"
-  },
-  {
-    "name": "3.4 SQLite Indices Verification",
-    "passed": true,
-    "details": "Found indices: {'idx_kg_edges_source', 'idx_kg_nodes_domain', 'sqlite_autoindex_kg_nodes_1', 'idx_kg_edges_target', 'sqlite_autoindex_kg_edges_1', 'sqlite_autoindex_llm_cache_1'}",
-    "severity": "INFO"
-  },
-  {
-    "name": "4.1 SQL Injection Resilience in kg_edges",
-    "passed": true,
-    "details": "SQL Injection string safely escaped. Table exists (check=1), inserted row count=1",
-    "severity": "INFO"
-  },
-  {
-    "name": "4.2 Primary Key (source, target, relation) Upsert Handling",
-    "passed": true,
-    "details": "Upsert successfully updated strength to 0.95 and properties to {\"updated\": true}",
-    "severity": "INFO"
-  },
-  {
-    "name": "4.3 SQLite Insertion of NaN Strength Value",
-    "passed": false,
-    "details": "Retrieved strength for NaN input: None. SQLite stores NaN as float NaN without validation!",
-    "severity": "MEDIUM"
-  },
-  {
-    "name": "4.4 Extremely Long Primary Keys (5KB ID, 50KB Payload)",
-    "passed": true,
-    "details": "Successfully inserted and retrieved long keys: source_id len=5000, properties len=50015",
-    "severity": "INFO"
+{
+  "cli_tests": [
+    {
+      "name": "Empty Query",
+      "args": [
+        "--query",
+        "",
+        "--json"
+      ],
+      "returncode": 0,
+      "latency_ms": 6286.86,
+      "valid_json": true,
+      "result_count": 5,
+      "status": "PASS",
+      "stdout_snippet": "[   {     \"rank\": 1,     \"id\": \"scene_synth_empty_transcript.mp4_0000\",     \"node_type\": \"MediaScene\",     \"domain\": \"multimodal_av\",     \"name\": \"Scene 1 (00:00 - 02:00) - empty_transcript.mp4\",     ",
+      "stderr_snippet": "[Embedder] GenAI Embedding fallback due to: 400 INVALID_ARGUMENT. {'error': {'code': 400, 'message': 'EmbedContentRequest.content contains an empty Part.', 'status': 'INVALID_ARGUMENT'}} "
+    },
+    {
+      "name": "Special Characters",
+      "args": [
+        "--query",
+        "!@#$%^&*()_+-=[]{}|;:',.<>?/~`",
+        "--json"
+      ],
+      "returncode": 0,
+      "latency_ms": 6196.9,
+      "valid_json": true,
+      "result_count": 5,
+      "status": "PASS",
+      "stdout_snippet": "[   {     \"rank\": 1,     \"id\": \"scene_8a0007b6c08c\",     \"node_type\": \"MediaScene\",     \"domain\": \"multimodal_av\",     \"name\": \"Scene 1 (00:00 - 00:07) - Закрытие_msg29.mp4\",     \"similarity\": 0.7231,",
+      "stderr_snippet": ""
+    },
+    {
+      "name": "Cyrillic Text",
+      "args": [
+        "--query",
+        "нейросеть и мультимодальный поиск",
+        "--json"
+      ],
+      "returncode": 0,
+      "latency_ms": 6091.35,
+      "valid_json": true,
+      "result_count": 5,
+      "status": "PASS",
+      "stdout_snippet": "[   {     \"rank\": 1,     \"id\": \"scene_test001\",     \"node_type\": \"MediaScene\",     \"domain\": \"multimodal_av\",     \"name\": \"Scene 1 (00:00 - 01:55) - lesson1.mp4\",     \"similarity\": 0.7168,     \"title\"",
+      "stderr_snippet": ""
+    },
+    {
+      "name": "Long Query",
+      "args": [
+        "--query",
+        "vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus vazus ",
+        "--json"
+      ],
+      "returncode": 0,
+      "latency_ms": 6278.75,
+      "valid_json": true,
+      "result_count": 5,
+      "status": "PASS",
+      "stdout_snippet": "[   {     \"rank\": 1,     \"id\": \"scene_8a0007b6c08c\",     \"node_type\": \"MediaScene\",     \"domain\": \"multimodal_av\",     \"name\": \"Scene 1 (00:00 - 00:07) - Закрытие_msg29.mp4\",     \"similarity\": 0.6514,",
+      "stderr_snippet": ""
+    },
+    {
+      "name": "High Top-K",
+      "args": [
+        "--query",
+        "test",
+        "--top-k",
+        "100",
+        "--json"
+      ],
+      "returncode": 0,
+      "latency_ms": 6192.01,
+      "valid_json": true,
+      "result_count": 100,
+      "status": "PASS",
+      "stdout_snippet": "[   {     \"rank\": 1,     \"id\": \"scene_8a0007b6c08c\",     \"node_type\": \"MediaScene\",     \"domain\": \"multimodal_av\",     \"name\": \"Scene 1 (00:00 - 00:07) - Закрытие_msg29.mp4\",     \"similarity\": 0.7214,",
+      "stderr_snippet": ""
+    },
+    {
+      "name": "Human Readable CLI Output",
+      "args": [
+        "--query",
+        "test",
+        "--top-k",
+        "2"
+      ],
+      "returncode": 0,
+      "latency_ms": 6043.91,
+      "valid_json": "N/A",
+      "result_count": 0,
+      "status": "PASS",
+      "stdout_snippet": " ==================================================  vazus SuperGraph OS — Multimodal Knowledge Chat  Query: 'test' (2 matches found) ==================================================  [1] [MediaScen",
+      "stderr_snippet": ""
+    }
+  ],
+  "mcp_tests": [
+    {
+      "name": "search_multimodal_knowledge",
+      "latency_ms": 5979.87,
+      "status": "PASS"
+    },
+    {
+      "name": "get_media_scene_details",
+      "latency_ms": 0.72,
+      "status": "PASS"
+    },
+    {
+      "name": "stream_video_segment_info",
+      "latency_ms": 0.36,
+      "status": "PASS"
+    }
+  ],
+  "dashboard_tests": [
+    {
+      "endpoint": "GET /",
+      "status_code": 200,
+      "latency_ms": 22.33,
+      "content_type": "text/html; charset=utf-8",
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/stats",
+      "status_code": 200,
+      "latency_ms": 76.77,
+      "response": {
+        "kg_nodes": 5857,
+        "kg_edges": 7628,
+        "MediaScene": 946,
+        "TelegramMessage": 4906,
+        "embedded_count": 5857
+      },
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/search?query=тест",
+      "status_code": 200,
+      "latency_ms": 3921.31,
+      "matches": 5,
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/stream (Range 0-1023)",
+      "status_code": 206,
+      "latency_ms": 3.33,
+      "content_range": "bytes 0-1023/10001",
+      "received_bytes": 1024,
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/stream (Range 99999-100000)",
+      "status_code": 416,
+      "latency_ms": 2.54,
+      "content_range": "bytes */10001",
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/stream (Range 500-100)",
+      "status_code": 416,
+      "latency_ms": 3.14,
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/stream (Non-existent)",
+      "status_code": 404,
+      "latency_ms": 2.5,
+      "pass": true
+    },
+    {
+      "endpoint": "GET /api/v1/knowledge/thumbnail",
+      "status_code": 200,
+      "latency_ms": 4.7,
+      "content_type": "image/jpeg",
+      "size_bytes": 5000,
+      "pass": true
+    }
+  ],
+  "security_tests": [
+    {
+      "payload": "../../Windows/win.ini",
+      "status_code": 200,
+      "vulnerable": true,
+      "details": "File contents returned (Arbitrary File Read!)"
+    },
+    {
+      "payload": "..\\..\\Windows\\win.ini",
+      "status_code": 200,
+      "vulnerable": true,
+      "details": "File contents returned (Arbitrary File Read!)"
+    },
+    {
+      "payload": "C:/Windows/win.ini",
+      "status_code": 200,
+      "vulnerable": true,
+      "details": "File contents returned (Arbitrary File Read!)"
+    },
+    {
+      "payload": "....//....//Windows/win.ini",
+      "status_code": 404,
+      "vulnerable": false,
+      "details": "Request rejected or file not accessed"
+    },
+    {
+      "payload": "%2e%2e%2f%2e%2e%2fWindows%2fwin.ini",
+      "status_code": 200,
+      "vulnerable": true,
+      "details": "File contents returned (Arbitrary File Read!)"
+    }
+  ],
+  "concurrency_benchmark": {
+    "total_requests": 50,
+    "total_time_sec": 0.52,
+    "throughput_rps": 95.59,
+    "success_rate_pct": 74.0,
+    "avg_latency_ms": 82.69,
+    "p50_latency_ms": 6.27,
+    "p95_latency_ms": 331.3,
+    "max_latency_ms": 507.44
   }
-]
+}

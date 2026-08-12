@@ -1,0 +1,169 @@
+{
+  "timestamp": "2026-07-22T20:58:16Z",
+  "total": 19,
+  "passed": 19,
+  "failed": 0,
+  "elapsed_sec": 77.57,
+  "requirement_breakdown": {
+    "R1": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "R2": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0
+    },
+    "R3": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0
+    },
+    "R4": {
+      "total": 3,
+      "passed": 3,
+      "failed": 0
+    },
+    "R5": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0
+    }
+  },
+  "results": [
+    {
+      "req_id": "R1",
+      "suite": "Vector_Space_768D",
+      "name": "UnifiedGoogleEmbedder 768D Output Consistency",
+      "passed": true,
+      "details": "All test queries produced exact 768D float vectors"
+    },
+    {
+      "req_id": "R1",
+      "suite": "Vector_Space_768D",
+      "name": "SuperGraphLinker Edge Generation & Threshold Check",
+      "passed": true,
+      "details": "Generated 1 link edges"
+    },
+    {
+      "req_id": "R1",
+      "suite": "Vector_Space_768D",
+      "name": "SQLite Database Required Tables Check",
+      "passed": true,
+      "details": "Found tables: ['compressed_context_cache', 'raytsystem_ledger', 'workspace_ast_nodes', 'workspace_ast_edges', 'subagent_dialogues', 'subagent_memory_traces', 'llm_cache', 'kg_nodes', 'kg_edges', 'dialogue_traces'], Missing: []"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "GET /api/v1/universe 200 OK & Schema Integrity",
+      "passed": true,
+      "details": "Status: 200, Snapshot ID: graph_84d46afdbd2326ae8ed4288595dcf60cd917747dbcf8f18eab34fae2fd44a317, Nodes: 5392, Edges: 22876"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "GET /api/v1/ledger 200 OK & Array Structure",
+      "passed": true,
+      "details": "Status: 200, Ledger records count: 100"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "GET /api/v1/full-graph 200 OK & Topology Schema",
+      "passed": true,
+      "details": "Status: 200, Nodes: 5000, Links: 10813"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "GET /api/v1/system 200 OK & Fingerprint Schema",
+      "passed": true,
+      "details": "Status: 200, Snapshot ID: view_b48a6469fc041179462d2440de7aa3bb26bb052428c587bf8e20c62d06fde398"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "GET /api/v1/stream/universe SSE Stream Endpoint",
+      "passed": true,
+      "details": "Status: 200, Content-Type: text/event-stream; charset=utf-8, Initial line: data: {\"type\": \"connection\", \"status\": \"connected\", \"timesta"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "50 Parallel HTTP Concurrent Requests Stress Test",
+      "passed": true,
+      "details": "Processed 50 concurrent requests in 27.223s, Success rate: 50/50"
+    },
+    {
+      "req_id": "R2",
+      "suite": "WebServer_Endpoints",
+      "name": "Adversarial Invalid Params & Path Traversal Handling",
+      "passed": true,
+      "details": "Statuses: ledger?limit=-999 -> 200, path_traversal -> 404, invalid_node -> 422"
+    },
+    {
+      "req_id": "R3",
+      "suite": "Subagent_Bridges_Ledger",
+      "name": "subagent_rlm_bridge.py Dry-Run Execution",
+      "passed": true,
+      "details": "Exit code: 0"
+    },
+    {
+      "req_id": "R3",
+      "suite": "Subagent_Bridges_Ledger",
+      "name": "subagent_research_bridge.py Dry-Run Execution",
+      "passed": true,
+      "details": "Exit code: 0"
+    },
+    {
+      "req_id": "R3",
+      "suite": "Subagent_Bridges_Ledger",
+      "name": "subagent_verifier_bridge.py Execution",
+      "passed": true,
+      "details": "Exit code: 0"
+    },
+    {
+      "req_id": "R3",
+      "suite": "Subagent_Bridges_Ledger",
+      "name": "RaytSwarm Handoff Ledger Table Recording",
+      "passed": true,
+      "details": "Recorded and verified ledger entry ID: test_m5_handoff_1784753892"
+    },
+    {
+      "req_id": "R4",
+      "suite": "SMT_Z3_Contract_Verification",
+      "name": "Z3 PyTorch/Python Solver SAT Verification",
+      "passed": true,
+      "details": "Z3 Check: sat, x=9, y=1"
+    },
+    {
+      "req_id": "R4",
+      "suite": "SMT_Z3_Contract_Verification",
+      "name": "Z3 Solver UNSAT Contract Violation Detection",
+      "passed": true,
+      "details": "Z3 UNSAT Check: unsat"
+    },
+    {
+      "req_id": "R4",
+      "suite": "SMT_Z3_Contract_Verification",
+      "name": "subagent_verifier_bridge.py --verify-smt CLI Flag Test",
+      "passed": true,
+      "details": "Exit code: 0"
+    },
+    {
+      "req_id": "R5",
+      "suite": "Dialogue_Persistence_WikiNote",
+      "name": "Dialogue Traces Database Persistence in dnts.db",
+      "passed": true,
+      "details": "Persisted trace ID: trace_m5_1784753896"
+    },
+    {
+      "req_id": "R5",
+      "suite": "Dialogue_Persistence_WikiNote",
+      "name": "Obsidian Wiki Note Generation & [[WikiLink]] Integrity",
+      "passed": true,
+      "details": "Note created at: C:\\vazus\\memory\\semantic\\wiki\\_m5_stress_test_note.md"
+    }
+  ]
+}

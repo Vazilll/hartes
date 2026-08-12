@@ -1,16 +1,13 @@
-## 2026-07-22T14:17:53Z
-You are Reviewer 1 for Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration) of DNTS OS SuperGraph Architecture Integration.
+## 2026-07-24T13:01:26Z
+<USER_REQUEST>
+You are Reviewer 1 for Milestone 3 (R3: Automated Zettelkasten Obsidian Wiki Exporter).
 Working directory: C:\vazus\.agents\teamwork_preview_reviewer_m3_1
-Project root: C:\vazus
+Target project: C:\vazus
 
 Task:
-Review and verify R2 implementation:
-1. Inspect `C:\vazus\pyenv\dnts_core\supergraph_linker.py` and `C:\vazus\pyenv\scripts\test_supergraph_integration.py`.
-2. Verify integration of 768D Google Gemini Embeddings (`UnifiedGoogleEmbedder`).
-3. Verify 4-component hybrid metric formula: S(u,v) = 0.45 * S_cosine + 0.25 * S_fts + 0.20 * S_structural + 0.10 * S_provenance.
-4. Verify database persistence in `C:\vazus\services\memory\vazus.db` (`kg_nodes`, `kg_edges`, `llm_cache`).
-5. Execute verification commands in `C:\vazus\pyenv\.venv`:
-   `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
-   `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py`
-
-Write your review report to C:\vazus\.agents\teamwork_preview_reviewer_m3_1\handoff.md and state your verdict (PASS or VETO). Notify parent via send_message when finished.
+1. Review implementation in `C:\vazus\vazus_core\zettelkasten_exporter.py` and unit test suite `C:\vazus\tests\test_zettelkasten_exporter.py`.
+2. Verify YAML frontmatter generation (7 mandatory keys), H1 Title, 4 H2 Sections (`Core Claim/Protocol`, `Analytical Evidence & Context`, `Action Checklist`, `Related Notes & Wikilinks`), at least 3 [[Wikilinks]] per note, and `SuperGraphLinker` auto-reindexing integration.
+3. Run the unit test suite: `python -m unittest tests/test_zettelkasten_exporter.py`.
+4. Document all findings and test results in `C:\vazus\.agents\teamwork_preview_reviewer_m3_1\handoff.md`.
+5. Send report and verdict (APPROVED / VETO) to parent via send_message.
+</USER_REQUEST>

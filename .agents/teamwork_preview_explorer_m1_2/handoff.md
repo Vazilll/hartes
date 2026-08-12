@@ -1,174 +1,71 @@
-# Handoff Report: R2 — Unified SuperGraph & 768D Embeddings Integration Investigation
+# Handoff Report — Milestone 1 (R1: High-Precision ASR Upgrade)
 
-**Agent**: Explorer 2 (Milestone 1)  
-**Working Directory**: `C:\vazus\.agents\teamwork_preview_explorer_m1_2`  
-**Project Root**: `C:\vazus`  
-**Date**: 2026-07-22  
+**Agent**: Explorer 2  
+**Target Module**: `C:\vazus\vazus_core\multimodal_knowledge.py`  
+**Master Spec**: `C:\vazus\.agents\orchestrator\PROJECT.md`  
 
 ---
 
 ## 1. Observation
 
-Direct observations from source code, filesystem state, configuration, and verification executions:
-
-### 1.1 Embeddings Module (`C:\vazus\pyenv\dnts_core\embeddings.py` & `config.py`)
-- **File Location**: `C:\vazus\pyenv\dnts_core\embeddings.py` (43 lines) and configuration in `C:\vazus\pyenv\dnts_core\config.py` (29 lines).
-- **Gemini Embedding Model**: In `config.py` (Line 19): `EMBEDDING_MODEL_LOCAL: str = "google/embeddinggemma-300m"`.
-- **Vector Dimension**: In `config.py` (Line 18): `EMBEDDING_DIM: int = 768`.
-- **Execution Mode**: Pure portless in-process local execution. Zero HTTP server sockets or network calls.
-  - Class `UnifiedGoogleEmbedder` in `embeddings.py`:
-    ```python
-    class UnifiedGoogleEmbedder:
-        def __init__(self):
-            self.dim = settings.EMBEDDING_DIM # 768
-            self._local_model = None
-
-        def _init_local(self):
-            if self._local_model is None:
-                try:
-                    from sentence_transformers import SentenceTransformer
-                    self._local_model = SentenceTransformer(settings.EMBEDDING_MODEL_LOCAL)
-                except Exception:
-                    self._local_model = "fallback"
-
-        def embed_query(self, text: str) -> List[float]:
-            self._init_local()
-            if self._local_model != "fallback":
-                vec = self._local_model.encode(text, normalize_embeddings=True)
-                return vec.tolist()
-            # Deterministic 768-dim SHA256 fallback
-            hash_bytes = hashlib.sha256(text.encode("utf-8")).digest()
-            vec = [float((b % 100) / 100.0) for b in (hash_bytes * 24)[:self.dim]]
-            return vec
-    ```
-- **Tests**:
-  - `C:\vazus\pyenv\tests\test_dnts_system.py` (Lines 35-39):
-    ```python
-    from dnts_core.embeddings import UnifiedGoogleEmbedder
-    embedder = UnifiedGoogleEmbedder()
-    vec = embedder.embed_query("def dnts_kernel_test(): return 'Google DeepMind Portless'")
-    assert len(vec) == 768, f"Ошибка! Ожидалось 768, получено {len(vec)}"
-    ```
-
-### 1.2 Karpathy Memory Wiki & Database Schema (`C:\vazus\services\memory\semantic\wiki` & `vazus.db`)
-- **Memory Wiki Path**: `C:\vazus\services\memory\semantic\wiki\` containing 5 markdown files:
-  1. `AI_Lessons_and_Mistakes.md`: 5.2 KB timestamped memory log (`- **[2026-05-24 03:58]**: ...`, rules, lessons, vision benchmark results, agent reliability improvements).
-  2. `Dialog_Context.md`: 194 bytes chat interaction context with timestamps.
-  3. `auto_test_insights.md`: Automated test execution logs.
-  4. `system_test_insights.md`: System test insights.
-  5. `test_insights.md`: General test execution insights.
-- **Graph Database Schema**: In `C:\vazus\pyenv\gomcp\tools\db.go` and SQLite database `C:\vazus\services\memory\vazus.db`:
-  - `kg_nodes` table schema (Lines 635-661 in `db.go`): `id` (TEXT PRIMARY KEY), `name`, `domain`, `node_type`, `description`, `difficulty`, `mastery_level`, `tags`, `properties`, `source_file`, `source_url`, `fts_tokens`.
-  - `kg_edges` table schema (Lines 668-680 in `db.go`): `id` (SERIAL/INTEGER PRIMARY KEY), `source_id`, `target_id`, `relation`, `strength` (REAL weight), `properties`.
-  - `llm_cache` table: includes `embedding BLOB DEFAULT NULL` column for 768D semantic caching.
-
-### 1.3 OpenVINO NPU Setup & Verification (`C:\vazus\verify_ov_npu.py`)
-- **File Location**: `C:\vazus\verify_ov_npu.py` (22 lines).
-- **Imports**: `import sys`, `import openvino as ov`.
-- **Execution Output**: Command executed via `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py`:
+- **Primary Target File**: `C:\vazus\vazus_core\multimodal_knowledge.py` (451 lines).
+- **Interface Contract (`PROJECT.md` line 25)**:
+  ```python
+  transcribe_media_high_precision(file_path: str, model_name: str = "large-v3-turbo") -> List[Dict]
   ```
-  Python version: 3.12.10 (tags/v3.12.10:0cc8128, Apr 8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
-  OpenVINO version: 2026.2.1-21919-ede283a88e3-releases/2026/2
-
-  Available OpenVINO Devices:
-   - CPU: Intel(R) Core(TM) Ultra 5 125U
-   - GPU: Intel(R) Graphics (iGPU)
-   - NPU: Intel(R) AI Boost
-
-  [VERIFIED] OpenVINO runtime detects Intel NPU acceleration!
-  ```
+  *Includes Russian speech normalization and garbage/hallucination transcript filtering.*
+- **Current File State (`multimodal_knowledge.py`)**:
+  - `transcribe_media_high_precision` is **missing** from `multimodal_knowledge.py`.
+  - Line 24: `get_whisper_model(model_size: str = "tiny", device: str = "cpu", compute_type: str = "int8")` uses `"tiny"` by default.
+  - Line 153: `transcribe_and_chunk_media` calls `get_whisper_model("tiny", device="cpu", compute_type="int8")` and `model.transcribe(file_path, beam_size=1)` without `vad_filter`, `language="ru"`, text normalization, or hallucination filtering.
+  - Line 70-72: Audio extension check handles `.mp3`, `.oga`, `.m4a`, `.ogg`, `.wav`, `.flac`, but non-media files or unreadable streams need clean error handling.
+- **Environment Verification**:
+  - Task execution confirmed `faster_whisper` 1.2.1, `torch` 2.13.0+cpu, and `openvino` 2026.2.1 are installed in `C:\vazus\.venv`.
 
 ---
 
 ## 2. Logic Chain
 
-1. **In-Process 768D Vector Economy**:
-   - Observations 1.1 and 1.3 show that `UnifiedGoogleEmbedder` utilizes `google/embeddinggemma-300m` yielding 768D embeddings with normalized outputs in pure Python local runtime.
-   - The OpenVINO 2026.2.1 engine provides active Intel NPU (`Intel(R) AI Boost`) acceleration, enabling local sub-millisecond 768D embedding generation and ONNX/OpenVINO model offloading on CPU/NPU without cloud latency or socket overhead.
-
-2. **Dual-Layer SuperGraph Topology**:
-   - Layer A (AST Code Topology): Generated by `Graphify` / `codebase-memory-mcp` (stored in `pyenv/gomcp/graphify-out/graph.json` with 32k+ lines of structural code nodes: functions, main entry points, files, imports, calls).
-   - Layer B (Karpathy Memory Wiki & Knowledge): High-level Markdown notes in `memory/semantic/wiki/` mapped into SQLite `kg_nodes` / `kg_edges` in `vazus.db`.
-
-3. **Bridging Layer A & Layer B via Hybrid Node-Linking Metric**:
-   - To link AST nodes ($u \in V_{\text{AST}}$) with Memory Wiki nodes ($v \in V_{\text{Wiki}}$), a hybrid metric $S(u, v)$ is formulated combining vector semantic proximity, FTS search, graph topology, and temporal provenance.
+1. **Observation**: `transcribe_media_high_precision` is required by `PROJECT.md` contract for Milestone 1, but is not defined in `vazus_core/multimodal_knowledge.py`.
+   - **Inference**: Implementer must add `transcribe_media_high_precision` as the top-level high-precision function, while maintaining `transcribe_and_chunk_media` as a wrapper.
+2. **Observation**: Currently, Whisper model defaults to `"tiny"` with `beam_size=1` and `vad_filter=False`.
+   - **Inference**: Timestamp accuracy and word boundaries suffer from silence drift and low model capacity. Upgrading to `"large-v3-turbo"`/`"medium"` with `vad_filter=True` and `vad_parameters=dict(min_silence_duration_ms=500)` will eliminate silence timestamps and improve segment `start_sec` and `end_sec` alignment.
+3. **Observation**: No text cleaning or hallucination checks are applied to segment text.
+   - **Inference**: Implementer must add `normalize_russian_text()` to strip bracketed noise tags (`[МУЗЫКА]`) and `is_garbage_transcript()` to filter repetitive hallucinated phrases (`"Субтитры создал..."`, `"да да да..."`).
+4. **Observation**: Model loading hardcodes a single size without automatic memory/download failure handling.
+   - **Inference**: Implement `get_whisper_model_with_fallback(preferred_model="large-v3-turbo")` to seamlessly attempt `"large-v3-turbo"` -> `"medium"` -> `"small"` -> `"tiny"`.
 
 ---
 
-## 3. Hybrid Node-Linking Metric Specification (R2 Integration Design)
+## 3. Caveats
 
-### 3.1 Mathematical Formula
-
-The hybrid cross-layer edge similarity metric $S(u, v) \in [0, 1]$ between AST node $u$ and Wiki node $v$ is defined as:
-
-$$S(u, v) = \alpha \cdot S_{\text{cosine}}(E(u), E(v)) + \beta \cdot S_{\text{FTS}}(u, v) + \gamma \cdot S_{\text{structural}}(u, v) + \delta \cdot S_{\text{provenance}}(u, v)$$
-
-Where weights satisfy $\alpha + \beta + \gamma + \delta = 1.0$:
-- $\alpha = 0.45$ (768D Dense Vector Cosine Similarity)
-- $\beta = 0.25$ (SQLite FTS5 / BM25 Text Overlap)
-- $\gamma = 0.20$ (Graphify Shortest Path Structural Proximity)
-- $\delta = 0.10$ (Git Provenance Temporal Co-location)
-
-### 3.2 Metric Components Detail
-
-1. **768D Vector Cosine Similarity ($S_{\text{cosine}}$)**:
-   $$S_{\text{cosine}}(E(u), E(v)) = \max\left(0, \frac{E(u) \cdot E(v)}{\|E(u)\| \|E(v)\|}\right)$$
-   $E(u)$ is generated by `UnifiedGoogleEmbedder` over AST symbol docstrings/signatures. $E(v)$ is generated over Memory Wiki content.
-
-2. **FTS5 Full-Text Overlap ($S_{\text{FTS}}$)**:
-   $$S_{\text{FTS}}(u, v) = \frac{|\text{Tokens}(u) \cap \text{Tokens}(v)|}{\sqrt{|\text{Tokens}(u)| \cdot |\text{Tokens}(v)|}}$$
-   Computes token match between code AST labels/paths and Wiki markdown keywords.
-
-3. **Structural AST Distance ($S_{\text{structural}}$)**:
-   $$S_{\text{structural}}(u, v) = \begin{cases} \frac{1}{1 + d_{\text{AST}}(u, f_v)} & \text{if Wiki node } v \text{ references file } f_v \\ 0 & \text{otherwise} \end{cases}$$
-   Where $d_{\text{AST}}$ is shortest path distance in Graphify AST call-graph.
-
-4. **Git Provenance Co-location ($S_{\text{provenance}}$)**:
-   $$S_{\text{provenance}}(u, v) = \exp(-\lambda \cdot |\Delta t|)$$
-   Where $\Delta t$ is timestamp difference between code commit modification and wiki entry creation.
-
-### 3.3 Graph Database Insertion Rule
-
-When $S(u, v) \ge \Theta_{\text{threshold}}$ (default $\Theta = 0.65$), an edge is inserted into `kg_edges`:
-```sql
-INSERT INTO kg_edges (source_id, target_id, relation, strength, properties)
-VALUES (v.id, u.id, 'explains_ast', S(u,v), json_object('alpha_cosine', cosine_val, 'fts_score', fts_val))
-ON CONFLICT(source_id, target_id, relation) DO UPDATE SET strength=excluded.strength;
-```
+- **Model Download**: First invocation of `"large-v3-turbo"` will trigger `faster_whisper` downloading the model weights (~1.5 GB) from HuggingFace to local cache (`~/.cache/huggingface/hub`). Ensure network connectivity or rely on fallback cascade if offline.
+- **CPU Speed**: On low-core CPUs, `large-v3-turbo` with `beam_size=5` can take longer per audio minute than `beam_size=1`. Implementer should allow `beam_size` parameter configuration.
 
 ---
 
-## 4. Caveats
+## 4. Conclusion
 
-1. **Local Model Package Requirement**: `sentence-transformers` must be present in `C:\vazus\pyenv\.venv` for full transformer embedding generation; if missing, `embeddings.py` smoothly falls back to deterministic SHA256 768D vectors without crashing.
-2. **OpenVINO NPU Model Warmup**: While OpenVINO runtime detects Intel NPU (`Intel(R) AI Boost`), initial model compilation for NPU target takes a short warmup period during startup.
-
----
-
-## 5. Conclusion
-
-1. `dnts_core.embeddings` is verified as a portless, in-process 768D vector engine configured for `google/embeddinggemma-300m`.
-2. Karpathy Memory Wiki in `memory/semantic/wiki` stores structured Markdown knowledge, backed by `kg_nodes` and `kg_edges` tables in SQLite `vazus.db`.
-3. OpenVINO 2026.2.1 environment actively recognizes Intel NPU hardware acceleration (`Intel(R) AI Boost`).
-4. A complete 4-component hybrid node-linking metric formula $S(u,v)$ has been designed to link Graphify AST Code Topology and Karpathy Memory Wiki.
+`multimodal_knowledge.py` requires an upgrade to implement `transcribe_media_high_precision` matching the master contract spec. This upgrade requires:
+1. Adding `normalize_russian_text()` and `is_garbage_transcript()`.
+2. Implementing cascading model fallback (`large-v3-turbo` -> `medium` -> `small` -> `tiny`).
+3. Adding `transcribe_media_high_precision()` with `vad_filter=True`, `compute_type="int8"`, `cpu_threads=4`, and `language="ru"`.
+4. Updating `transcribe_and_chunk_media()` to route through `transcribe_media_high_precision()` for backward compatibility.
 
 ---
 
-## 6. Verification Method
+## 5. Verification Method
 
-To independently verify these findings:
+To verify the implementation once applied:
 
-1. **Verify OpenVINO NPU Detection**:
-   ```powershell
-   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\verify_ov_npu.py
+1. **Contract Signature & Imports**:
+   ```cmd
+   C:\vazus\.venv\Scripts\python.exe -c "from vazus_core.multimodal_knowledge import transcribe_media_high_precision, transcribe_and_chunk_media; print('Import successful!')"
    ```
-   *Expected result*: Displays OpenVINO 2026.2.1, CPU, GPU, NPU devices, and `[VERIFIED] OpenVINO runtime detects Intel NPU acceleration!`.
-
-2. **Verify 768D Embeddings & System Integration Test**:
-   ```powershell
-   C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py
+2. **High-Precision Transcription Test**:
+   ```cmd
+   C:\vazus\.venv\Scripts\python.exe -c "from vazus_core.multimodal_knowledge import transcribe_media_high_precision; res = transcribe_media_high_precision(r'C:\vazus\knowledge\telegram_courses\Курс _Покоритель Наташек 6_0_\media_174.oga', model_name='large-v3-turbo'); print(f'Generated {len(res)} scenes'); print(res[0] if res else 'No scenes')"
    ```
-   *Expected result*: All 5 tests pass, confirming `EMBEDDING_DIM == 768` and `len(vec) == 768`.
-
-3. **Inspect Handoff Artifact**:
-   Read `C:\vazus\.agents\teamwork_preview_explorer_m1_2\handoff.md`.
+3. **Validation Invalidation Criteria**:
+   - If `transcribe_media_high_precision` fails to return scenes or throws `AttributeError`/`ImportError`.
+   - If hallucinated subtitle lines are preserved in the final transcript.

@@ -1,15 +1,16 @@
-## 2026-07-22T13:23:46Z
-<USER_REQUEST>
-You are Explorer 2 for Milestone 1 of DNTS OS SuperGraph Architecture Integration.
+## 2026-07-24T12:24:03Z
+You are Explorer 2 for Milestone 1 (R1: High-Precision ASR Upgrade).
 Working directory: C:\vazus\.agents\teamwork_preview_explorer_m1_2
-Project root: C:\vazus
+Project master spec: C:\vazus\.agents\orchestrator\PROJECT.md
 
 Task:
-Investigate 768D Embeddings and Memory Graph structure for R2 (Unified SuperGraph & 768D Embeddings Integration):
-1. Inspect C:\vazus\pyenv\dnts_core\embeddings.py - analyze Gemini embedding model, dimension (768D), API calls/local execution, functions, and tests.
-2. Inspect C:\vazus\services\memory\semantic\wiki - check format, files, metadata, and graph structure.
-3. Inspect C:\vazus\verify_ov_npu.py - check OpenVINO NPU setup, imports, execution requirements.
-4. Identify how codebase-memory-mcp (Graphify AST Code Topology) and 768D embeddings can be linked with Karpathy Memory Wiki using hybrid node-linking metric.
+Analyze `C:\vazus\vazus_core\multimodal_knowledge.py` and existing scene chunking & indexing functions in `vazus_core`.
 
-Write your detailed handoff report to C:\vazus\.agents\teamwork_preview_explorer_m1_2\handoff.md following the Handoff Protocol. Also update progress.md in your working directory. Notify the parent orchestrator via send_message when finished.
-</USER_REQUEST>
+Focus areas for Explorer 2:
+1. Timestamp alignment: ensure high-precision ASR (`large-v3-turbo`/`medium`) produces accurate `start_sec` and `end_sec` timestamps per scene segment.
+2. Performance optimization: CPU execution parameters (threads, beam_size, vad_filter, compute_type="int8" or "float32").
+3. Error handling & fallbacks: handling non-audio files, corrupted audio streams, fallback from `large-v3-turbo` to `medium` or `small` if model weights/memory constraints occur.
+4. Interface contract verification: verify `transcribe_and_chunk_media` and `transcribe_media_high_precision` signatures match `PROJECT.md`.
+
+Write your findings and implementation recommendation to `C:\vazus\.agents\teamwork_preview_explorer_m1_2\analysis.md` and `handoff.md`.
+Send a completion message back to parent.

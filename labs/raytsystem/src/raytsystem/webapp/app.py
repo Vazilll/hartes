@@ -1464,19 +1464,44 @@ def create_app(
     @app.get("/api/v1/ledger")
     def get_ledger(limit: int = 100) -> dict[str, Any]:
         import sqlite3
-        db_path = Path("C:/vazus/memory/dnts.db")
-        if not db_path.is_file():
-            return {"ledger": []}
-        try:
-            with sqlite3.connect(db_path) as conn:
+        db_paths = [
+            Path("C:/vazus/services/memory/vazus.db"),
+            Path("C:/vazus/memory/vazus.db"),
+            Path("C:/vazus/vazus.db"),
+            Path("C:/vazus/memory/dnts.db")
+        ]
+        for db_path in db_paths:
+            if not db_path.is_file():
+                continue
+            conn = None
+            try:
+                conn = sqlite3.connect(db_path)
                 conn.row_factory = sqlite3.Row
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS raytsystem_ledger (
+                        id TEXT PRIMARY KEY,
+                        workflow TEXT,
+                        source_agent TEXT,
+                        target_agent TEXT,
+                        payload_summary TEXT,
+                        vector_768d BLOB,
+                        status TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                conn.commit()
                 rows = conn.execute(
                     "SELECT id, workflow, source_agent, target_agent, payload_summary, status, created_at FROM raytsystem_ledger ORDER BY created_at DESC LIMIT ?",
                     (limit,)
                 ).fetchall()
-                return {"ledger": [dict(r) for r in rows]}
-        except Exception as e:
-            return {"ledger": [], "error": str(e)}
+                if rows:
+                    return {"ledger": [dict(r) for r in rows]}
+            except Exception:
+                continue
+            finally:
+                if conn:
+                    conn.close()
+        return {"ledger": []}
 
     @app.get("/api/v1/full-graph")
     def full_graph_data():

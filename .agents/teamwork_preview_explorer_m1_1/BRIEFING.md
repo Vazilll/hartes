@@ -1,45 +1,40 @@
-# BRIEFING — 2026-07-22T13:25:54Z
+# BRIEFING — 2026-07-24T15:26:00Z
 
 ## Mission
-Investigate existing GitHub repositories and script directory for R1 (Native Subagents & GitHub Wrappers Bridge).
+Analyze codebase and python virtual environment for High-Precision ASR Upgrade (Whisper large-v3-turbo / medium fallback, OpenVINO/PyTorch CPU, Russian speech normalization, hallucination filtering).
 
 ## 🔒 My Identity
 - Archetype: Explorer
-- Roles: Explorer 1 (Milestone 1 Investigation)
+- Roles: Explorer 1 (R1: High-Precision ASR Upgrade)
 - Working directory: C:\vazus\.agents\teamwork_preview_explorer_m1_1
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 1 - DNTS OS SuperGraph Architecture Integration
+- Original parent: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Milestone: Milestone 1 (R1: High-Precision ASR Upgrade)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement
-- Inspect C:\vazus\pyenv\rlm-mit
-- Inspect C:\vazus\pyenv\open-deep-research
-- Inspect C:\vazus\pyenv\dnts_core
-- Inspect C:\vazus\pyenv\scripts and check environment setup C:\vazus\pyenv\.venv
+- Read-only investigation — do NOT implement changes in source files (write analysis/proposals to working directory)
+- Operating in CODE_ONLY mode
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T13:25:54Z
+- Conversation ID: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Updated: 2026-07-24T15:26:00Z
 
 ## Investigation State
-- **Explored paths**:
-  - `C:\vazus\pyenv\rlm-mit`
-  - `C:\vazus\pyenv\open-deep-research`
-  - `C:\vazus\pyenv\dnts_core`
-  - `C:\vazus\pyenv\scripts`
-  - `C:\vazus\pyenv\.venv`
-- **Key findings**:
-  - `rlm-mit`: Package `rlms` (v0.1.3), `RLM` engine, LocalREPL + cloud sandboxes, custom tool autowiring.
-  - `open-deep-research`: Package `open_deep_research` (v0.0.16), LangGraph `deep_researcher_builder`, multi-search integration.
-  - `dnts_core`: SuperGraph orchestrator `unified_graph.py`, 768-dim `embeddings.py`, `subagents/roles.py`, `git_provenance.py`, `jules_verifier.py`.
-  - `scripts` & `.venv`: 43 scripts including FastMCP wrappers (`rlm_mcp.py`, `ldr_mcp.py`); `.venv` with Python 3.12.10, PyTorch CPU, OpenVINO 2026.2.1, Optimum Intel, EasyOCR, PyNeuroML.
-- **Unexplored areas**: None.
+- **Explored paths**: `C:\vazus\vazus_core\multimodal_knowledge.py`, `C:\vazus\vazus_core\embeddings.py`, `C:\vazus\.agents\orchestrator\PROJECT.md`, Python virtual environment `C:\vazus\.venv`.
+- **Key findings**: 
+  - Installed libraries: `faster-whisper` 1.2.1 (CTranslate2 4.8.1), `openvino` 2026.2.1, `optimum.intel`, `transformers` 5.0.0, `torch` 2.13.0+cpu.
+  - Model selection strategy: `large-v3-turbo` as primary, `medium` as fallback, `tiny` micro fallback.
+  - Recommended Russian speech normalization: bracket tag strip (`\[.*?\]`), Cyrillic `ё` -> `е` standardization, quote/dash fixing, control char strip.
+  - Recommended garbage filter: known subtitle loop regex, n-gram repeat detector, `no_speech_prob > 0.6`, `avg_logprob < -1.2`, `compression_ratio > 2.4`.
+  - Interface contract `transcribe_media_high_precision` specified in PROJECT.md defined and prototyped.
+- **Unexplored areas**: None for Explorer 1 scope.
 
 ## Key Decisions Made
-- Completed read-only investigation and compiled 5-component handoff report.
+- Completed analysis report (`analysis.md`) and hard handoff report (`handoff.md`).
 
 ## Artifact Index
-- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\ORIGINAL_REQUEST.md` — Original User Request
-- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\BRIEFING.md` — Working Briefing
-- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\progress.md` — Heartbeat & Task Status
-- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\handoff.md` — 5-Component Handoff Report
+- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\ORIGINAL_REQUEST.md` — Original prompt log.
+- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\BRIEFING.md` — Working memory briefing index.
+- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\progress.md` — Heartbeat progress log.
+- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\test_asr_filter.py` — Test verification script for Russian text normalization & hallucination filter.
+- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\analysis.md` — Architectural analysis report.
+- `C:\vazus\.agents\teamwork_preview_explorer_m1_1\handoff.md` — 5-component hard handoff report.

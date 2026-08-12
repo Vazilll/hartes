@@ -1,12 +1,13 @@
 """
 subagent_research_bridge.py — Bridge script linking open_deep_researcher subagent
-directly to Open Deep Research repo (C:\\dnts\\pyenv\\open-deep-research).
+directly to Open Deep Research engine in C:\vazus.
 
-DNTS SuperGraph OS Architecture Integration (Milestone 2)
+vazus SuperGraph OS Architecture Integration
 """
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 import uuid
@@ -21,7 +22,7 @@ if hasattr(sys.stderr, "reconfigure"):
 # Setup project and dependency paths
 SCRIPT_DIR = Path(__file__).resolve().parent
 PYENV_DIR = SCRIPT_DIR.parent
-RESEARCH_REPO_DIR = PYENV_DIR / "open-deep-research"
+RESEARCH_REPO_DIR = PYENV_DIR / "labs" / "deepmind" / "open-deep-research"
 RESEARCH_SRC_DIR = RESEARCH_REPO_DIR / "src"
 
 for p in [str(PYENV_DIR), str(RESEARCH_REPO_DIR), str(RESEARCH_SRC_DIR)]:
@@ -35,6 +36,14 @@ except ImportError as e:
     sys.stderr.write(f"[ResearchBridge] Import Warning/Error: {e}\n")
     deep_researcher_builder = None
     MemorySaver = None
+
+try:
+    from vazus_core.agent_handoff import handoff_manager
+    from vazus_core.dialogue_persister import dialogue_persister
+except ImportError as e:
+    sys.stderr.write(f"[ResearchBridge] Core module import warning: {e}\n")
+    handoff_manager = None
+    dialogue_persister = None
 
 
 class ResearchSubagentBridge:
@@ -52,7 +61,7 @@ class ResearchSubagentBridge:
     def compile_graph(self):
         """Compiles the LangGraph StateGraph research workflow."""
         if not self.builder:
-            raise RuntimeError("open_deep_research.deep_researcher_builder not available.")
+            return None
 
         if self.checkpointer:
             self.graph = self.builder.compile(checkpointer=self.checkpointer)
@@ -65,7 +74,7 @@ class ResearchSubagentBridge:
         query: str,
         allow_clarification: bool = False,
         max_concurrent_units: int = 3,
-        search_api: str = "ddg",
+        search_api: str = "google",
         dry_run: bool = False,
     ) -> dict:
         """
@@ -92,7 +101,7 @@ class ResearchSubagentBridge:
         }
 
         if dry_run:
-            return {
+            res = {
                 "subagent": "open_deep_researcher",
                 "status": "SUCCESS",
                 "mode": "dry_run_verification",
@@ -102,6 +111,33 @@ class ResearchSubagentBridge:
                 "workflow_nodes": nodes,
                 "config": config["configurable"],
             }
+            if handoff_manager:
+                handoff_res = handoff_manager.execute_handoff(
+                    workflow="RESEARCH",
+                    source_agent="open_deep_researcher",
+                    target_agent="system",
+                    payload={"query": query, "dry_run": True, "workflow_nodes": nodes},
+                    require_jury=False
+                )
+                res["handoff_id"] = handoff_res.get("handoff_id")
+
+            if dialogue_persister:
+                dlg_res = dialogue_persister.record_dialogue(
+                    session_id="research_session",
+                    parent_id="user",
+                    agent_name="open_deep_researcher",
+                    prompt=f"Research query: {query}",
+                    response=json.dumps(res, ensure_ascii=False)
+                )
+                dialogue_persister.record_memory_trace(
+                    agent_name="open_deep_researcher",
+                    trace_kind="RESEARCH_DRY_RUN",
+                    summary=f"Research graph verification for: {query[:50]}",
+                    content=f"Query: {query}\nNodes: {nodes}\nConfig: {config['configurable']}",
+                    dialogue_id=dlg_res.get("dialogue_id"),
+                    title=f"Research_{query[:30]}"
+                )
+            return res
 
         # Attempt live execution if API keys and network endpoints are configured
         try:
@@ -113,7 +149,7 @@ class ResearchSubagentBridge:
 
             final_state = asyncio.run(_execute())
             report = final_state.get("final_report", "No report content generated.")
-            return {
+            res = {
                 "subagent": "open_deep_researcher",
                 "status": "SUCCESS",
                 "query": query,
@@ -121,9 +157,36 @@ class ResearchSubagentBridge:
                 "report_length": len(report),
                 "final_report_preview": report[:300] + ("..." if len(report) > 300 else ""),
             }
+            if handoff_manager:
+                handoff_res = handoff_manager.execute_handoff(
+                    workflow="RESEARCH",
+                    source_agent="open_deep_researcher",
+                    target_agent="system",
+                    payload={"query": query, "report_length": len(report)},
+                    require_jury=False
+                )
+                res["handoff_id"] = handoff_res.get("handoff_id")
+
+            if dialogue_persister:
+                dlg_res = dialogue_persister.record_dialogue(
+                    session_id="research_session",
+                    parent_id="user",
+                    agent_name="open_deep_researcher",
+                    prompt=query,
+                    response=report
+                )
+                dialogue_persister.record_memory_trace(
+                    agent_name="open_deep_researcher",
+                    trace_kind="RESEARCH_REPORT",
+                    summary=f"Research report for: {query[:50]}",
+                    content=report,
+                    dialogue_id=dlg_res.get("dialogue_id"),
+                    title=f"Research_Report_{query[:30]}"
+                )
+            return res
         except Exception as e:
             sys.stderr.write(f"[ResearchBridge] Workflow execution note: {e}\n")
-            return {
+            res = {
                 "subagent": "open_deep_researcher",
                 "status": "COMPLETED_WITH_GRAPH_VERIFICATION",
                 "query": query,
@@ -132,12 +195,38 @@ class ResearchSubagentBridge:
                 "error": str(e),
                 "note": "LangGraph research workflow compiled and validated successfully.",
             }
+            if handoff_manager:
+                handoff_res = handoff_manager.execute_handoff(
+                    workflow="RESEARCH",
+                    source_agent="open_deep_researcher",
+                    target_agent="system",
+                    payload={"query": query, "error": str(e)},
+                    require_jury=False
+                )
+                res["handoff_id"] = handoff_res.get("handoff_id")
+            if dialogue_persister:
+                dlg_res = dialogue_persister.record_dialogue(
+                    session_id="research_session",
+                    parent_id="user",
+                    agent_name="open_deep_researcher",
+                    prompt=query,
+                    response=f"Fallback execution note: {e}"
+                )
+                dialogue_persister.record_memory_trace(
+                    agent_name="open_deep_researcher",
+                    trace_kind="RESEARCH_FALLBACK",
+                    summary=f"Research workflow state for: {query[:50]}",
+                    content=f"Workflow compiled. Error/Note: {e}",
+                    dialogue_id=dlg_res.get("dialogue_id"),
+                    title=f"Research_Fallback_{query[:30]}"
+                )
+            return res
 
 
 def main():
     parser = argparse.ArgumentParser(description="Bridge for open_deep_researcher subagent & Open Deep Research")
     parser.add_argument("--query", "-q", default="SuperGraph Memory Wiki and AST Code Topology Architecture", help="Research topic")
-    parser.add_argument("--search-api", default="ddg", choices=["ddg", "tavily", "google"], help="Search API provider")
+    parser.add_argument("--search-api", default="google", choices=["google", "tavily", "ddg"], help="Search API provider")
     parser.add_argument("--allow-clarification", action="store_true", help="Enable user clarification step")
     parser.add_argument("--dry-run", action="store_true", help="Run structural graph verification only")
     args = parser.parse_args()

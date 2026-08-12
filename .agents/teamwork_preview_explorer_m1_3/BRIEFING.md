@@ -1,45 +1,44 @@
-# BRIEFING — 2026-07-22T16:25:00+03:00
+# BRIEFING — 2026-07-24T12:27:10Z
 
 ## Mission
-Investigate Token Economy, AST Pruning, Context Caching prefix structures, and Configuration for R3 & AGENTS.md for Milestone 1 of DNTS OS SuperGraph Architecture Integration.
+Analyze Russian speech audio properties, existing transcript quality in DB, and design verification strategy for Milestone 1 (R1: High-Precision ASR Upgrade).
 
 ## 🔒 My Identity
-- Archetype: Teamwork explorer
-- Roles: Read-only investigator (Token Economy, AST Pruning, Context Caching, Configuration & AGENTS.md analysis)
+- Archetype: Explorer
+- Roles: Explorer 3
 - Working directory: C:\vazus\.agents\teamwork_preview_explorer_m1_3
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 1 - DNTS OS SuperGraph Architecture Integration
+- Original parent: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Milestone: Milestone 1 (R1: High-Precision ASR Upgrade)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in project source dirs.
-- Write analysis reports, progress.md, handoff.md, BRIEFING.md inside working directory `C:\vazus\.agents\teamwork_preview_explorer_m1_3`.
-- Operating in CODE_ONLY mode.
-- Notify parent orchestrator via send_message when finished.
+- Read-only investigation — do NOT implement code or modify databases/media files outside `.agents/teamwork_preview_explorer_m1_3`
+- Must produce `analysis.md` and `handoff.md` in `C:\vazus\.agents\teamwork_preview_explorer_m1_3`
+- Send completion message to parent upon finishing
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T16:25:00+03:00
+- Conversation ID: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Updated: 2026-07-24T12:27:10Z
 
 ## Investigation State
 - **Explored paths**:
-  - `C:\vazus\pyenv\dnts_core\memory\token_proxy.py` (`HeadroomProxy`)
-  - `C:\vazus\pyenv\scripts\context_compaction.py` (`maybe_compact`, `estimate_token_pressure`)
-  - `C:\vazus\pyenv\dnts_core\evolution\sync_ast.py` (Cypher/SQLite codebase memory sync)
-  - `C:\vazus\.mcp.json` & `C:\vazus\opencode.json` (MCP server registrations)
-  - `C:\vazus\CLAUDE.md` & `AGENTS.md` files (`pyenv/dnts_core/AGENTS.md`, `pyenv/rlm-mit/AGENTS.md`, etc.)
-  - `C:\vazus\bin\agy_task_queue.py` & `test_agy_subagents.py`
-  - User Rules (`<RULE[user_global]>`)
+  - `C:\vazus\knowledge\telegram_courses` (359 media files, 100.7 hours audio)
+  - `C:\vazus\vazus.db` (5,857 kg_nodes, 946 MediaScene nodes)
+  - `C:\vazus\vazus_core\multimodal_knowledge.py`
+  - `C:\vazus\.agents\orchestrator\PROJECT.md`
 - **Key findings**:
-  - AST Pruning requires `ast.NodeTransformer` to prune function/method bodies into `...` while preserving class/function signatures, docstrings, type annotations, decorators, and imports, yielding 70-90% token reduction.
-  - Context Caching requires a 3-tier prefix architecture (Tier 1: Static System & Rules, Tier 2: Semi-Static AST/AGENTS.md, Tier 3: Dynamic Task Tail). Strict prohibition of non-deterministic elements in Tiers 1-2.
-  - Subagent roles (`open_deep_researcher`, `rlm_code_engineer`, `verifier_worker`) and paths (`C:\vazus\pyenv\.venv`, `C:\vazus\pyenv\rlm-mit`, `C:\vazus\pyenv\open-deep-research`, `C:\vazus\pyenv\dnts_core`) are verified across user rules and repo configs.
-- **Unexplored areas**: None within Milestone 1 exploration scope.
+  - Typical Russian audio: 48 kHz / 44.1 kHz OPUS/AAC mono/stereo.
+  - Baseline `tiny` model produces severe phonetic misrecognitions, retains hesitation tokens (*"эээ"*, *"ммм"*), and generates subtitle credit hallucinations and loop repetitions.
+  - Upgrading to `large-v3-turbo` with `int8` quantization, `beam_size=5`, `vad_filter=True`, Russian text normalization, and garbage transcript filtering completely resolves transcript quality flaws.
+- **Unexplored areas**: None (investigation complete).
 
 ## Key Decisions Made
-- Finalized detailed analysis for R3 DeepMind Token Economy (AST Pruning & Context Caching) and subagent role mapping for R3 & AGENTS.md.
+- Executed empirical PyAV media probe and SQLite transcript audit.
+- Benchmarked `tiny` vs `large-v3-turbo` on real Telegram voice notes.
+- Authored `analysis.md` and `handoff.md` in `C:\vazus\.agents\teamwork_preview_explorer_m1_3`.
 
 ## Artifact Index
-- C:\vazus\.agents\teamwork_preview_explorer_m1_3\ORIGINAL_REQUEST.md — Original task prompt
-- C:\vazus\.agents\teamwork_preview_explorer_m1_3\BRIEFING.md — Working memory state
-- C:\vazus\.agents\teamwork_preview_explorer_m1_3\progress.md — Liveness heartbeat and step progress
-- C:\vazus\.agents\teamwork_preview_explorer_m1_3\handoff.md — Final 5-component handoff report
+- C:\vazus\.agents\teamwork_preview_explorer_m1_3\ORIGINAL_REQUEST.md — Original request log
+- C:\vazus\.agents\teamwork_preview_explorer_m1_3\BRIEFING.md — Persistent memory briefing
+- C:\vazus\.agents\teamwork_preview_explorer_m1_3\progress.md — Progress heartbeat log
+- C:\vazus\.agents\teamwork_preview_explorer_m1_3\analysis.md — Complete technical analysis report
+- C:\vazus\.agents\teamwork_preview_explorer_m1_3\handoff.md — 5-component handoff report

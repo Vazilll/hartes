@@ -1,11 +1,13 @@
-# Progress Log
+# Progress Log — Explorer 1 (Milestone 1)
 
-Last visited: 2026-07-22T13:25:50Z
+Last visited: 2026-07-24T15:39:05Z
 
-- [x] Initialize BRIEFING.md and ORIGINAL_REQUEST.md
-- [x] Inspect `C:\vazus\pyenv\rlm-mit` structure, entrypoints, imports, CLI/Python interfaces
-- [x] Inspect `C:\vazus\pyenv\open-deep-research` structure, entrypoints, dependencies, CLI/Python interfaces
-- [x] Inspect `C:\vazus\pyenv\dnts_core` modules and structure
-- [x] Inspect `C:\vazus\pyenv\scripts` and verify `C:\vazus\pyenv\.venv` setup
-- [x] Synthesize findings into handoff.md
-- [x] Notify parent orchestrator
+## Status
+- [x] Initialized briefing and original request log.
+- [x] Conducted codebase analysis of `vazus_core/multimodal_knowledge.py`.
+- [x] Diagnosed virtual environment packages (`faster-whisper`, `openvino`, `optimum.intel`, `transformers`, `torch`).
+- [x] Tested Russian speech text normalization & hallucination/garbage transcript filtering rules in `test_asr_filter.py`.
+- [x] Formulated high-precision model selection & fallback strategy (`large-v3-turbo` -> `medium` -> `tiny`, CTranslate2 int8 / OpenVINO / Transformers CPU).
+- [x] Authored comprehensive `analysis.md` report.
+- [x] Authored self-contained 5-component `handoff.md` report.
+- [x] Completed Explorer 1 task for Milestone 1.

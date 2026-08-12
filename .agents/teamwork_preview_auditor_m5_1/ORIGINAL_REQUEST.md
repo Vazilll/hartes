@@ -19,3 +19,16 @@ Audit Requirements:
 - Issue an unambiguous final verdict: CLEAN or INTEGRITY VIOLATION.
 - Write your complete forensic audit report to C:\vazus\.agents\teamwork_preview_auditor_m5_1\handoff.md.
 - Send your verdict and handoff report via send_message to parent conversation 912b3520-5853-40ab-961a-acf7137b1695.
+
+## 2026-07-22T20:50:57Z
+You are Victory Forensic Auditor for Milestone 5 of the vazus SuperGraph OS architectural unification project.
+Working directory: C:\vazus\.agents\teamwork_preview_auditor_m5_1
+Scope document: C:\vazus\.agents\orchestrator\plan.md
+
+Task:
+Perform a Final Victory Forensic Integrity Audit on the complete vazus SuperGraph OS & Raytsystem Public OS architectural unification project (Requirements R1 to R5 and all Acceptance Criteria):
+1. Audit all code changes across vazus_core, scripts, web server, subagent bridges, and database schemas.
+2. Perform systematic integrity checks: verify genuine 768D vector embeddings, genuine port 8765 web server execution, genuine 3D SuperGraph JSON snapshot, genuine handoff ledger recording, genuine SMT Z3 solver model checking, and genuine dialogue persistence.
+3. Ensure there are NO hardcoded test outputs, NO dummy facades, NO fake responses, and NO task circumvention across the entire system.
+4. Determine final audit verdict: CLEAN or INTEGRITY VIOLATION.
+5. Write your complete final forensic audit report and verdict to C:\vazus\.agents\teamwork_preview_auditor_m5_1\handoff.md. Update progress.md. Notify parent via send_message.

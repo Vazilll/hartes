@@ -1,654 +1,1444 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RLM Execution & Evolution Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #0d0e12;
-            --panel-bg: rgba(20, 22, 30, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-color: #e2e8f0;
-            --text-muted: #94a3b8;
-            --accent-primary: #6366f1;
-            --accent-secondary: #a855f7;
-            --success-color: #10b981;
-            --error-color: #ef4444;
-            --font-main: 'Outfit', sans-serif;
-            --font-mono: 'JetBrains Mono', monospace;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vazus SuperGraph OS — Multimodal & Cognitive Mastery Dashboard</title>
+  <style>
+    :root {
+      --bg-dark: #0f1117;
+      --panel-bg: #181c24;
+      --border-color: #2a303c;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --success: #10b981;
+      --badge-bg: #262c3a;
+    }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        body {
-            background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
-                              radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
-            color: var(--text-color);
-            font-family: var(--font-main);
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 2rem;
-            background: rgba(13, 14, 18, 0.8);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-color);
-            z-index: 10;
-        }
+    /* Header & Stats */
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-        .logo-section h1 {
-            font-size: 1.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #6366f1, #a855f7);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
-        }
+    .header-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-        .logo-section p {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
+    .header-title span.badge {
+      background-color: var(--accent);
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
 
-        .controls {
-            display: flex;
-            gap: 1rem;
-        }
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
 
-        button {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            border: none;
-            color: white;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            font-family: var(--font-main);
-        }
+    .stat-item span {
+      color: var(--success);
+      font-weight: 600;
+    }
 
-        button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
-        }
+    /* Main Tab Navigation Bar */
+    .main-tab-bar {
+      display: flex;
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 24px;
+      gap: 12px;
+    }
+    .main-tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .main-tab-btn.active, .main-tab-btn:hover {
+      color: #ffffff;
+      border-bottom-color: var(--accent);
+    }
 
-        .main-container {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
+    /* Main Container */
+    .main-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
 
-        /* Sidebar for Logs List */
-        .sidebar {
-            width: 320px;
-            border-right: 1px solid var(--border-color);
-            background: rgba(15, 17, 23, 0.5);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+    /* View A: Multimodal Knowledge Hub */
+    .tab-view-multimodal {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      width: 100%;
+      height: 100%;
+      flex: 1;
+      overflow: hidden;
+    }
 
-        .sidebar-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
+    /* Left Panel - Search & Results */
+    .left-panel {
+      background-color: var(--panel-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
 
-        .search-bar {
-            width: 100%;
-            padding: 0.6rem 1rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: white;
-            font-family: var(--font-main);
-            outline: none;
-            transition: border-color 0.2s;
-        }
+    .search-box {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
 
-        .search-bar:focus {
-            border-color: var(--accent-primary);
-        }
+    .search-input {
+      width: 100%;
+      padding: 10px 14px;
+      background-color: #0f1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
 
-        .logs-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 0.5rem;
-        }
+    .search-input:focus {
+      border-color: var(--accent);
+    }
 
-        .log-item {
-            padding: 1rem;
-            margin-bottom: 0.5rem;
-            background: var(--panel-bg);
-            border-radius: 8px;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+    .domain-tabs {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
 
-        .log-item:hover {
-            border-color: rgba(99, 102, 241, 0.3);
-            transform: scale(1.01);
-        }
+    .tab-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
 
-        .log-item.active {
-            border-color: var(--accent-primary);
-            background: rgba(99, 102, 241, 0.1);
-        }
+    .tab-btn.active, .tab-btn:hover {
+      background-color: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
 
-        .log-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
+    .results-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
-        .log-status {
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            padding: 0.15rem 0.5rem;
-            border-radius: 4px;
-        }
+    .result-card {
+      background-color: #1f2430;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      gap: 12px;
+      transition: transform 0.15s, border-color 0.15s;
+    }
 
-        .log-status.success {
-            background: rgba(16, 185, 129, 0.15);
-            color: var(--success-color);
-        }
+    .result-card:hover, .result-card.active {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
 
-        .log-status.fail {
-            background: rgba(239, 68, 68, 0.15);
-            color: var(--error-color);
-        }
+    .thumb-wrapper {
+      width: 90px;
+      height: 60px;
+      background-color: #0f1117;
+      border-radius: 6px;
+      overflow: hidden;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-        .log-date {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-        }
+    .thumb-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
 
-        .log-prompt-preview {
-            font-size: 0.85rem;
-            color: var(--text-color);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+    .card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+    }
 
-        /* Detail View Area */
-        .detail-view {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            background: rgba(10, 11, 14, 0.2);
-        }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 4px;
+    }
 
-        .detail-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border-color);
-            background: rgba(15, 17, 23, 0.7);
-            backdrop-filter: blur(8px);
-        }
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
-        .detail-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
+    .sim-badge {
+      background-color: var(--badge-bg);
+      color: var(--success);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
 
-        .detail-meta-grid {
-            display: flex;
-            gap: 2rem;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
+    .card-snippet {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin: 4px 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
 
-        .detail-meta-item strong {
-            color: var(--text-color);
-        }
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
 
-        /* Visual Execution Tree & Inspector Layout */
-        .workspace {
-            display: flex;
-            flex: 1;
-            overflow: hidden;
-        }
+    /* Right Panel - Player & Details */
+    .right-panel {
+      background-color: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 20px;
+      gap: 20px;
+    }
 
-        .tree-viewport {
-            flex: 2;
-            padding: 2rem;
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            position: relative;
-            background: radial-gradient(circle at center, rgba(255,255,255,0.01) 0%, transparent 100%);
-        }
+    .video-container {
+      background-color: #000000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      aspect-ratio: 16 / 9;
+      width: 100%;
+      max-height: 520px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-        .inspector {
-            flex: 1.2;
-            border-left: 1px solid var(--border-color);
-            background: rgba(15, 17, 23, 0.85);
-            backdrop-filter: blur(10px);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+    video {
+      width: 100%;
+      height: 100%;
+      max-height: 520px;
+      outline: none;
+    }
 
-        .inspector-header {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-            font-weight: 600;
-            background: rgba(255,255,255,0.02);
-        }
+    .details-box {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
-        .inspector-body {
-            padding: 1.5rem;
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-        .inspector-section h4 {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 0.5rem;
-        }
+    .details-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
 
-        .code-block {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 1rem;
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            color: #f8f8f2;
-        }
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
 
-        /* Custom Visual Tree Layout */
-        .tree-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2rem;
-        }
+    .btn {
+      background-color: var(--accent);
+      color: #ffffff;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
 
-        .tree-row {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            position: relative;
-        }
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
 
-        .node-card {
-            background: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1rem 1.5rem;
-            min-width: 220px;
-            max-width: 280px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
+    .btn:disabled {
+      background-color: #2a303c;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
 
-        .node-card:hover {
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
-            transform: translateY(-2px);
-        }
+    .transcript-box {
+      background-color: #0f1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: #e5e7eb;
+      max-height: 250px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
 
-        .node-card.active {
-            border-color: var(--accent-secondary);
-            box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
-            background: rgba(168, 85, 247, 0.05);
-        }
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
 
-        .node-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
+    .metadata-item span {
+      color: #ffffff;
+      font-weight: 500;
+    }
 
-        .node-title {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
+    /* View B: Cognitive & Mastery Workspace */
+    .tab-view-cognitive {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 20px;
+      padding: 20px;
+      flex: 1;
+      overflow-y: auto;
+      width: 100%;
+      height: 100%;
+    }
 
-        .node-badge {
-            font-size: 0.7rem;
-            font-weight: 700;
-            padding: 0.1rem 0.4rem;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.08);
-            color: var(--text-muted);
-        }
+    .cog-left-column {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
 
-        .node-card.llm-call .node-badge {
-            background: rgba(168, 85, 247, 0.15);
-            color: var(--accent-secondary);
-        }
+    .cog-right-column {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
 
-        .node-card.rlm-child .node-badge {
-            background: rgba(99, 102, 241, 0.15);
-            color: var(--accent-primary);
-        }
+    .cognitive-card {
+      background-color: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
 
-        .node-meta {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.5rem;
-            display: flex;
-            gap: 0.5rem;
-        }
+    /* Mastery Progress Bar */
+    .card-header-sm {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .card-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .badge-tag {
+      background-color: var(--badge-bg);
+      color: var(--success);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .progress-bar-container {
+      height: 10px;
+      background-color: #0f1117;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #6366f1, #10b981);
+      transition: width 0.4s ease-in-out;
+    }
+    .mastery-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      text-align: center;
+    }
+    .m-stat {
+      background: #0f1117;
+      padding: 8px;
+      border-radius: 6px;
+    }
+    .m-stat.alert { border: 1px solid #ef4444; }
+    .m-val { display: block; font-size: 1.1rem; font-weight: 700; color: #ffffff; }
+    .m-lbl { font-size: 0.7rem; color: var(--text-muted); }
 
-        .node-snippet {
-            font-size: 0.8rem;
-            color: var(--text-color);
-            background: rgba(0,0,0,0.2);
-            padding: 0.3rem 0.5rem;
-            border-radius: 4px;
-            font-family: var(--font-mono);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+    .sm2-metrics-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: #0f1117;
+      padding: 8px 12px;
+      border-radius: 6px;
+    }
 
-        /* SVG Connectors */
-        .tree-line-canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-        }
+    /* Trainer */
+    .trainer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .trainer-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .trainer-badge {
+      background-color: var(--accent);
+      color: #ffffff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .trainer-domain {
+      background-color: #262c3a;
+      color: #818cf8;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .trainer-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .question-prompt-box {
+      background-color: #0f1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .question-prompt-box h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.5;
+      color: #ffffff;
+    }
+    .user-answer-textarea {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #ffffff;
+      padding: 12px;
+      font-size: 0.95rem;
+      resize: vertical;
+    }
+    .user-answer-textarea:focus { border-color: var(--accent); outline: none; }
+    .answer-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+    .btn-secondary { background-color: #374151; color: #ffffff; }
+    .btn-secondary:hover { background-color: #4b5563; }
+    .btn-success { background-color: #10b981; color: #ffffff; }
+    .btn-success:hover { background-color: #059669; }
 
-        .empty-state {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            color: var(--text-muted);
-            gap: 1rem;
-        }
+    .evaluation-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      border-top: 1px dashed var(--border-color);
+      padding-top: 14px;
+    }
+    .score-gauge-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .gauge-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 4px solid var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f1117;
+    }
+    .gauge-val {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .score-meta {
+      display: flex;
+      flex-direction: column;
+    }
+    .score-label {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--success);
+    }
+    .score-subtext {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
 
-        .empty-state svg {
-            width: 48px;
-            height: 48px;
-            stroke: var(--text-muted);
-            opacity: 0.5;
-        }
-    </style>
+    .quality-grade-selector {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+    .grade-lbl { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+    .btn-grade {
+      background: #0f1117;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .btn-grade.active, .btn-grade:hover {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .rationale-feedback-card {
+      background-color: #0f1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .rationale-header {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .rationale-body {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #e5e7eb;
+    }
+
+    .interval-countdown-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f1117;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Note Reader */
+    .note-reader-header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .note-selector-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .note-nav-buttons {
+      flex-shrink: 0;
+    }
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.78rem;
+    }
+    .note-render-area {
+      background: #0f1117;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      max-height: 480px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .yaml-badge {
+      background-color: #1f2430;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px;
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: pre-wrap;
+    }
+    .wikilink-badge {
+      display: inline-block;
+      background-color: #262c3a;
+      color: #818cf8;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid #374151;
+      transition: all 0.15s;
+    }
+    .wikilink-badge:hover {
+      background-color: var(--accent);
+      color: #ffffff;
+    }
+    .action-task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 6px 0;
+    }
+    .task-done {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+  </style>
 </head>
 <body>
 
-    <header>
-        <div class="logo-section">
-            <h1>RLM & Evolution Engine</h1>
-            <p>Visual Execution Trace & Optimizer Dashboard</p>
-        </div>
-        <div class="controls">
-            <button onclick="loadLogs()">Refresh Logs</button>
-        </div>
-    </header>
+  <!-- Header -->
+  <header>
+    <div class="header-title">
+      vazus SuperGraph OS <span class="badge" id="header-badge">Multimodal Knowledge Hub</span>
+    </div>
+    <div class="stats-bar" id="stats-bar">
+      <div class="stat-item">Nodes: <span id="stat-nodes">...</span></div>
+      <div class="stat-item">Edges: <span id="stat-edges">...</span></div>
+      <div class="stat-item">Scenes: <span id="stat-scenes">...</span></div>
+      <div class="stat-item">Telegram: <span id="stat-telegram">...</span></div>
+    </div>
+  </header>
 
-    <div class="main-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <input type="text" class="search-bar" id="search" placeholder="Search prompts..." oninput="filterLogs()">
-            </div>
-            <div class="logs-list" id="logsList">
-                <div class="empty-state">Loading logs...</div>
-            </div>
+  <!-- Navigation Sub-Header Tab Bar -->
+  <div class="main-tab-bar">
+    <button class="main-tab-btn active" id="tab-multimodal" onclick="switchMainTab('multimodal')">
+      🌐 Multimodal Knowledge Hub
+    </button>
+    <button class="main-tab-btn" id="tab-cognitive" onclick="switchMainTab('cognitive')">
+      🧠 Cognitive & Mastery Workspace
+    </button>
+    <button class="main-tab-btn" id="tab-notebooklm" onclick="switchMainTab('notebooklm')">
+      🎙️ NotebookLM Studio
+    </button>
+  </div>
+
+  <!-- Main Container -->
+  <div class="main-container">
+
+    <!-- View A: Multimodal Knowledge Hub -->
+    <div id="view-multimodal" class="tab-view-multimodal">
+      <!-- Left Panel -->
+      <div class="left-panel">
+        <div class="search-box">
+          <input type="text" id="search-input" class="search-input" placeholder="Search multimodal knowledge (e.g. тест, Наташек, видео)..." value="тест">
+          <div class="domain-tabs">
+            <button class="tab-btn active" data-domain="">All</button>
+            <button class="tab-btn" data-domain="MediaScene">MediaScene</button>
+            <button class="tab-btn" data-domain="TelegramMessage">TelegramMessage</button>
+          </div>
+        </div>
+        <div class="results-list" id="results-list">
+          <!-- Result cards will render here -->
+        </div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="right-panel">
+        <div class="video-container">
+          <video id="video-player" controls autoplay poster="/api/v1/knowledge/thumbnail?path="></video>
         </div>
 
-        <!-- Detail View -->
-        <div class="detail-view" id="detailView">
-            <div class="empty-state">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                    <line x1="9" y1="3" x2="9" y2="21"></line>
-                </svg>
-                <p>Select an execution rollout from the list to view its reasoning tree.</p>
+        <div class="details-box">
+          <div class="details-header">
+            <div class="details-title" id="active-title">Select a scene or message to inspect</div>
+            <div class="nav-buttons">
+              <button class="btn" id="prev-btn" disabled>&larr; PREV_SCENE</button>
+              <button class="btn" id="next-btn" disabled>NEXT_SCENE &rarr;</button>
             </div>
+          </div>
+
+          <div class="metadata-grid" id="metadata-grid">
+            <div class="metadata-item">Node ID: <span id="meta-id">-</span></div>
+            <div class="metadata-item">Timestamp Range: <span id="meta-time">-</span></div>
+            <div class="metadata-item">Media Type: <span id="meta-type">-</span></div>
+            <div class="metadata-item">Source File: <span id="meta-source">-</span></div>
+          </div>
+
+          <div class="transcript-box" id="active-transcript">
+            Search for content or click a result on the left to display the transcript or text snippet.
+          </div>
         </div>
+      </div>
     </div>
 
-    <script>
-        let allLogs = [];
-        let activeLogFilename = null;
+    <!-- View B: Cognitive & Mastery Workspace -->
+    <div id="view-cognitive" class="tab-view-cognitive" style="display: none;">
+      <!-- Left Column -->
+      <div class="cog-left-column">
+        <!-- Component A: Mastery Score & SM-2 Retention Widget -->
+        <div class="cognitive-card mastery-overview-card">
+          <div class="card-header-sm">
+            <span class="card-label">MASTERY SCORE & SM-2 RETENTION</span>
+            <span class="badge-tag" id="mastery-pct-badge">0.0%</span>
+          </div>
+          
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="mastery-progress-bar" style="width: 0%;"></div>
+          </div>
+          
+          <div class="mastery-grid">
+            <div class="m-stat"><span class="m-val" id="m-stat-mastered">0</span><span class="m-lbl">Mastered</span></div>
+            <div class="m-stat"><span class="m-val" id="m-stat-learning">0</span><span class="m-lbl">Learning</span></div>
+            <div class="m-stat alert"><span class="m-val" id="m-stat-due">0</span><span class="m-lbl">Due Today</span></div>
+            <div class="m-stat"><span class="m-val" id="m-stat-total">0</span><span class="m-lbl">Total Cards</span></div>
+          </div>
 
-        async function loadLogs() {
-            try {
-                const res = await fetch('/api/logs');
-                allLogs = await res.json();
-                renderLogsList(allLogs);
-            } catch (err) {
-                console.error("Failed to load logs:", err);
-                document.getElementById('logsList').innerHTML = `<div class="empty-state" style="color: var(--error-color)">Error loading logs</div>`;
-            }
+          <div class="sm2-metrics-row">
+            <div class="sm2-metric">Avg Ease Factor: <strong id="sm2-ef">2.50</strong></div>
+            <div class="sm2-metric">Avg Interval: <strong id="sm2-interval">1.0 days</strong></div>
+            <div class="sm2-metric">Est. Retention: <strong id="sm2-retention" style="color:var(--success);">90.0%</strong></div>
+          </div>
+        </div>
+
+        <!-- Component C: Atomic Note Reader -->
+        <div class="cognitive-card note-reader-card">
+          <div class="note-reader-header">
+            <div class="note-selector-row">
+              <select id="note-dropdown-select" class="search-input" onchange="loadAtomicNote(this.value)">
+                <option value="Zettel_thesis_review_test_99">Zettel_thesis_review_test_99 (Thesis)</option>
+                <option value="Zettel_protocol_review_test_99">Zettel_protocol_review_test_99 (Protocol)</option>
+                <option value="Zettel_thesis_review_test_100">Zettel_thesis_review_test_100 (Thesis 100)</option>
+              </select>
+              <div class="note-nav-buttons">
+                <button class="btn btn-sm" id="note-back-btn" onclick="popNoteHistory()" disabled>&larr; Back</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="note-render-area" id="note-render-area">
+            <div style="color:var(--text-muted); text-align:center; padding:20px;">Loading note...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div class="cog-right-column">
+        <!-- Component B: Interactive Question Trainer -->
+        <div class="cognitive-card trainer-card">
+          <div class="trainer-header">
+            <div class="trainer-title-group">
+              <span class="trainer-badge" id="trainer-status-badge">DUE FOR REVIEW</span>
+              <span class="trainer-domain" id="trainer-domain-tag">neuroscience_review</span>
+            </div>
+            <div class="trainer-meta" id="trainer-card-id">Card: -</div>
+          </div>
+
+          <!-- Question Prompt Box -->
+          <div class="question-prompt-box">
+            <h3 id="trainer-question-text">Loading question prompt...</h3>
+          </div>
+
+          <!-- User Answer Input Area -->
+          <div class="answer-input-container">
+            <textarea id="user-answer-input" class="user-answer-textarea" rows="4" placeholder="Type your active recall explanation or key thesis points here..."></textarea>
+            <div class="answer-actions">
+              <button class="btn btn-secondary" onclick="revealRationaleOnly()">Reveal Rationale</button>
+              <button class="btn btn-primary" id="submit-answer-btn" onclick="submitRecallAnswer()">Submit & Grade Answer</button>
+            </div>
+          </div>
+
+          <!-- Evaluation Panel -->
+          <div class="evaluation-panel" id="evaluation-panel" style="display: none;">
+            <div class="score-gauge-row">
+              <div class="gauge-circle" id="score-gauge-circle">
+                <span class="gauge-val" id="score-gauge-val">0%</span>
+              </div>
+              <div class="score-meta">
+                <div class="score-label" id="score-rating-label">EVALUATING</div>
+                <div class="score-subtext">Semantic & Analytical Keyword Alignment</div>
+              </div>
+            </div>
+
+            <!-- Quality Grade Selector -->
+            <div class="quality-grade-selector">
+              <span class="grade-lbl">SM-2 Quality Grade:</span>
+              <button class="btn-grade" data-grade="0" onclick="selectGrade(0)">0 (Blackout)</button>
+              <button class="btn-grade" data-grade="1" onclick="selectGrade(1)">1 (Wrong)</button>
+              <button class="btn-grade" data-grade="2" onclick="selectGrade(2)">2 (Hard)</button>
+              <button class="btn-grade" data-grade="3" onclick="selectGrade(3)">3 (Good)</button>
+              <button class="btn-grade active" data-grade="4" onclick="selectGrade(4)">4 (Great)</button>
+              <button class="btn-grade" data-grade="5" onclick="selectGrade(5)">5 (Perfect)</button>
+            </div>
+
+            <!-- Target Rationale Card -->
+            <div class="rationale-feedback-card">
+              <div class="rationale-header">Target Rationale & Analytical Assertions:</div>
+              <div class="rationale-body" id="rationale-text">
+                > Target answer will appear here.
+              </div>
+            </div>
+
+            <!-- Countdown Interval Card -->
+            <div class="interval-countdown-card">
+              <div class="interval-text">
+                ⏳ Next Review Scheduled In: <strong id="next-interval-days">1 day</strong>
+                <span class="interval-sub">(New EF: <span id="new-ef-val">2.50</span>)</span>
+              </div>
+              <button class="btn btn-success" onclick="loadNextQuestion()">Next Question &rarr;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- View C: NotebookLM Studio -->
+    <div id="view-notebooklm" style="display: none; width: 100%; height: 100%; padding: 20px; gap: 20px; flex-direction: column; overflow-y: auto;">
+      <div style="background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <h2 style="font-size: 1.2rem; color: #ffffff; display: flex; align-items: center; gap: 8px;">🎙️ NotebookLM Studio & Multi-Source Synthesizer</h2>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-success" onclick="generatePodcast()">🎙️ Сгенерировать Подкаст (MP3)</button>
+            <button class="btn" onclick="generateStudyGuide()">📄 Сгенерировать Study Guide (.md)</button>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <!-- Podcasts Panel -->
+          <div style="background: #0f1117; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <h3 style="font-size: 1rem; color: var(--accent);">📻 Сгенерированные Аудиоподкасты</h3>
+            <div id="podcast-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto;">
+              <!-- Podcast items -->
+            </div>
+          </div>
+
+          <!-- Study Guides Panel -->
+          <div style="background: #0f1117; border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+            <h3 style="font-size: 1rem; color: var(--success);">📚 Сгенерированные Учебные Гиды</h3>
+            <div id="study-guide-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto;">
+              <!-- Study guide items -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // State Variables
+    let currentResults = [];
+    let currentDomain = "";
+    let activeItem = null;
+    let searchTimeout = null;
+
+    let currentCard = null;
+    let selectedGrade = 4;
+    let noteHistoryStack = [];
+    let currentNoteId = "Zettel_thesis_review_test_99";
+
+    const searchInput = document.getElementById('search-input');
+    const resultsList = document.getElementById('results-list');
+    const videoPlayer = document.getElementById('video-player');
+    const activeTitle = document.getElementById('active-title');
+    const activeTranscript = document.getElementById('active-transcript');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+
+    const metaId = document.getElementById('meta-id');
+    const metaTime = document.getElementById('meta-time');
+    const metaType = document.getElementById('meta-type');
+    const metaSource = document.getElementById('meta-source');
+
+    // Tab Switcher
+    function switchMainTab(tabName) {
+      document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+      const viewMultimodal = document.getElementById('view-multimodal');
+      const viewCognitive = document.getElementById('view-cognitive');
+      const viewNotebooklm = document.getElementById('view-notebooklm');
+      const headerBadge = document.getElementById('header-badge');
+
+      if (tabName === 'cognitive') {
+        document.getElementById('tab-cognitive').classList.add('active');
+        viewMultimodal.style.display = 'none';
+        if (viewNotebooklm) viewNotebooklm.style.display = 'none';
+        viewCognitive.style.display = 'grid';
+        if (headerBadge) headerBadge.textContent = 'Cognitive & Mastery Workspace';
+        loadMasteryStats();
+        loadNextQuestion();
+        loadAtomicNote(currentNoteId);
+      } else if (tabName === 'notebooklm') {
+        document.getElementById('tab-notebooklm').classList.add('active');
+        viewMultimodal.style.display = 'none';
+        viewCognitive.style.display = 'none';
+        if (viewNotebooklm) viewNotebooklm.style.display = 'flex';
+        if (headerBadge) headerBadge.textContent = 'NotebookLM Studio';
+        loadNotebookLMData();
+      } else {
+        document.getElementById('tab-multimodal').classList.add('active');
+        viewCognitive.style.display = 'none';
+        if (viewNotebooklm) viewNotebooklm.style.display = 'none';
+        viewMultimodal.style.display = 'grid';
+        if (headerBadge) headerBadge.textContent = 'Multimodal Knowledge Hub';
+      }
+    }
+
+    async function loadNotebookLMData() {
+      try {
+        const resGuides = await fetch('/api/v1/notebooklm/study-guides');
+        if (resGuides.ok) {
+          const data = await resGuides.json();
+          const listEl = document.getElementById('study-guide-list');
+          if (listEl) {
+            listEl.innerHTML = (data.study_guides || []).map(g => `
+              <div style="background:#181c24; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-size:0.85rem;">
+                <strong>📄 ${g.name}</strong> (${(g.size/1024).toFixed(1)} KB) - ${g.created}
+              </div>
+            `).join('') || '<div style="color:var(--text-muted);">Study guides while processing...</div>';
+          }
         }
 
-        function renderLogsList(logs) {
-            const list = document.getElementById('logsList');
-            if (logs.length === 0) {
-                list.innerHTML = `<div class="empty-state">No logs found</div>`;
-                return;
-            }
-
-            list.innerHTML = logs.map(log => `
-                <div class="log-item ${log.filename === activeLogFilename ? 'active' : ''}" onclick="viewLogDetail('${log.filename}')">
-                    <div class="log-item-header">
-                        <span class="log-status ${log.success ? 'success' : 'fail'}">${log.success ? 'success' : 'failed'}</span>
-                        <span class="log-date">${log.date}</span>
-                    </div>
-                    <div class="log-prompt-preview">${escapeHtml(log.prompt || log.filename)}</div>
-                </div>
-            `).join('');
+        const resPodcasts = await fetch('/api/v1/notebooklm/podcasts');
+        if (resPodcasts.ok) {
+          const data = await resPodcasts.json();
+          const listEl = document.getElementById('podcast-list');
+          if (listEl) {
+            listEl.innerHTML = (data.podcasts || []).map(p => `
+              <div style="background:#181c24; border:1px solid var(--border-color); padding:10px; border-radius:6px; font-size:0.85rem; display:flex; justify-content:space-between; align-items:center;">
+                <div><strong>📻 ${p.name}</strong> (${(p.size/1024).toFixed(1)} KB)</div>
+                ${p.type === 'mp3' ? `<audio controls src="/api/v1/knowledge/stream?path=${encodeURIComponent(p.path)}" style="height:30px;"></audio>` : ''}
+              </div>
+            `).join('') || '<div style="color:var(--text-muted);">No podcast episodes generated yet</div>';
+          }
         }
+      } catch (e) {
+        console.error("Failed to load NotebookLM data", e);
+      }
+    }
 
-        function filterLogs() {
-            const query = document.getElementById('search').value.toLowerCase();
-            const filtered = allLogs.filter(log => 
-                (log.prompt && log.prompt.toLowerCase().includes(query)) || 
-                log.filename.toLowerCase().includes(query)
-            );
-            renderLogsList(filtered);
+    async function generatePodcast() {
+      alert("▶️ Запущена генерация 2-спикерного подкаста (Алексей & Елена)...");
+      try {
+        const res = await fetch('/api/v1/notebooklm/generate-podcast', { method: 'POST' });
+        const data = await res.json();
+        alert("✅ Подкаст успешно сгенерирован!\nФайл: " + (data.audio_path || data.status));
+        loadNotebookLMData();
+      } catch (e) {
+        alert("Ошибка генерации: " + e.message);
+      }
+    }
+
+    async function generateStudyGuide() {
+      alert("📄 Запущена генерация сгенерированного Учебного Гида по базе знаний...");
+      try {
+        const res = await fetch('/api/v1/notebooklm/generate-study-guide', { method: 'POST' });
+        const data = await res.json();
+        alert("✅ Учебный гид сгенерирован!\nФайл: " + (data.guide ? data.guide.filepath : data.status));
+        loadNotebookLMData();
+      } catch (e) {
+        alert("Ошибка генерации: " + e.message);
+      }
+    }
+
+    // Fetch Multimodal Stats
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/v1/knowledge/stats');
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('stat-nodes').textContent = data.kg_nodes || 0;
+          document.getElementById('stat-edges').textContent = data.kg_edges || 0;
+          document.getElementById('stat-scenes').textContent = data.MediaScene || 0;
+          document.getElementById('stat-telegram').textContent = data.TelegramMessage || 0;
         }
+      } catch (e) {
+        console.error("Failed to load stats", e);
+      }
+    }
 
-        async function viewLogDetail(filename) {
-            activeLogFilename = filename;
-            renderLogsList(allLogs); // Update active state class
+    // Perform Multimodal Search
+    async function doSearch() {
+      const query = searchInput.value.trim();
+      if (!query) {
+        resultsList.innerHTML = '<div style="padding:16px; color:#9ca3af; text-align:center;">Enter a search query</div>';
+        return;
+      }
 
-            const detailArea = document.getElementById('detailView');
-            detailArea.innerHTML = `<div class="empty-state">Loading rollout details...</div>`;
+      resultsList.innerHTML = '<div style="padding:16px; color:#9ca3af; text-align:center;">Searching...</div>';
 
-            try {
-                const res = await fetch(`/api/logs/${filename}`);
-                const data = await res.json();
-                renderRollout(data);
-            } catch (err) {
-                console.error("Failed to fetch log details:", err);
-                detailArea.innerHTML = `<div class="empty-state" style="color: var(--error-color)">Error loading details</div>`;
-            }
+      try {
+        const url = `/api/v1/knowledge/search?query=${encodeURIComponent(query)}&top_k=10&domain=${encodeURIComponent(currentDomain)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        currentResults = data.results || [];
+        renderResults();
+        if (currentResults.length > 0 && !activeItem) {
+          selectItem(currentResults[0]);
         }
+      } catch (e) {
+        resultsList.innerHTML = `<div style="padding:16px; color:#ef4444;">Search Error: ${e.message}</div>`;
+      }
+    }
 
-        function renderRollout(data) {
-            const meta = data.metadata || {};
-            const iterations = data.iterations || [];
-            
-            // Reconstruct the parent/child tree nodes
-            const detailArea = document.getElementById('detailView');
-            
-            detailArea.innerHTML = `
-                <div class="detail-header">
-                    <div class="detail-title">${escapeHtml(meta.prompt || "Rollout Trace")}</div>
-                    <div class="detail-meta-grid">
-                        <div class="detail-meta-item">Model: <strong>${escapeHtml(meta.root_model || 'unknown')}</strong></div>
-                        <div class="detail-meta-item">Max Depth: <strong>${meta.max_depth || 'N/A'}</strong></div>
-                        <div class="detail-meta-item">Turns: <strong>${iterations.length}</strong></div>
-                        <div class="detail-meta-item">Time: <strong>${meta.execution_time ? meta.execution_time.toFixed(2) + 's' : 'N/A'}</strong></div>
-                    </div>
-                </div>
-                <div class="workspace">
-                    <div class="tree-viewport" id="treeViewport">
-                        <div class="tree-container" id="treeContainer">
-                            <!-- Visual nodes populated dynamically -->
-                        </div>
-                    </div>
-                    <div class="inspector" id="inspector">
-                        <div class="inspector-header">Node Inspector</div>
-                        <div class="inspector-body">
-                            <div class="empty-state">Select a node in the tree to inspect code and responses.</div>
-                        </div>
-                    </div>
-                </div>
-            `;
+    function renderResults() {
+      if (currentResults.length === 0) {
+        resultsList.innerHTML = '<div style="padding:16px; color:#9ca3af; text-align:center;">No matching results found</div>';
+        return;
+      }
 
-            renderTree(meta, iterations);
+      resultsList.innerHTML = currentResults.map(item => {
+        const simPct = (item.similarity * 100).toFixed(1) + '%';
+        const isMedia = item.node_type === 'MediaScene';
+        const thumbUrl = isMedia && item.thumbnail_path 
+          ? `/api/v1/knowledge/thumbnail?path=${encodeURIComponent(item.thumbnail_path)}`
+          : null;
+
+        const timeStr = isMedia ? `${formatTime(item.start_sec)} - ${formatTime(item.end_sec)}` : (item.timestamp || '');
+        const snippet = isMedia ? item.transcript : item.text_snippet;
+
+        return `
+          <div class="result-card ${activeItem && activeItem.id === item.id ? 'active' : ''}" onclick="selectItemById('${item.id}')">
+            <div class="thumb-wrapper">
+              ${thumbUrl ? `<img src="${thumbUrl}" alt="thumb" onerror="this.style.display='none'">` : '<div style="font-size:0.7rem; color:#6366f1;">TEXT</div>'}
+            </div>
+            <div class="card-content">
+              <div class="card-header">
+                <div class="card-title">${escapeHtml(item.name || item.title || 'Untitled')}</div>
+                <div class="sim-badge">${simPct}</div>
+              </div>
+              <div class="card-snippet">${escapeHtml(snippet || '')}</div>
+              <div class="card-footer">
+                <span>${item.node_type}</span>
+                <span>${timeStr}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectItemById(id) {
+      const item = currentResults.find(r => r.id === id);
+      if (item) selectItem(item);
+    }
+
+    function selectItem(item) {
+      activeItem = item;
+      renderResults();
+
+      activeTitle.textContent = item.name || item.title || 'Selected Item';
+      metaId.textContent = item.id;
+      metaType.textContent = item.node_type;
+
+      if (item.node_type === 'MediaScene') {
+        const st = item.start_sec || 0;
+        const en = item.end_sec || 0;
+        metaTime.textContent = `${formatTime(st)} - ${formatTime(en)} (${st}s -> ${en}s)`;
+        metaSource.textContent = item.source_file || '-';
+        activeTranscript.textContent = item.transcript || 'No transcript available.';
+
+        const streamUrl = `/api/v1/knowledge/stream?path=${encodeURIComponent(item.source_file)}#t=${st},${en}`;
+        videoPlayer.src = streamUrl;
+        videoPlayer.currentTime = st;
+        videoPlayer.play().catch(() => {});
+
+        prevBtn.disabled = !item.prev_scene_id;
+        nextBtn.disabled = !item.next_scene_id;
+      } else {
+        metaTime.textContent = item.timestamp || '-';
+        metaSource.textContent = item.file_source || '-';
+        activeTranscript.textContent = `Channel: ${item.channel_name || 'N/A'}\nMessage ID: ${item.msg_id}\nDate: ${item.timestamp}\n\n${item.text_snippet || ''}`;
+        
+        videoPlayer.pause();
+        videoPlayer.src = '';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+      }
+    }
+
+    // Cognitive & Mastery Handlers
+    async function loadMasteryStats() {
+      try {
+        const res = await fetch('/api/v1/cognitive/stats');
+        if (res.ok) {
+          const data = await res.json();
+          const pctVal = data.mastery_score_pct !== undefined ? data.mastery_score_pct : (data.mastery_pct || 0);
+          const pct = pctVal.toFixed(1);
+          document.getElementById('mastery-pct-badge').textContent = `${pct}%`;
+          document.getElementById('mastery-progress-bar').style.width = `${pct}%`;
+          document.getElementById('m-stat-mastered').textContent = data.mastered_cards || 0;
+          document.getElementById('m-stat-learning').textContent = data.learning_cards || 0;
+          document.getElementById('m-stat-due').textContent = data.due_cards !== undefined ? data.due_cards : (data.due_count || 0);
+          document.getElementById('m-stat-total').textContent = data.total_cards || 0;
+          
+          const efVal = data.avg_ease_factor !== undefined ? data.avg_ease_factor : (data.average_ease_factor || 2.50);
+          const intVal = data.avg_interval_days !== undefined ? data.avg_interval_days : (data.average_interval_days || 1.0);
+          const retVal = data.estimated_retention_pct !== undefined ? data.estimated_retention_pct : (data.retention_pct || 90.0);
+
+          document.getElementById('sm2-ef').textContent = efVal.toFixed(2);
+          document.getElementById('sm2-interval').textContent = `${intVal.toFixed(1)} days`;
+          document.getElementById('sm2-retention').textContent = `${retVal.toFixed(1)}%`;
         }
+      } catch (e) {
+        console.error("Error loading mastery stats:", e);
+      }
+    }
 
-        function renderTree(meta, iterations) {
-            const container = document.getElementById('treeContainer');
-            
-            // Build simple linear/recursive tree cards
-            let html = '<div class="tree-row">';
-            
-            // Root card
-            html += `
-                <div class="node-card rlm-root active" onclick="inspectNode('root', ${JSON.stringify(meta).replace(/"/g, '&quot;')})">
-                    <div class="node-header">
-                        <span class="node-title">Parent RLM</span>
-                        <span class="node-badge">ROOT</span>
-                    </div>
-                    <div class="node-snippet">${escapeHtml(meta.prompt || "Start")}</div>
-                    <div class="node-meta">
-                        <span>Turns: ${iterations.length}</span>
-                    </div>
-                </div>
-            `;
-            html += '</div>';
-
-            // Add iterations as a row / children
-            if (iterations.length > 0) {
-                html += '<div class="tree-row" style="margin-top: 2rem; flex-wrap: wrap;">';
-                iterations.forEach((it, idx) => {
-                    const snippet = it.code_blocks && it.code_blocks.length > 0 ? it.code_blocks[0].code : (it.response || "");
-                    const isSubcall = it.code_blocks && it.code_blocks.some(b => b.code.includes('rlm_query'));
-                    
-                    html += `
-                        <div class="node-card ${isSubcall ? 'rlm-child' : 'llm-call'}" onclick="inspectNode('iteration', ${JSON.stringify(it).replace(/"/g, '&quot;')}, ${idx + 1})">
-                            <div class="node-header">
-                                <span class="node-title">Turn ${it.iteration || (idx + 1)}</span>
-                                <span class="node-badge">${isSubcall ? 'RECURSION' : 'TURN'}</span>
-                            </div>
-                            <div class="node-snippet">${escapeHtml(snippet)}</div>
-                            <div class="node-meta">
-                                <span>Output: ${it.final_answer ? 'ANSWER' : 'NEXT'}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
-            }
-
-            container.innerHTML = html;
+    async function loadNextQuestion() {
+      document.getElementById('evaluation-panel').style.display = 'none';
+      document.getElementById('user-answer-input').value = '';
+      
+      try {
+        const res = await fetch('/api/v1/cognitive/next-question');
+        if (res.ok) {
+          const data = await res.json();
+          const card = data.card || (data.question_text ? data : null);
+          if (card && card.question_text) {
+            currentCard = card;
+            document.getElementById('trainer-question-text').textContent = card.question_text;
+            document.getElementById('trainer-card-id').textContent = `Card: ${card.id || card.card_id || 'N/A'}`;
+            document.getElementById('trainer-domain-tag').textContent = card.entity_type || 'ThesisNode';
+            document.getElementById('trainer-status-badge').textContent = data.is_due ? 'DUE FOR REVIEW' : 'PRACTICE';
+          } else {
+            document.getElementById('trainer-question-text').textContent = "No flashcards found. Create or sync Zettel notes to populate trainer.";
+          }
         }
+      } catch (e) {
+        console.error("Error loading next question:", e);
+      }
+    }
 
-        function inspectNode(type, data, turnIdx) {
-            const inspectorBody = document.querySelector('.inspector-body');
-            
-            // Deselect other cards, select current
-            document.querySelectorAll('.node-card').forEach(c => c.classList.remove('active'));
-            event.currentTarget.classList.add('active');
+    async function submitRecallAnswer() {
+      if (!currentCard) return;
+      const userAnswer = document.getElementById('user-answer-input').value;
+      const cardId = currentCard.id || currentCard.card_id;
 
-            if (type === 'root') {
-                inspectorBody.innerHTML = `
-                    <div class="inspector-section">
-                        <h4>Prompt / Context</h4>
-                        <div class="code-block">${escapeHtml(data.prompt)}</div>
-                    </div>
-                    <div class="inspector-section">
-                        <h4>System Settings</h4>
-                        <p style="margin-bottom: 0.5rem">Model: <strong>${escapeHtml(data.root_model)}</strong></p>
-                        <p style="margin-bottom: 0.5rem">Max Depth: <strong>${data.max_depth}</strong></p>
-                        <p style="margin-bottom: 0.5rem">Execution Time: <strong>${data.execution_time ? data.execution_time.toFixed(2) + 's' : 'N/A'}</strong></p>
-                    </div>
-                `;
-            } else {
-                const codeBlocks = data.code_blocks || [];
-                const codeHtml = codeBlocks.map(b => `
-                    <div style="margin-bottom: 1rem">
-                        <div class="node-badge" style="display:inline-block; margin-bottom:0.3rem">REPL CODE</div>
-                        <div class="code-block">${escapeHtml(b.code)}</div>
-                        ${b.result ? `
-                            <div class="node-badge" style="display:inline-block; margin-top:0.5rem; margin-bottom:0.3rem; background:rgba(16,185,129,0.15); color:var(--success-color)">REPL OUTPUT</div>
-                            <div class="code-block" style="border-color: rgba(16,185,129,0.2);">${escapeHtml(b.result.stdout || b.result.stderr || "Success (no output)")}</div>
-                        ` : ''}
-                    </div>
-                `).join('');
+      try {
+        const res = await fetch('/api/v1/cognitive/evaluate-answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            card_id: cardId,
+            user_answer: userAnswer,
+            quality_grade: selectedGrade
+          })
+        });
 
-                inspectorBody.innerHTML = `
-                    <div class="inspector-section">
-                        <h4>Turn ${turnIdx} Plan & Thought</h4>
-                        <div style="font-size: 0.9rem; line-height: 1.5; color: var(--text-color); margin-bottom: 1rem;">
-                            ${escapeHtml(data.response || "No text plan generated.")}
-                        </div>
-                    </div>
-                    ${codeBlocks.length > 0 ? `
-                        <div class="inspector-section">
-                            <h4>REPL Execution Trace</h4>
-                            ${codeHtml}
-                        </div>
-                    ` : ''}
-                    ${data.final_answer ? `
-                        <div class="inspector-section" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
-                            <h4 style="color: var(--success-color)">Final Answer Submitted</h4>
-                            <div class="code-block" style="border-color: var(--success-color); background: rgba(16,185,129,0.05); font-weight: 600;">
-                                ${escapeHtml(data.final_answer)}
-                            </div>
-                        </div>
-                    ` : ''}
-                `;
-            }
+        if (res.ok) {
+          const data = await res.json();
+          renderEvaluationResult(data);
+          loadMasteryStats();
         }
+      } catch (e) {
+        console.error("Error submitting answer:", e);
+      }
+    }
 
-        function escapeHtml(text) {
-            if (!text) return "";
-            return text.toString()
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+    function revealRationaleOnly() {
+      if (!currentCard) return;
+      document.getElementById('evaluation-panel').style.display = 'flex';
+      document.getElementById('score-gauge-val').textContent = '?';
+      document.getElementById('score-rating-label').textContent = 'REVEALED RATIONALE';
+      document.getElementById('rationale-text').innerHTML = `> <strong>Ground Truth</strong>: ${escapeHtml(currentCard.target_answer || 'No target answer available.')}`;
+      document.getElementById('next-interval-days').textContent = `${(currentCard.interval_days || 1).toFixed(0)} days`;
+      document.getElementById('new-ef-val').textContent = (currentCard.ease_factor || 2.5).toFixed(2);
+    }
+
+    function selectGrade(grade) {
+      selectedGrade = grade;
+      document.querySelectorAll('.btn-grade').forEach(btn => {
+        if (parseInt(btn.getAttribute('data-grade')) === grade) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
         }
+      });
+      if (document.getElementById('evaluation-panel').style.display !== 'none' && currentCard) {
+        submitRecallAnswer();
+      }
+    }
 
-        // Init
-        loadLogs();
-    </script>
+    function renderEvaluationResult(data) {
+      document.getElementById('evaluation-panel').style.display = 'flex';
+      const scorePct = data.score_pct !== undefined ? data.score_pct : data.score_percent;
+      document.getElementById('score-gauge-val').textContent = `${Math.round(scorePct)}%`;
+
+      const q = data.q_rating !== undefined ? data.q_rating : data.quality_grade;
+      let label = "GOOD RECALL";
+      if (q >= 5) label = "PERFECT RECALL";
+      else if (q === 4) label = "STRONG RECALL";
+      else if (q === 3) label = "PASSABLE RECALL";
+      else if (q === 2) label = "HARD RECALL";
+      else if (q === 1) label = "WRONG RECALL";
+      else label = "BLACKOUT";
+
+      document.getElementById('score-rating-label').textContent = label;
+
+      const targetAns = data.target_answer || (currentCard ? currentCard.target_answer : '');
+      const rationaleText = data.feedback_rationale || data.feedback || '';
+
+      document.getElementById('rationale-text').innerHTML = `
+        <div>> <strong>Ground Truth</strong>: ${escapeHtml(targetAns)}</div>
+        <div style="margin-top:6px; color:#9ca3af;">${escapeHtml(rationaleText)}</div>
+      `;
+
+      const nextDays = data.new_interval_days !== undefined ? data.new_interval_days : (data.sm2_update ? data.sm2_update.interval_days : 1);
+      const newEf = data.new_ease_factor !== undefined ? data.new_ease_factor : (data.sm2_update ? data.sm2_update.ease_factor : 2.5);
+
+      document.getElementById('next-interval-days').textContent = `${nextDays.toFixed(0)} days`;
+      document.getElementById('new-ef-val').textContent = newEf.toFixed(2);
+    }
+
+    async function loadAtomicNote(noteId) {
+      if (!noteId) return;
+      if (currentNoteId && currentNoteId !== noteId) {
+        noteHistoryStack.push(currentNoteId);
+        document.getElementById('note-back-btn').disabled = false;
+      }
+      currentNoteId = noteId;
+
+      const selectElem = document.getElementById('note-dropdown-select');
+      if (selectElem) selectElem.value = noteId;
+
+      const renderArea = document.getElementById('note-render-area');
+      renderArea.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">Loading note...</div>';
+
+      try {
+        const res = await fetch(`/api/v1/wiki/note?id=${encodeURIComponent(noteId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          renderNoteContent(data);
+        } else {
+          renderArea.innerHTML = `<div style="color:#ef4444; padding:16px;">Note '${escapeHtml(noteId)}' not found.</div>`;
+        }
+      } catch (e) {
+        renderArea.innerHTML = `<div style="color:#ef4444; padding:16px;">Error loading note: ${escapeHtml(e.message)}</div>`;
+      }
+    }
+
+    function popNoteHistory() {
+      if (noteHistoryStack.length > 0) {
+        const prevId = noteHistoryStack.pop();
+        if (noteHistoryStack.length === 0) {
+          document.getElementById('note-back-btn').disabled = true;
+        }
+        currentNoteId = prevId;
+        const selectElem = document.getElementById('note-dropdown-select');
+        if (selectElem) selectElem.value = prevId;
+        
+        fetch(`/api/v1/wiki/note?id=${encodeURIComponent(prevId)}`)
+          .then(r => r.json())
+          .then(data => renderNoteContent(data))
+          .catch(e => console.error(e));
+      }
+    }
+
+    function renderNoteContent(noteData) {
+      const renderArea = document.getElementById('note-render-area');
+      let text = noteData.content || "";
+      const noteId = noteData.id || currentNoteId;
+
+      // Extract Frontmatter
+      let frontmatterHtml = "";
+      const yamlMatch = text.match(/^---\s*\n([\s\S]*?)\n---/);
+      if (yamlMatch) {
+        frontmatterHtml = `<div class="yaml-badge">⚙️ <strong>YAML Frontmatter</strong>\n${escapeHtml(yamlMatch[1])}</div>`;
+        text = text.replace(/^---\s*\n[\s\S]*?\n---/, '').trim();
+      }
+
+      // Parse Checkboxes
+      text = parseActionCheckboxes(text, noteId);
+
+      // Parse Wikilinks
+      text = parseWikilinks(text);
+
+      const formattedLines = text.split('\n').map(line => {
+        if (line.startsWith('# ')) return `<h2 style="font-size:1.1rem; color:#fff; margin-top:8px;">${line.substring(2)}</h2>`;
+        if (line.startsWith('## ')) return `<h3 style="font-size:0.95rem; color:#818cf8; margin-top:8px;">${line.substring(3)}</h3>`;
+        if (line.startsWith('### ')) return `<h4 style="font-size:0.88rem; color:#e5e7eb; margin-top:6px;">${line.substring(4)}</h4>`;
+        if (line.startsWith('> ')) return `<blockquote style="border-left:3px solid var(--accent); padding-left:8px; color:#d1d5db; margin:6px 0;">${line.substring(2)}</blockquote>`;
+        return line;
+      }).join('\n');
+
+      renderArea.innerHTML = `
+        <div style="font-weight:700; font-size:1rem; color:#fff; border-bottom:1px solid var(--border-color); padding-bottom:6px;">
+          📄 ${escapeHtml(noteData.title || noteId)}
+        </div>
+        ${frontmatterHtml}
+        <div class="note-body-content" style="white-space:pre-wrap;">${formattedLines}</div>
+      `;
+    }
+
+    function parseWikilinks(text) {
+      return text.replace(/\[\[([a-zA-Z0-9_\-\.]+)(?:\|([^\]]+))?\]\]/g, (match, noteId, label) => {
+        const display = label || noteId.replace('Zettel_', '');
+        return `<a class="wikilink-badge" onclick="loadAtomicNote('${escapeHtml(noteId)}')" title="Navigate to ${escapeHtml(noteId)}">🔗 ${escapeHtml(display)}</a>`;
+      });
+    }
+
+    function parseActionCheckboxes(text, noteId) {
+      let taskIdx = 0;
+      return text.replace(/^[ \t]*- \[([ xX])\] (.*)$/gm, (match, checkedState, taskText) => {
+        const isChecked = checkedState.toLowerCase() === 'x';
+        const currentIdx = taskIdx++;
+        return `<div class="action-task-item"><input type="checkbox" id="task_${noteId}_${currentIdx}" ${isChecked ? 'checked' : ''} onchange="toggleTaskCheckbox('${escapeHtml(noteId)}', ${currentIdx}, this.checked)"><label for="task_${noteId}_${currentIdx}" class="${isChecked ? 'task-done' : ''}">${escapeHtml(taskText)}</label></div>`;
+      });
+    }
+
+    async function toggleTaskCheckbox(noteId, checkboxIndex, isChecked) {
+      try {
+        const res = await fetch('/api/v1/wiki/checkbox', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: noteId,
+            checkbox_index: checkboxIndex,
+            checked: isChecked
+          })
+        });
+
+        if (res.ok) {
+          const label = document.querySelector(`label[for="task_${noteId}_${checkboxIndex}"]`);
+          if (label) {
+            if (isChecked) label.classList.add('task-done');
+            else label.classList.remove('task-done');
+          }
+        }
+      } catch (e) {
+        console.error("Error toggling checkbox:", e);
+      }
+    }
+
+    // Helper functions
+    function formatTime(sec) {
+      const s = Math.floor(sec || 0);
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${m.toString().padStart(2, '0')}:${r.toString().padStart(2, '0')}`;
+    }
+
+    function escapeHtml(text) {
+      return (text || '').replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+      });
+    }
+
+    // Event Listeners
+    searchInput.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(doSearch, 300);
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentDomain = e.target.getAttribute('data-domain');
+        doSearch();
+      });
+    });
+
+    prevBtn.addEventListener('click', () => {
+      if (activeItem && activeItem.prev_scene_id) {
+        selectItemById(activeItem.prev_scene_id);
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (activeItem && activeItem.next_scene_id) {
+        selectItemById(activeItem.next_scene_id);
+      }
+    });
+
+    // Init
+    loadStats();
+    doSearch();
+  </script>
 </body>
 </html>

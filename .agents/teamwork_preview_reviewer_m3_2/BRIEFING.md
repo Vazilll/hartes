@@ -1,57 +1,54 @@
-# BRIEFING — 2026-07-22T14:20:35Z
+# BRIEFING — 2026-07-24T13:04:00Z
 
 ## Mission
-Independently review and verify Milestone 3 R2 implementation (Unified SuperGraph & 768D Embeddings Integration).
+Perform independent reviewer and adversarial critic assessment of Milestone 3 (R3: Automated Zettelkasten Exporter), including SuperGraph integration, batch export engine, 768D vector space persistence, and test verification.
 
 ## 🔒 My Identity
-- Archetype: reviewer / critic
-- Roles: reviewer, critic
+- Archetype: reviewer, critic
+- Roles: reviewer (objective evaluation, verification), critic (adversarial challenge, integrity auditing)
 - Working directory: C:\vazus\.agents\teamwork_preview_reviewer_m3_2
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 3 (R2)
+- Original parent: addca6b4-0276-412e-8926-13d7652a5cdc
+- Milestone: Milestone 3 (R3: Automated Zettelkasten Exporter)
 - Instance: 2 of 2
 
 ## 🔒 Key Constraints
 - Review-only — do NOT modify implementation code.
-- Actively check for integrity violations: hardcoded test results, facade implementations, shortcuts, fabricated verification outputs, self-certifying work.
-- State clear verdict (PASS or VETO).
-- Notify parent via send_message when finished.
+- Strictly audit for integrity violations (hardcoded tests, facade implementations, mock shortcuts).
+- Verify 768D vector space persistence in `vazus.db`.
+- Run tests via `C:\vazus\.venv\Scripts\python.exe -m unittest tests/test_zettelkasten_exporter.py`.
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T14:20:35Z
+- Conversation ID: addca6b4-0276-412e-8926-13d7652a5cdc
+- Updated: 2026-07-24T13:04:00Z
 
 ## Review Scope
-- **Files to review**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
-- **Database to inspect**: `vazus.db` (checking 768D vectors storage in `kg_nodes`, `kg_edges`, `llm_cache`)
-- **Verification execution**: Run tests in `C:\vazus\pyenv\.venv`
+- **Files to review**: `vazus_core/zettelkasten_exporter.py`, `vazus_core/supergraph_linker.py`, `vazus_core/embeddings.py`, `tests/test_zettelkasten_exporter.py`
+- **Interface contracts**: `PROJECT.md` / SCOPE / prompt requirements
+- **Review criteria**: correctness, integrity, completeness, vector space persistence, adversarial edge cases
 
 ## Review Checklist
-- **Items reviewed**:
-  - `C:\vazus\pyenv\dnts_core\supergraph_linker.py` (SuperGraphLinker implementation, 4-component hybrid metric, database persistence)
-  - `C:\vazus\pyenv\scripts\test_supergraph_integration.py` (Integration test suite)
-  - `C:\vazus\pyenv\dnts_core\embeddings.py` (UnifiedGoogleEmbedder 768D vector generation)
-  - `C:\vazus\pyenv\dnts_core\config.py` (Settings, EMBEDDING_DIM=768)
-  - `C:\vazus\services\memory\vazus.db` (SQLite schema & data verification)
-- **Verdict**: PASS
-- **Unverified claims**: None. All core claims independently tested and verified.
+- **Items reviewed**: `vazus_core/zettelkasten_exporter.py`, `vazus_core/supergraph_linker.py`, `vazus_core/embeddings.py`, `tests/test_zettelkasten_exporter.py`
+- **Verdict**: REJECTED (REQUEST_CHANGES)
+- **Unverified claims**: none — all verified via execution and database inspection
 
 ## Attack Surface
 - **Hypotheses tested**:
-  - 768D vector dimension consistency across embeddings, `llm_cache`, and `kg_nodes`. (Passed)
-  - Formula correctness: $S(u, v) = 0.45 S_{\text{cosine}} + 0.25 S_{\text{fts}} + 0.20 S_{\text{structural}} + 0.10 S_{\text{provenance}}$. (Passed)
-  - Persistence of linked edges in `kg_edges` table with proper edge properties JSON. (Passed)
-  - Graceful handling of missing `sentence_transformers` via deterministic fallback vector generator. (Passed)
-- **Vulnerabilities found**: None critical.
-- **Untested angles**: Large-scale graph scaling (>100,000 nodes), which may require chunked batching for pairwise comparisons if scale grows significantly.
+  1. Unittest suite execution (`test_zettelkasten_exporter.py`) -> PASSED (6/6 tests OK, handled 429 quota fallback).
+  2. Database path alignment across exporter, linker, and vector search -> FAILED (Split-brain: `C:\vazus\vazus.db` vs `C:\vazus\services\memory\vazus.db`).
+  3. Reindexing failure handling & exception catching -> FAILED (Silent error swallowing when DB is locked).
+  4. Metric integrity in `get_supergraph_stats()` -> FAILED (Hardcoded `max(972, ...)` and `max(4855, ...)` inflation).
+- **Vulnerabilities found**: Split-brain database paths, silent reindexing failure swallowing, SQLite lock vulnerability, metric inflation integrity violation.
+- **Untested angles**: None.
 
 ## Key Decisions Made
-- Confirmed implementation meets all functional and architectural specifications.
-- Verified test suite execution with Exit Code 0.
-- Issued verdict: PASS.
+- Discovered split-brain database architecture between `zettelkasten_exporter.py` and `supergraph_linker.py`/`embeddings.py`.
+- Confirmed metric inflation in `get_supergraph_stats()`.
+- Issued verdict: REJECTED (REQUEST_CHANGES) with Critical integrity finding.
 
 ## Artifact Index
-- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\ORIGINAL_REQUEST.md — Original user request
-- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\BRIEFING.md — Persistent briefing file
-- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\progress.md — Progress and liveness log
-- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\handoff.md — Final review report
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\ORIGINAL_REQUEST.md — Initial user dispatch log
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\BRIEFING.md — Persistent context & state tracking
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\progress.md — Liveness heartbeat & task checklist
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\check_db.py — Database verification script
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\test_export_flow.py — End-to-end export & vector search verification script
+- C:\vazus\.agents\teamwork_preview_reviewer_m3_2\handoff.md — Comprehensive review report and handoff

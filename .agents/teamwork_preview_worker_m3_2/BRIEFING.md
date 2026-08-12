@@ -1,55 +1,49 @@
-# BRIEFING — 2026-07-22T14:28:30Z
+# BRIEFING — 2026-07-24T15:08:23+03:00
 
 ## Mission
-Apply 2 robustness improvements to `supergraph_linker.py` and verify integration tests pass.
+Fix critical Path Traversal / Unsanitized File Access vulnerability in `scripts/dashboard.py` and verify workspace boundary enforcement.
 
 ## 🔒 My Identity
-- Archetype: implementer/qa/specialist worker
+- Archetype: implementer/qa
 - Roles: implementer, qa, specialist
 - Working directory: C:\vazus\.agents\teamwork_preview_worker_m3_2
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 3
+- Original parent: d62044f0-88bb-4a22-92ca-21b5a89d041c
+- Milestone: Milestone 3: Interactive Dual Interface Remediation
 
 ## 🔒 Key Constraints
-- DO NOT CHEAT. All implementations must be genuine.
-- Minimal change principle.
-- Write handoff to C:\vazus\.agents\teamwork_preview_worker_m3_2\handoff.md.
-- Notify parent via send_message when finished.
+- All resolved file paths served by `scripts/dashboard.py` MUST reside within `C:\vazus` (or allowed workspace root).
+- Boundary validation must happen BEFORE file existence check.
+- Traversal attempts outside `C:\vazus` must return HTTP 403.
+- Legitimate course videos and thumbnails inside `C:\vazus` must serve HTTP 200/206.
+- `python scripts/knowledge_chat.py --query "тест"` must execute with exit code 0.
+- DO NOT CHEAT or hardcode test results.
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T14:28:30Z
+- Conversation ID: d62044f0-88bb-4a22-92ca-21b5a89d041c
+- Updated: 2026-07-24T15:08:23+03:00
 
 ## Task Summary
-- **What to build**: Robustness improvements to `calculate_cosine_similarity` and `calculate_provenance_similarity` in `C:\vazus\pyenv\dnts_core\supergraph_linker.py`.
-- **Success criteria**:
-  1. `calculate_cosine_similarity(vec1, vec2)` returns 0.0 for nan/invalid vectors or zero norm.
-  2. `calculate_provenance_similarity(node1, node2)` defaults baseline score to 0.0 when no provenance match is present.
-  3. `test_supergraph_integration.py` and `test_dnts_system.py` pass with Exit Code 0.
-- **Interface contracts**: supergraph_linker.py module interface.
-- **Code layout**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`
-
-## Key Decisions Made
-- Enhanced `calculate_cosine_similarity` to check for NaN elements, zero norms, zero division, and inf values, returning 0.0 safely.
-- Updated `calculate_provenance_similarity` baseline score from 0.5 to 0.0 when no origin match or file reference match is present.
-- Updated `test_supergraph_integration.py` with explicit assertion checks for NaN/zero-norm vectors and default 0.0 provenance score.
-
-## Artifact Index
-- C:\vazus\.agents\teamwork_preview_worker_m3_2\ORIGINAL_REQUEST.md — Original request instructions
-- C:\vazus\.agents\teamwork_preview_worker_m3_2\progress.md — Liveness progress log
-- C:\vazus\.agents\teamwork_preview_worker_m3_2\handoff.md — 5-component handoff report
+- **What to build**: Strict path canonicalization and boundary check in `scripts/dashboard.py` (`handle_stream`, `handle_thumbnail`).
+- **Success criteria**: HTTP 403 on external/traversal paths, HTTP 200/206 on internal workspace paths, knowledge_chat exit code 0.
+- **Code layout**: `C:\vazus\scripts\dashboard.py`, `C:\vazus\scripts\knowledge_chat.py`.
 
 ## Change Tracker
-- **Files modified**:
-  - `C:\vazus\pyenv\dnts_core\supergraph_linker.py`: Updated `calculate_cosine_similarity` and `calculate_provenance_similarity`.
-  - `C:\vazus\pyenv\scripts\test_supergraph_integration.py`: Added explicit test assertions for robustness improvements.
-- **Build status**: Code modified and verified.
-- **Pending issues**: None.
+- **Files modified**: `C:\vazus\scripts\dashboard.py` — added strict path canonicalization and boundary validation enforcing workspace root (`C:\vazus`) in `handle_stream` and `handle_thumbnail`.
+- **Build status**: Passed (py_compile and live server verification suite passed).
+- **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: All robustness logic and integration test assertions verified.
-- **Lint status**: Clean, zero syntax or style violations introduced.
-- **Tests added/modified**: Robustness assertion checks added to `test_supergraph_integration.py`.
+- **Build/test result**: All security & regression tests passed (403 on traversal, 206/200 on legitimate files, exit code 0 on knowledge_chat).
+- **Lint status**: Passed
+- **Tests added/modified**: Executed inline Python test suite against live ThreadedHTTPServer on port 8585.
 
 ## Loaded Skills
-- None explicitly loaded
+- None
+
+## Key Decisions Made
+- Used `allowed_base = Path("C:/vazus").resolve()` and `resolved_path = file_path.resolve()`, enforcing `resolved_path.relative_to(allowed_base)` BEFORE checking `exists()`.
+- Implemented boundary validation for both initial path and thumbnail fallback path.
+
+## Artifact Index
+- `C:\vazus\.agents\teamwork_preview_worker_m3_2\ORIGINAL_REQUEST.md` — Original User Request
+- `C:\vazus\.agents\teamwork_preview_worker_m3_2\handoff.md` — Handoff report

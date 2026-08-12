@@ -1,11 +1,12 @@
 """
 subagent_rlm_bridge.py — Bridge script linking rlm_code_engineer subagent
-directly to MIT RLM engine (C:\\dnts\\pyenv\\rlm-mit) and vazus_core.workers.rlm.
+directly to MIT RLM engine and vazus_core.workers.rlm in C:\vazus.
 
-DNTS SuperGraph OS Architecture Integration (Milestone 2)
+vazus SuperGraph OS Architecture Integration
 """
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ if hasattr(sys.stderr, "reconfigure"):
 # Setup project and dependency paths
 SCRIPT_DIR = Path(__file__).resolve().parent
 PYENV_DIR = SCRIPT_DIR.parent
-RLM_MIT_DIR = PYENV_DIR / "rlm-mit"
+RLM_MIT_DIR = PYENV_DIR / "labs" / "mit" / "rlm-mit"
 
 for p in [str(PYENV_DIR), str(RLM_MIT_DIR)]:
     if p not in sys.path:
@@ -33,6 +34,14 @@ except ImportError as e:
     sys.stderr.write(f"[RLMBridge] Import Warning/Error: {e}\n")
     RLM = None
     rlm_worker = None
+
+try:
+    from vazus_core.agent_handoff import handoff_manager
+    from vazus_core.dialogue_persister import dialogue_persister
+except ImportError as e:
+    sys.stderr.write(f"[RLMBridge] Core module import warning: {e}\n")
+    handoff_manager = None
+    dialogue_persister = None
 
 
 class RLMSubagentBridge:
@@ -103,7 +112,7 @@ class RLMSubagentBridge:
         if dry_run or not self.is_rlm_available:
             # Dry-run / structural verification mode
             tools_loaded = list(rlm_worker.load_compiled_tools().keys()) if rlm_worker else []
-            return {
+            res = {
                 "subagent": "rlm_code_engineer",
                 "status": "SUCCESS",
                 "mode": "dry_run_verification",
@@ -114,6 +123,32 @@ class RLMSubagentBridge:
                 "tools": tools_loaded,
                 "complexity": complexity,
             }
+            if handoff_manager:
+                handoff_res = handoff_manager.execute_handoff(
+                    workflow="SAVE",
+                    source_agent="rlm_code_engineer",
+                    target_agent="system",
+                    payload={"prompt": prompt, "complexity": complexity, "tools_loaded_count": len(tools_loaded)},
+                    require_jury=False
+                )
+                res["handoff_id"] = handoff_res.get("handoff_id")
+            if dialogue_persister:
+                dlg_res = dialogue_persister.record_dialogue(
+                    session_id="rlm_session",
+                    parent_id="user",
+                    agent_name="rlm_code_engineer",
+                    prompt=prompt,
+                    response=str(res)
+                )
+                dialogue_persister.record_memory_trace(
+                    agent_name="rlm_code_engineer",
+                    trace_kind="RLM_DRY_RUN",
+                    summary=f"RLM code task verification: {prompt[:50]}",
+                    content=f"Prompt: {prompt}\nTools Loaded: {tools_loaded}",
+                    dialogue_id=dlg_res.get("dialogue_id"),
+                    title=f"RLM_Code_Task_{prompt[:30]}"
+                )
+            return res
 
         # Live worker execution
         try:
@@ -126,16 +161,67 @@ class RLMSubagentBridge:
                 complexity=complexity,
             )
             res["subagent"] = "rlm_code_engineer"
+            if handoff_manager:
+                handoff_res = handoff_manager.execute_handoff(
+                    workflow="SAVE",
+                    source_agent="rlm_code_engineer",
+                    target_agent="system",
+                    payload={"prompt": prompt, "complexity": complexity},
+                    require_jury=False
+                )
+                res["handoff_id"] = handoff_res.get("handoff_id")
+            if dialogue_persister:
+                dlg_res = dialogue_persister.record_dialogue(
+                    session_id="rlm_session",
+                    parent_id="user",
+                    agent_name="rlm_code_engineer",
+                    prompt=prompt,
+                    response=str(res)
+                )
+                dialogue_persister.record_memory_trace(
+                    agent_name="rlm_code_engineer",
+                    trace_kind="RLM_EXECUTION",
+                    summary=f"RLM code execution: {prompt[:50]}",
+                    content=str(res),
+                    dialogue_id=dlg_res.get("dialogue_id"),
+                    title=f"RLM_Execution_{prompt[:30]}"
+                )
             return res
         except Exception as e:
             sys.stderr.write(f"[RLMBridge] Worker execution note: {e}\n")
-            return {
+            res = {
                 "subagent": "rlm_code_engineer",
                 "status": "COMPLETED_WITH_FALLBACK",
                 "prompt": prompt,
                 "error": str(e),
                 "note": "Local REPL engine initialized successfully; adapter connection offline.",
             }
+            if handoff_manager:
+                handoff_res = handoff_manager.execute_handoff(
+                    workflow="SAVE",
+                    source_agent="rlm_code_engineer",
+                    target_agent="system",
+                    payload={"prompt": prompt, "error": str(e)},
+                    require_jury=False
+                )
+                res["handoff_id"] = handoff_res.get("handoff_id")
+            if dialogue_persister:
+                dlg_res = dialogue_persister.record_dialogue(
+                    session_id="rlm_session",
+                    parent_id="user",
+                    agent_name="rlm_code_engineer",
+                    prompt=prompt,
+                    response=f"Fallback execution note: {e}"
+                )
+                dialogue_persister.record_memory_trace(
+                    agent_name="rlm_code_engineer",
+                    trace_kind="RLM_FALLBACK",
+                    summary=f"RLM fallback state for: {prompt[:50]}",
+                    content=f"Error/Note: {e}",
+                    dialogue_id=dlg_res.get("dialogue_id"),
+                    title=f"RLM_Fallback_{prompt[:30]}"
+                )
+            return res
 
 
 def main():

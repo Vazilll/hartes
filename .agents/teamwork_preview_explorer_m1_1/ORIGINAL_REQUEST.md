@@ -1,15 +1,16 @@
-## 2026-07-22T13:23:46Z
-<USER_REQUEST>
-You are Explorer 1 for Milestone 1 of DNTS OS SuperGraph Architecture Integration.
+## 2026-07-24T12:24:03Z
+You are Explorer 1 for Milestone 1 (R1: High-Precision ASR Upgrade).
 Working directory: C:\vazus\.agents\teamwork_preview_explorer_m1_1
-Project root: C:\vazus
+Project master spec: C:\vazus\.agents\orchestrator\PROJECT.md
 
 Task:
-Investigate existing GitHub repositories and script directory for R1 (Native Subagents & GitHub Wrappers Bridge):
-1. Inspect C:\vazus\pyenv\rlm-mit - examine structure, entrypoints, imports, CLI/Python interfaces.
-2. Inspect C:\vazus\pyenv\open-deep-research - examine structure, entrypoints, dependencies, CLI/Python interfaces.
-3. Inspect C:\vazus\pyenv\dnts_core - examine modules and structure.
-4. Inspect C:\vazus\pyenv\scripts - list existing scripts and check environment setup (C:\vazus\pyenv\.venv).
+Analyze `C:\vazus\vazus_core\multimodal_knowledge.py`, `C:\vazus\vazus_core\`, and virtual environment capabilities in `C:\vazus\.venv` (PyTorch CPU, OpenVINO, faster-whisper/whisper/optimum).
 
-Write your detailed handoff report to C:\vazus\.agents\teamwork_preview_explorer_m1_1\handoff.md following the Handoff Protocol (Observation, Logic Chain, Caveats, Conclusion, Verification Method). Also update progress.md in your working directory. Notify the parent orchestrator via send_message when finished.
-</USER_REQUEST>
+Focus areas for Explorer 1:
+1. Whisper model loading: Examine how model initialization is currently handled in `multimodal_knowledge.py` vs available libraries in python env (`faster_whisper`, `whisper`, `openvino`, `transformers`, etc.).
+2. High-precision model selection: `large-v3-turbo` or `medium` fallback strategy on PyTorch CPU / OpenVINO.
+3. Russian speech text normalization: recommend exact Python regex/rules/libraries for Russian text normalization (lowercase, remove hallucinated tags, punctuation fix, number handling).
+4. Garbage/hallucination transcript filtering: detect repetitive loops (e.g. "Спасибо за просмотр", "Субтитры", repeated n-grams) and low confidence scores.
+
+Write your findings and implementation recommendation to `C:\vazus\.agents\teamwork_preview_explorer_m1_1\analysis.md` and `handoff.md`.
+Send a completion message back to parent.

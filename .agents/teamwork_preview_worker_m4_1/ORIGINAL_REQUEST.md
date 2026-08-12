@@ -1,36 +1,22 @@
-## 2026-07-22T14:28:58Z
-<USER_REQUEST>
-You are Worker 5 for Milestone 4 (R3: DeepMind Token Economy & Prompt Compression) of DNTS OS SuperGraph Architecture Integration.
+## 2026-07-22T20:41:35Z
+MANDATORY INTEGRITY WARNING: DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A Forensic Auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+You are Worker 1 for Milestone 4 of the vazus SuperGraph OS architectural unification project.
 Working directory: C:\vazus\.agents\teamwork_preview_worker_m4_1
-Project root: C:\vazus
+Scope document: C:\vazus\.agents\orchestrator\plan.md
 
-MANDATORY INTEGRITY WARNING:
-DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A Forensic Auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
-
-Task:
-Implement R3 (DeepMind Token Economy & Prompt Compression):
-1. Create C:\vazus\pyenv\dnts_core\ast_pruner.py:
-   - Uses Python's native `ast` module (`ast.NodeTransformer`).
-   - Prunes Python file bodies by replacing function/method implementation statements with `ast.Expr(value=ast.Constant(value=Ellipsis))` (`...`).
-   - Preserves: imports, module docstrings, class definitions, class docstrings, annotated attributes, decorators, function names, parameter lists, type annotations, return types, and function docstrings.
-   - Provides `prune_python_code(code_str: str) -> str` and `prune_python_file(file_path: str) -> str`.
-   - Computes token/character compression ratio (verifying 70-90% reduction for large modules).
-
-2. Create C:\vazus\pyenv\dnts_core\context_caching.py:
-   - Implements 3-tier prefix prompt structure:
-     - Tier 1: Static System & Persona (system instructions, user_global rules, environment).
-     - Tier 2: Semi-Static AST & AGENTS.md (pruned AST topology, role definitions, Karpathy memory index).
-     - Tier 3: Dynamic Suffix (current task prompt, execution logs, compacted history).
-   - Provides `build_cached_prompt(tier1_static, tier2_semistatic, tier3_dynamic) -> str` enforcing exact block sequence to optimize LLM KV prefix cache hit rate.
-
-3. Create verification script C:\vazus\pyenv\scripts\test_token_economy.py:
-   - Tests `ast_pruner.py` on python files (e.g. `dnts_core/embeddings.py`, `dnts_core/supergraph_linker.py`).
-   - Verifies AST unparsing, syntax validity, and token/character compression metrics.
-   - Tests `context_caching.py` prefix structure ordering.
-   - Exits with Exit Code 0 when run directly using C:\vazus\pyenv\.venv\Scripts\python.exe.
-
-Verification:
-Execute C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_token_economy.py and confirm Exit Code 0.
-
-Write your detailed handoff report to C:\vazus\.agents\teamwork_preview_worker_m4_1\handoff.md and notify parent via send_message when finished.
-</USER_REQUEST>
+Task (Requirements R3, R4, R5):
+1. Read Explorer 3's report at C:\vazus\.agents\teamwork_preview_explorer_m1_3\handoff.md for guidance.
+2. Requirement R3 (Subagent Handoff Ledger Integration):
+   - Connect subagent bridges (scripts/subagent_research_bridge.py, subagent_rlm_bridge.py, subagent_verifier_bridge.py) to RaytSwarmHandoffManager (in vazus_core/agent_handoff.py).
+   - Ensure all subagent executions write verifiable events to raytsystem_ledger in dnts.db.
+   - Verify /api/v1/ledger endpoint in Raytsystem dashboard server returns handoff events.
+3. Requirement R4 (SMT Z3 Code Contract Verification):
+   - Integrate SMT Z3 contract validation into subagent_verifier_bridge.py.
+   - Support --verify-smt flag executing Z3 solver to verify function pre/post-conditions and return SAT/UNSAT model checking metadata.
+4. Requirement R5 (Dialogue & Memory Persistence):
+   - Persist all subagent conversation traces and memory steps into SQLite dnts.db (tables subagent_dialogues and subagent_memory_traces).
+   - Implement SubagentDialoguePersister to export subagent dialogue traces into Obsidian wiki notes in C:\vazus\memory\semantic\wiki (or C:\vazus\services\memory\semantic\wiki).
+5. Run automated verification scripts using C:\vazus\.venv\Scripts\python.exe to verify R3, R4, R5.
+6. Write your complete execution report, code changes, and test proofs to C:\vazus\.agents\teamwork_preview_worker_m4_1\handoff.md. Update progress log at C:\vazus\.agents\teamwork_preview_worker_m4_1\progress.md.
+7. Notify parent via send_message when done.

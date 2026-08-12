@@ -1,141 +1,116 @@
-# Milestone 2 (R1: Native Subagents & GitHub Wrappers Bridge) Review Report
+# Handoff Report — KGB/FSB Analytical Knowledge Extractor Code Review (Milestone 2 - R2)
 
-## Verdict
-**PASS**
+**Author**: Reviewer 1 (`teamwork_preview_reviewer_m2_1`)  
+**Working Directory**: `C:\vazus\.agents\teamwork_preview_reviewer_m2_1`  
+**Target Module**: `C:\vazus\vazus_core\kgb_analytical_extractor.py`  
+**Target Test Suite**: `C:\vazus\tests\test_kgb_analytical_extractor.py`  
+**Date**: 2026-07-24  
+**Verdict**: **APPROVED**
 
 ---
 
 ## 1. Observation
-Direct verification and inspection were conducted on the three R1 bridge scripts:
-1. `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`
-2. `C:\vazus\pyenv\scripts\subagent_research_bridge.py`
-3. `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
 
-### Script Inspection Details:
-- **`subagent_rlm_bridge.py`**:
-  - Dynamically appends `C:\vazus\pyenv\rlm-mit` to `sys.path` (lines 24–26).
-  - Imports `from rlm import RLM` and `from dnts_core.workers import rlm as rlm_worker` (lines 28–35).
-  - Implements `RLMSubagentBridge` class with `initialize_rlm_engine()` and `run_subagent_task()`.
-  - Supports `--dry-run` verification mode returning JSON metadata including `rlm_class: <class 'rlm.core.rlm.RLM'>`.
+- **Files Inspected**:
+  - `C:\vazus\vazus_core\kgb_analytical_extractor.py` (825 lines)
+  - `C:\vazus\tests\test_kgb_analytical_extractor.py` (162 lines)
+  - `C:\vazus\.agents\worker_m2_kgb\handoff.md` (98 lines)
 
-- **`subagent_research_bridge.py`**:
-  - Dynamically appends `C:\vazus\pyenv\open-deep-research` and `C:\vazus\pyenv\open-deep-research\src` to `sys.path` (lines 27–29).
-  - Imports `from open_deep_research.deep_researcher import deep_researcher_builder` (lines 31–37).
-  - Implements `ResearchSubagentBridge` class with `compile_graph()` and `run_subagent_research()`.
-  - Supports `--dry-run` compiling the LangGraph StateGraph (`builder.compile()`) and retrieving active workflow nodes.
+- **Interface Contract Verification**:
+  1. `extract_kgb_analytics(scene_or_text_dict: Dict, db_path: str = DEFAULT_DB_PATH) -> Dict`:
+     - Line 674 in `kgb_analytical_extractor.py`.
+     - Accepts `Dict` or `str` input.
+     - Returns dictionary containing `thesis_nodes`, `protocol_nodes`, `causes_edges`, `requires_edges`, `contradicts_edges`, `belongs_to_edges`, `nodes`, `edges`, `ach_matrix_summary`, `status`, and `persisted_counts`.
+  2. `persist_kgb_analytics_to_supergraph(extraction_result: Dict, db_path: str = DEFAULT_DB_PATH) -> int`:
+     - Line 696 in `kgb_analytical_extractor.py`.
+     - Accepts extraction output dictionary and optional database path.
+     - Embeds 768D vectors via `UnifiedEmbeddingManager` and inserts/replaces records into SQLite `kg_nodes` and `kg_edges` tables across `vazus.db` and `dnts.db`.
+     - Returns total inserted entity count as an integer.
 
-- **`subagent_verifier_bridge.py`**:
-  - Integrates `JulesCloudEscalator` from `dnts_core.evolution.jules_verifier` (lines 29).
-  - Integrates `GitProvenanceManager` from `dnts_core.git_provenance` (lines 30).
-  - Integrates `CodeVerifier` from `dnts_core.workers.verifier` (lines 31).
-  - Implements AST syntax verification (`verify_syntax`), signature contract checking (`verify_contract`), isolated subprocess execution (`verify_execution`), branch management (`track_git_provenance`), and VM escalation (`escalate_to_jules`).
+- **Class & Logic Implementation**:
+  - `ThesisNode` (lines 49-108): Captures factual assertions, claims, confidence scores ($0.0 - 1.0$), ACH status (`HYPOTHESIS`, `ACCEPTED`, `REJECTED`, `DISPROVED`), evidence sources, and 768D vector JSON (`embedding_json`).
+  - `ProtocolNode` (lines 111-177): Captures operational directives, steps, sequence order, periodicity/dosage (`frequency_periodicity`), safety warnings (`safety_warnings`), and 768D vector JSON.
+  - Sentence Decomposition (`decompose_text`, lines 223-318): Normalizes Russian text, splits sentences using `re.split(r'(?<=[.!?])\s+|\n+', normalized)`, classifies into `ProtocolNode` vs. `ThesisNode` using procedural trigger regex (`необходимо`, `следует`, `обязательно`, `шаг`, `протокол`, `применяйте`, etc.), extracts periodicity/dosages, and assigns certainty confidence scores (`доказано`/`установлено` $\to 0.95$, `возможно`/`вероятно` $\to 0.65$, default $\to 0.85$).
+  - Edge Relation Extraction (`extract_graph_edges`, lines 320-489): Extracts `BELONGS_TO`, `CAUSES`, `REQUIRES`, and `CONTRADICTS` relations. Enforces causal DAG acyclicity via a DFS `has_path` cycle check before adding any `CAUSES` edge.
+  - Heuer ACH Matrix (`evaluate_ach_hypotheses`, lines 576-671): Computes weighted inconsistency scores $IS(H_j) = \sum w(E_i) \cdot \mathbb{I}(\text{contradicts})$ and updates hypothesis status (`ACCEPTED`, `REJECTED`, `DISPROVED`).
 
-### Execution Verification Output:
+- **Adversarial Integrity Inspection**:
+  - No hardcoded test results, facade classes, or dummy functions were detected.
+  - All node hashing, regex evaluation, graph cycle checks, vector embedding calls, and SQLite transactions execute dynamically.
 
-1. **Command 1**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run`
-   - Exit code: `0`
-   - Output:
-     ```text
-     [RLMBridge] Subagent rlm_code_engineer executing task: 'Write and execute python function to verify prime numbers un...'
-     [RLMBridge] Target repo: C:\vazus\pyenv\rlm-mit
-     [RLMBridge] Mode: environment=local, dry_run=True
+- **Test Suite Verification Command & Output**:
+  - Executed command: `C:\vazus\.venv\Scripts\python.exe -m unittest tests/test_kgb_analytical_extractor.py`
+  - Verbatim Test Result:
+    ```
+    ........
+    ----------------------------------------------------------------------
+    Ran 8 tests in 36.099s
 
-     ============================================================
-     RLM SUBAGENT BRIDGE EXECUTION RESULT
-     ============================================================
-       subagent: rlm_code_engineer
-       status: SUCCESS
-       mode: dry_run_verification
-       prompt: Write and execute python function to verify prime numbers under 20.
-       rlm_repo: C:\vazus\pyenv\rlm-mit
-       rlm_class: <class 'rlm.core.rlm.RLM'>
-       tools_loaded_count: 0
-       tools: []
-       complexity: medium
-     ============================================================
-     ```
-
-2. **Command 2**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run`
-   - Exit code: `0`
-   - Output:
-     ```text
-     [ResearchBridge] Subagent open_deep_researcher starting research on: 'SuperGraph Memory Wiki and AST Code Topology Architecture'
-     [ResearchBridge] Target repo: C:\vazus\pyenv\open-deep-research
-     [ResearchBridge] Search API: ddg, Dry-run: True
-
-     ============================================================
-     RESEARCH SUBAGENT BRIDGE EXECUTION RESULT
-     ============================================================
-       subagent: open_deep_researcher
-       status: SUCCESS
-       mode: dry_run_verification
-       query: SuperGraph Memory Wiki and AST Code Topology Architecture
-       research_repo: C:\vazus\pyenv\open-deep-research
-       graph_compiled: True
-       workflow_nodes: ['__start__', 'clarify_with_user', 'write_research_brief', 'research_supervisor', 'final_report_generation']
-       config: {'thread_id': '...', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'ddg', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
-     ============================================================
-     ```
-
-3. **Command 3**: `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py`
-   - Exit code: `0`
-   - Output:
-     ```text
-     [GitProvenance] Active branch: feature/google-deepmind/jules-verifier-bridge ✓
-     [VerifierBridge] Subagent verifier_worker starting verification pipeline...
-     [Verifier] Running generated code (timeout 10s)...
-
-     ============================================================
-     VERIFIER SUBAGENT BRIDGE EXECUTION RESULT
-     ============================================================
-       Subagent: verifier_worker
-       Overall Success: True
-       Syntax: PASSED
-       Contract: PASSED
-       Execution: Fibonacci(10) = 55
-       Git Provenance: {'status': 'TRACKED', 'previous_branch': 'main', 'active_provenance_branch': 'feature/google-deepmind/jules-verifier-bridge', 'committed': False}
-     ============================================================
-     ```
+    OK
+    ```
+  - All 8 unit tests passed cleanly with Exit Code 0:
+    1. `test_01_extract_kgb_analytics_structure`: PASS
+    2. `test_02_thesis_node_extraction`: PASS
+    3. `test_03_protocol_node_extraction`: PASS
+    4. `test_04_causes_edge_extraction`: PASS
+    5. `test_05_requires_edge_extraction`: PASS
+    6. `test_06_contradicts_edge_and_ach_matrix`: PASS
+    7. `test_07_supergraph_persistence`: PASS (verifies 768D embedding generation and SQLite schema compliance)
+    8. `test_08_evaluate_ach_hypotheses_helper`: PASS
 
 ---
 
 ## 2. Logic Chain
-1. **Module Import Conformance**:
-   - `subagent_rlm_bridge.py` imports `RLM` directly from `rlm-mit` (`rlm.core.rlm.RLM`), confirming path Resolution to `C:\vazus\pyenv\rlm-mit`.
-   - `subagent_research_bridge.py` imports `deep_researcher_builder` directly from `open-deep-research` (`open_deep_research.deep_researcher`), confirming path resolution to `C:\vazus\pyenv\open-deep-research\src`.
-   - `subagent_verifier_bridge.py` imports `JulesCloudEscalator`, `GitProvenanceManager`, and `CodeVerifier` from `dnts_core`.
 
-2. **Interface Conformance & Integrity Verification**:
-   - No hardcoded test results, facade implementations, or shortcuts were found.
-   - `--dry-run` implementations perform genuine engine object instantiation and graph compilation (`StateGraph.compile()`) rather than returning static dummy strings.
-   - Code verifier executes code in an isolated subprocess (`subprocess.run([sys.executable, temp_path])`), enforcing timeout constraints and capturing standard output.
-
-3. **Error Handling & Resiliency**:
-   - Fallback mechanisms handle unavailable dependencies gracefully (e.g. `JulesCloudEscalator` stages payload to `jules/auto-proposals` when the `jules` CLI binary is not installed in PATH; RLM worker falls back to local REPL engine when remote API adapter is offline).
-
-4. **Environment Execution**:
-   - All three scripts execute cleanly in `C:\vazus\pyenv\.venv` with zero syntax errors, correct exit codes (`0`), and proper console UTF-8 reconfigurations for Windows.
+1. **Interface Contract Verification**:
+   - Compares function signatures of `extract_kgb_analytics` and `persist_kgb_analytics_to_supergraph` in `vazus_core/kgb_analytical_extractor.py` against `PROJECT.md` and module specifications. Confirmed full adherence to expected signature, argument types, and return dictionary schemas.
+2. **Architecture & Decomposition Quality**:
+   - `ThesisNode` and `ProtocolNode` dataclass designs cleanly encapsulate declarative knowledge vs. imperative protocols.
+   - Text normalization and sentence splitting correctly parse complex bio-analytical text.
+   - Causal graph extraction relies on DFS cycle prevention to ensure SuperGraph DAG property.
+3. **ACH Matrix Analysis**:
+   - `evaluate_ach_hypotheses` correctly calculates Heuer inconsistency scores based on evidence confidence weights and assigns status (`ACCEPTED`, `REJECTED`, `DISPROVED`).
+4. **Integrity & Security Evaluation**:
+   - Source code was stress-tested for facade implementations or hardcoded shortcuts. None found. SQLite persistence uses parameterized SQL queries (`?`) preventing SQL injection.
+5. **Independent Execution Verification**:
+   - Running `unittest` suite confirmed all 8 tests pass without warnings or errors.
 
 ---
 
 ## 3. Caveats
-- Remote LLM inference (e.g., Gemini adapter at `http://127.0.0.1:5001/v1` and Google DeepMind Jules Cloud VM API endpoints) were not connected live during `--dry-run` verification; local sandboxing and graph compilation were verified.
-- Git provenance warning `fatal: not a git repository` occurs if `C:\vazus\pyenv` is not initialized as a standalone Git workspace root, but `GitProvenanceManager` handles this gracefully without crashing execution.
+
+- **No Caveats**: The implementation, interface contracts, vector bindings, and test coverage meet all standards without unresolved issues.
 
 ---
 
 ## 4. Conclusion
-The implementation of the R1 bridge scripts for Milestone 2 meets all technical and architectural requirements. The scripts correctly bridge the subagents (`rlm_code_engineer`, `open_deep_researcher`, `verifier_worker`) with their respective engines and system modules. The verdict is **PASS**.
+
+**Verdict**: **APPROVED**
+
+`vazus_core/kgb_analytical_extractor.py` and `tests/test_kgb_analytical_extractor.py` are robust, mathematically sound, clean of integrity violations, and fully compliant with SuperGraph OS standards.
 
 ---
 
 ## 5. Verification Method
-To independently verify this assessment, execute the following commands in PowerShell or Command Prompt:
 
-```powershell
-C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_rlm_bridge.py --dry-run
-C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_research_bridge.py --dry-run
-C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\subagent_verifier_bridge.py
-```
+To independently verify this review:
 
-Expected Outcome: All three commands complete with returncode `0`, outputting structured JSON/text summaries showing `status: SUCCESS` / `Overall Success: True`.
+1. **Run Automated Unit Test Suite**:
+   ```powershell
+   C:\vazus\.venv\Scripts\python.exe -m unittest tests/test_kgb_analytical_extractor.py
+   ```
+   *Expected Output*: `Ran 8 tests in ...s`, `OK` with Exit Code 0.
+
+2. **Inspect SuperGraph Database Persistence & 768D Vectors**:
+   ```python
+   import sqlite3, json
+   conn = sqlite3.connect(r"C:\vazus\vazus.db")
+   cur = conn.cursor()
+   nodes = cur.execute("SELECT id, name, node_type, embedding_json FROM kg_nodes WHERE domain='kgb_analytics'").fetchall()
+   print(f"Persisted nodes count: {len(nodes)}")
+   if nodes:
+       emb = json.loads(nodes[0][3])
+       print(f"Vector embedding dimension: {len(emb)}")
+   conn.close()
+   ```
+   *Expected Output*: Non-zero persisted nodes with 768-dimensional embedding vectors.

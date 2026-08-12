@@ -10,6 +10,7 @@ import sys
 import json
 import sqlite3
 import time
+from contextlib import contextmanager
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 
@@ -26,28 +27,91 @@ class RaytSwarmHandoffManager:
 
     WORKFLOWS = ["INGEST", "QUERY", "LINT", "SAVE", "RESEARCH", "REVIEW"]
 
+    TARGET_DB_PATHS = [
+        Path("C:/vazus/memory/vazus.db"),
+        Path("C:/vazus/services/memory/vazus.db"),
+        Path("C:/vazus/vazus.db"),
+    ]
+
     def __init__(self, db_path: str = "C:\\vazus\\services\\memory\\vazus.db"):
         self.db_path = Path(db_path)
         self.embedder = UnifiedEmbeddingManager()
         self.jury = SOTA2027JuryEngine(effort_level="high")
-        self._ensure_ledger()
+        self._ensure_tables()
+
+    @contextmanager
+    def _connection(self, db_file: Optional[Path] = None):
+        target_path = Path(db_file) if db_file else self.db_path
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(target_path, timeout=30.0)
+        try:
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA busy_timeout=30000;")
+        except Exception:
+            pass
+        try:
+            with conn:
+                yield conn
+        finally:
+            conn.close()
+
+    def _ensure_tables(self):
+        """Auto-creates raytsystem_ledger table across all DB target locations."""
+        paths = list(self.TARGET_DB_PATHS)
+        if self.db_path not in paths:
+            paths.append(self.db_path)
+
+        ddl = """
+        CREATE TABLE IF NOT EXISTS raytsystem_ledger (
+            handoff_id TEXT PRIMARY KEY,
+            from_agent TEXT,
+            to_agent TEXT,
+            task_name TEXT,
+            status TEXT,
+            payload TEXT,
+            timestamp TEXT,
+            id TEXT,
+            workflow TEXT,
+            source_agent TEXT,
+            target_agent TEXT,
+            payload_summary TEXT,
+            vector_768d BLOB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+        for p in paths:
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                with self._connection(p) as conn:
+                    conn.execute(ddl)
+                    # Migrations / Column check for existing tables
+                    existing_cols = {col[1] for col in conn.execute("PRAGMA table_info(raytsystem_ledger)").fetchall()}
+                    column_defs = {
+                        "handoff_id": "TEXT",
+                        "from_agent": "TEXT",
+                        "to_agent": "TEXT",
+                        "task_name": "TEXT",
+                        "status": "TEXT",
+                        "payload": "TEXT",
+                        "timestamp": "TEXT",
+                        "id": "TEXT",
+                        "workflow": "TEXT",
+                        "source_agent": "TEXT",
+                        "target_agent": "TEXT",
+                        "payload_summary": "TEXT",
+                        "vector_768d": "BLOB",
+                        "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                    }
+                    for col_name, col_type in column_defs.items():
+                        if col_name not in existing_cols:
+                            conn.execute(f"ALTER TABLE raytsystem_ledger ADD COLUMN {col_name} {col_type};")
+                    conn.commit()
+            except Exception as e:
+                sys.stderr.write(f"[RaytSwarmHandoffManager] DB table init error for {p}: {e}\n")
 
     def _ensure_ledger(self):
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS raytsystem_ledger (
-                    id TEXT PRIMARY KEY,
-                    workflow TEXT,
-                    source_agent TEXT,
-                    target_agent TEXT,
-                    payload_summary TEXT,
-                    vector_768d BLOB,
-                    status TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            conn.commit()
+        """Alias for _ensure_tables for backward compatibility."""
+        self._ensure_tables()
 
     def execute_handoff(
         self,
@@ -82,13 +146,32 @@ class RaytSwarmHandoffManager:
 
         handoff_id = f"rayt_{workflow_upper.lower()}_{int(time.time()*1000)}"
 
-        # Step 2: Record in SQLite Raytsystem Ledger
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "INSERT INTO raytsystem_ledger (id, workflow, source_agent, target_agent, payload_summary, status) VALUES (?, ?, ?, ?, ?, ?)",
-                (handoff_id, workflow_upper, source_agent, target_agent, payload_str[:500], "APPROVED" if (not jury_result or jury_result["approved"]) else "REJECTED")
-            )
-            conn.commit()
+        # Step 2: Record in SQLite Raytsystem Ledger (Syncing across active database paths)
+        status_val = "APPROVED" if (not jury_result or jury_result["approved"]) else "REJECTED"
+        paths = list(self.TARGET_DB_PATHS)
+        if self.db_path not in paths:
+            paths.append(self.db_path)
+
+        for p in paths:
+            try:
+                with self._connection(p) as conn:
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO raytsystem_ledger 
+                        (handoff_id, id, from_agent, source_agent, to_agent, target_agent, task_name, workflow, status, payload, payload_summary, timestamp) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        """,
+                        (
+                            handoff_id, handoff_id,
+                            source_agent, source_agent,
+                            target_agent, target_agent,
+                            workflow_upper, workflow_upper,
+                            status_val,
+                            payload_str, payload_str[:500]
+                        )
+                    )
+            except Exception as e:
+                sys.stderr.write(f"[RaytSwarmHandoffManager] Ledger record error for {p}: {e}\n")
 
         elapsed = round(time.time() - start_time, 3)
 

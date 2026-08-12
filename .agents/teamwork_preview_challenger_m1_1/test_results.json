@@ -1,0 +1,112 @@
+{
+  "real_files_test": [
+    {
+      "file_name": "media_174.oga",
+      "file_path": "C:\\vazus\\knowledge\\telegram_courses\\Курс _Покоритель Наташек 6_0_\\media_174.oga",
+      "file_size_mb": 0.74,
+      "scene_count": 2,
+      "scenes": [
+        {
+          "scene_id": "scene_cac02fa8ec75",
+          "chunk_index": 0,
+          "start_sec": 0.0,
+          "end_sec": 122.32,
+          "duration": 122.32,
+          "is_last_scene": false,
+          "duration_within_180s": true,
+          "duration_ge_60s_if_middle": true,
+          "transcript_len": 1821,
+          "transcript_non_empty": true,
+          "transcript_snippet": "Мужчины, смотрите, прямо полноценно работать над вашим горманальным фоном над каждым ползунком значе",
+          "thumbnail_path": "C:/vazus/knowledge/.thumbnails/thumb_scene_cac02fa8ec75.jpg",
+          "thumbnail_exists": true,
+          "thumbnail_valid": true,
+          "thumbnail_size": [
+            320,
+            180
+          ]
+        },
+        {
+          "scene_id": "scene_1082de90020e",
+          "chunk_index": 1,
+          "start_sec": 122.32,
+          "end_sec": 194.88,
+          "duration": 72.56,
+          "is_last_scene": true,
+          "duration_within_180s": true,
+          "duration_ge_60s_if_middle": true,
+          "transcript_len": 1183,
+          "transcript_non_empty": true,
+          "transcript_snippet": "И там надо пить определенные таблетки, да, там еще какие-то процедуры делать. Ну, то есть таких, в з",
+          "thumbnail_path": "C:/vazus/knowledge/.thumbnails/thumb_scene_1082de90020e.jpg",
+          "thumbnail_exists": true,
+          "thumbnail_valid": true,
+          "thumbnail_size": [
+            320,
+            180
+          ]
+        }
+      ]
+    },
+    {
+      "file_name": "video_msg107.mp4",
+      "file_path": "C:\\vazus\\knowledge\\telegram_courses\\ФУНКЦИОНАЛЬНАЯ МАШИНА _ Канал курса\\video_msg107.mp4",
+      "file_size_mb": 7.63,
+      "scene_count": 1,
+      "scenes": [
+        {
+          "scene_id": "scene_621d389e82a8",
+          "chunk_index": 0,
+          "start_sec": 0.0,
+          "end_sec": 57.16,
+          "duration": 57.16,
+          "is_last_scene": true,
+          "duration_within_180s": true,
+          "duration_ge_60s_if_middle": true,
+          "transcript_len": 1079,
+          "transcript_non_empty": true,
+          "transcript_snippet": "Ну что, дорогие товарищи, добро пожаловать на неделю, номер 2, мы на ней будем с вами тренироваться,",
+          "thumbnail_path": "C:/vazus/knowledge/.thumbnails/thumb_scene_621d389e82a8.jpg",
+          "thumbnail_exists": true,
+          "thumbnail_valid": true,
+          "thumbnail_size": [
+            320,
+            180
+          ]
+        }
+      ]
+    },
+    {
+      "file_name": "video_2026-04-18_14-18-15_msg124.mp4",
+      "file_path": "C:\\vazus\\knowledge\\telegram_courses\\ФУНКЦИОНАЛЬНАЯ МАШИНА _ Канал курса\\video_2026-04-18_14-18-15_msg124.mp4",
+      "file_size_mb": 55.06,
+      "scene_count": 0,
+      "scenes": []
+    }
+  ],
+  "edge_cases_test": {
+    "non_existent_file": {
+      "status": "PASS",
+      "message": "Media file not found: C:\\vazus\\knowledge\\telegram_courses\\non_existent_file_999.mp4"
+    },
+    "empty_file": {
+      "status": "PASS",
+      "result_count": 0,
+      "result": []
+    },
+    "audio_no_video": {
+      "status": "PASS",
+      "scene_count": 2
+    },
+    "missing_moov_atom": {
+      "status": "PASS",
+      "thumbnail_fallback_created": true,
+      "scenes_returned": 0
+    }
+  },
+  "summary": {
+    "passed": 7,
+    "failed": 0,
+    "warnings": 0
+  }
+}

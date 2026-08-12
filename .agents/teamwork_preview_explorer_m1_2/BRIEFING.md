@@ -1,45 +1,41 @@
-# BRIEFING — 2026-07-22T13:23:46Z
+# BRIEFING — 2026-07-24T12:24:48Z
 
 ## Mission
-Investigate 768D Embeddings and Memory Graph structure for R2 (Unified SuperGraph & 768D Embeddings Integration) and design hybrid node-linking metric.
+Analyze `C:\vazus\vazus_core\multimodal_knowledge.py` and existing scene chunking & indexing functions in `vazus_core` for Milestone 1 (R1: High-Precision ASR Upgrade). Focus on timestamp alignment, CPU performance optimization, error handling & fallbacks, and interface contract verification.
 
 ## 🔒 My Identity
 - Archetype: Explorer
-- Roles: Explorer 2 for Milestone 1
+- Roles: Read-only investigator / Analyzer
 - Working directory: C:\vazus\.agents\teamwork_preview_explorer_m1_2
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 1 - SuperGraph Architecture Integration
+- Original parent: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Milestone: Milestone 1 (R1: High-Precision ASR Upgrade)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in C:\vazus source tree
-- Output reports to C:\vazus\.agents\teamwork_preview_explorer_m1_2\handoff.md
-- Keep BRIEFING.md updated
+- Read-only investigation — do NOT implement changes in source code (`C:\vazus\vazus_core`) directly.
+- Output findings and recommendations to `C:\vazus\.agents\teamwork_preview_explorer_m1_2\analysis.md` and `C:\vazus\.agents\teamwork_preview_explorer_m1_2\handoff.md`.
+- Send completion message to parent upon finishing.
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T13:25:00Z
+- Conversation ID: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Updated: 2026-07-24T12:24:48Z
 
 ## Investigation State
-- **Explored paths**:
-  - `C:\vazus\pyenv\dnts_core\embeddings.py` & `config.py`
-  - `C:\vazus\services\memory\semantic\wiki\` (5 files: AI_Lessons_and_Mistakes.md, Dialog_Context.md, etc.)
-  - `C:\vazus\pyenv\gomcp\tools\db.go` & SQLite schema (`kg_nodes`, `kg_edges`, `llm_cache`)
-  - `C:\vazus\verify_ov_npu.py`
-  - `C:\vazus\pyenv\gomcp\graphify-out\graph.json` (Graphify AST Code Topology)
+- **Explored paths**: `C:\vazus\vazus_core\multimodal_knowledge.py`, `C:\vazus\vazus_core\telegram_indexer.py`, `C:\vazus\.agents\orchestrator\PROJECT.md`. Verified PyTorch, OpenVINO, faster_whisper in `.venv`.
 - **Key findings**:
-  1. `embeddings.py` implements `UnifiedGoogleEmbedder` (768D, `google/embeddinggemma-300m`, pure in-process, deterministic fallback, zero HTTP calls). Tested in `test_dnts_system.py`.
-  2. Karpathy Memory Wiki in `wiki\` contains markdown files with timestamped entries. Dual-layer graph stores structured AST nodes & semantic wiki nodes in SQLite `vazus.db` (`kg_nodes`, `kg_edges`).
-  3. `verify_ov_npu.py` executed successfully via `.venv\Scripts\python.exe`: OpenVINO 2026.2.1 detects Intel NPU (`Intel(R) AI Boost` on Ultra 5 125U).
-  4. Designed hybrid node-linking metric formula $S(u,v) = \alpha S_{\text{cosine}} + \beta S_{\text{FTS}} + \gamma S_{\text{structural}} + \delta S_{\text{provenance}}$ linking Layer A AST and Layer B Wiki.
-- **Unexplored areas**: None for R2 scope.
+  1. `transcribe_media_high_precision` signature required by `PROJECT.md` is currently missing.
+  2. Model currently defaults to `"tiny"` with `beam_size=1` and `vad_filter=False`.
+  3. Adding VAD filtering (`vad_filter=True`) + `language="ru"` + `large-v3-turbo`/`medium` model upgrade improves timestamp accuracy (`start_sec`, `end_sec`).
+  4. Cascading model fallback hierarchy (`large-v3-turbo` -> `medium` -> `small` -> `tiny`) prevents RAM/model download failures.
+  5. Russian text normalization (`normalize_russian_text`) and hallucination filtering (`is_garbage_transcript`) needed for cleaner transcript scenes.
+- **Unexplored areas**: None. Investigation complete.
 
 ## Key Decisions Made
-- Executed live OpenVINO NPU verification script.
-- Formulated mathematically complete hybrid node-linking metric bridging Graphify AST code topology and Karpathy Memory Wiki.
+- Written `analysis.md` with complete architectural analysis across 4 focus areas and code proposal.
+- Written `handoff.md` conforming to 5-component handoff report standard.
 
 ## Artifact Index
-- C:\vazus\.agents\teamwork_preview_explorer_m1_2\ORIGINAL_REQUEST.md — Original request
-- C:\vazus\.agents\teamwork_preview_explorer_m1_2\BRIEFING.md — Working memory
-- C:\vazus\.agents\teamwork_preview_explorer_m1_2\progress.md — Progress log
-- C:\vazus\.agents\teamwork_preview_explorer_m1_2\handoff.md — Detailed handoff report
-
+- `ORIGINAL_REQUEST.md` — Original task request
+- `BRIEFING.md` — Active briefing file
+- `progress.md` — Progress tracking log
+- `analysis.md` — Detailed analysis & code proposal
+- `handoff.md` — 5-component handoff report

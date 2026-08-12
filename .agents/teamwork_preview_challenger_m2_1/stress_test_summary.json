@@ -1,0 +1,98 @@
+{
+  "Boundary_EmptyInput": {
+    "passed": true,
+    "details": "Successfully handled empty, whitespace, None, and short inputs without errors.",
+    "data": null
+  },
+  "Boundary_NoisyTranscripts": {
+    "passed": true,
+    "details": "Cleaned noise tags and extracted 1 theses and 1 protocols successfully.",
+    "data": {
+      "theses": [
+        "Э-э-э, приём дозировки 5000 МЕ Витамина D3 ежедневно стимулирует синтез остеокальцина..."
+      ],
+      "protocols": [
+        "Однако следует обязательно принимать 100 мкг Витам..."
+      ]
+    }
+  },
+  "Boundary_NestedProtocols": {
+    "passed": true,
+    "details": "Extracted 3 ordered steps, 6 REQUIRES edges, and safety warnings.",
+    "data": {
+      "sequence_orders": [
+        1,
+        2,
+        4
+      ],
+      "requires_count": 6
+    }
+  },
+  "Boundary_ConflictingThesesACH": {
+    "passed": true,
+    "details": "Detected 1 CONTRADICTS edges. ACH matrix ranked hypotheses correctly.",
+    "data": {
+      "contradicts": [
+        {
+          "source_id": "thesis_4fb87ae6",
+          "target_id": "thesis_8fbe6303",
+          "relation": "CONTRADICTS",
+          "strength": 0.95,
+          "properties": {
+            "reason": "opposing_claims_or_negation"
+          }
+        }
+      ],
+      "ach_ranked": [
+        {
+          "hypothesis_id": "H_SAFE",
+          "inconsistency_score": 0.0,
+          "ach_status": "ACCEPTED"
+        },
+        {
+          "hypothesis_id": "H_TOXIC",
+          "inconsistency_score": 0.65,
+          "ach_status": "DISPROVED"
+        }
+      ]
+    }
+  },
+  "Boundary_CircularCausalGraphs": {
+    "passed": true,
+    "details": "DAG cycle check prevented circular causal loop. Total causes edges: 3",
+    "data": {
+      "edge_pairs": [
+        [
+          "thesis_A",
+          "thesis_B"
+        ],
+        [
+          "thesis_A",
+          "thesis_C"
+        ],
+        [
+          "thesis_B",
+          "thesis_C"
+        ]
+      ],
+      "is_cyclic": false
+    }
+  },
+  "Boundary_SQLitePersistence": {
+    "passed": true,
+    "details": "Verified vazus.db tables kg_nodes (13 rows) and kg_edges (7675 rows) with 768D embeddings.",
+    "data": {
+      "node_count": 13,
+      "edge_count": 7675,
+      "sample_embedding_len": 768,
+      "relation_types": [
+        "NEXT_SCENE",
+        "BELONGS_TO",
+        "REFERENCES_MEDIA",
+        "CAUSES",
+        "CONTRADICTS",
+        "REQUIRES"
+      ]
+    }
+  }
+}

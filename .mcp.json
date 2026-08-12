@@ -1,15 +1,16 @@
 {
     "mcpServers": {
         "dnts-brain": {
-            "command": "C:\\dnts\\gomcp\\dnts-brain.exe",
+            "command": "C:\\vazus\\gomcp\\dnts-brain.exe",
             "description": "44 tools: system, files, bash, search, graph, skills, obsidian, mythos, RAG FTS5, deep research"
         },
         "sequential-thinking": {
-            "command": "C:\\dnts\\node_modules\\.bin\\mcp-server-sequential-thinking.cmd",
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"],
             "description": "Structured step-by-step reasoning"
         },
         "codebase-graph": {
-            "command": "C:\\dnts\\bin\\codebase-memory-mcp.exe",
+            "command": "C:\\vazus\\bin\\codebase-memory-mcp.exe",
             "args": ["--ui=true"],
             "description": "Codebase knowledge graph"
         },
@@ -19,17 +20,13 @@
             "description": "Full terminal + process control with live output"
         },
         "filesystem": {
-            "command": "C:\\dnts\\node_modules\\.bin\\mcp-server-filesystem.cmd",
-            "args": ["C:\\dnts"],
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem@latest", "C:\\vazus"],
             "description": "Safe filesystem operations"
-        },
-        "memory": {
-            "command": "C:\\dnts\\node_modules\\.bin\\mcp-server-memory.cmd",
-            "description": "Persistent entity-relation memory"
         },
         "playwright": {
             "command": "npx",
-            "args": ["@playwright/mcp@latest"],
+            "args": ["-y", "@playwright/mcp@latest"],
             "description": "Browser automation"
         }
     }

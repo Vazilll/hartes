@@ -8,7 +8,7 @@ import sys
 import hashlib
 import sqlite3
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 from pathlib import Path
 
 # Load environment variables if .env exists
@@ -59,6 +59,7 @@ class UnifiedEmbeddingManager:
                     return list(res.embeddings[0].values)
             except Exception as e:
                 sys.stderr.write(f"[Embedder] GenAI Embedding fallback due to: {e}\n")
+                self._genai_client = False
 
         # Deterministic 768-dim fallback
         hash_bytes = hashlib.sha256(text.encode("utf-8")).digest()
@@ -85,35 +86,65 @@ class UnifiedEmbeddingManager:
     def search_unified_vector_space(
         self,
         query: str,
-        db_path: Path = Path("C:/vazus/services/memory/vazus.db"),
+        db_path: Union[Path, str] = Path("C:/vazus/vazus.db"),
         top_k: int = 10,
         domain_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Searches unified 768D vector space in vazus.db for both AST code nodes and Wiki note nodes."""
         query_vec = self.embed_query(query)
         db_path = Path(db_path)
+        if not db_path.exists() and Path("C:/vazus/services/memory/vazus.db").exists():
+            db_path = Path("C:/vazus/services/memory/vazus.db")
         if not db_path.exists():
             return []
 
         results = []
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
+        import re
+        query_words = [w.lower() for w in re.findall(r'\w+', query) if len(w) > 1]
+
         try:
             cursor = conn.cursor()
             rows = cursor.execute(
                 "SELECT id, name, domain, node_type, description, tags, properties, embedding_json FROM kg_nodes WHERE embedding_json IS NOT NULL"
             ).fetchall()
             for r in rows:
-                if domain_filter and r["domain"] != domain_filter:
-                    continue
+                if domain_filter:
+                    df_lower = domain_filter.lower()
+                    dom_lower = (r["domain"] or "").lower()
+                    nt_lower = (r["node_type"] or "").lower()
+                    if df_lower != dom_lower and df_lower != nt_lower:
+                        continue
                 emb_str = r["embedding_json"]
                 if not emb_str:
                     continue
+                
+                desc_text = (r["description"] or "").strip()
+                props_raw = r["properties"] or "{}"
                 try:
-                    import json
+                    props = json.loads(props_raw) if isinstance(props_raw, str) else props_raw
+                except Exception:
+                    props = {}
+
+                transcript_text = props.get("transcript") or desc_text
+                clean_chars = re.sub(r'[^\w\dА-Яа-яA-Za-z]', '', transcript_text)
+                
+                # Filter out empty/noise transcripts (e.g. '....', '[музыка]', empty)
+                if len(clean_chars) < 5 or desc_text.strip() == "...." or transcript_text.strip() == "....":
+                    continue
+
+                try:
                     node_emb = json.loads(emb_str)
                     sim = self.compute_similarity(query_vec, node_emb)
-                    props = json.loads(r["properties"]) if r["properties"] else {}
+
+                    # Hybrid Keyword Boosting
+                    full_searchable = f"{r['name']} {r['domain']} {r['tags']} {transcript_text}".lower()
+                    keyword_matches = sum(1 for kw in query_words if kw in full_searchable)
+                    kw_boost = 0.25 * (keyword_matches / max(1, len(query_words))) if query_words else 0.0
+
+                    final_score = round(0.75 * sim + kw_boost, 4)
+
                     results.append({
                         "id": r["id"],
                         "name": r["name"],
@@ -122,19 +153,27 @@ class UnifiedEmbeddingManager:
                         "description": r["description"],
                         "tags": r["tags"],
                         "properties": props,
-                        "similarity": round(sim, 4)
+                        "similarity": final_score,
+                        "vector_sim": round(sim, 4),
+                        "keyword_matches": keyword_matches
                     })
                 except Exception:
                     continue
         finally:
             conn.close()
 
-        results.sort(key=lambda x: x["similarity"], reverse=True)
+        results.sort(key=lambda x: (x["keyword_matches"] > 0, x["similarity"]), reverse=True)
         return results[:top_k]
 
 
 # Backward compatibility alias
 UnifiedGoogleEmbedder = UnifiedEmbeddingManager
+
+
+def get_embedding_manager(dimension: int = 768) -> UnifiedEmbeddingManager:
+    """Helper factory function to retrieve UnifiedEmbeddingManager instance."""
+    return UnifiedEmbeddingManager(dimension=dimension)
+
 
 
 if __name__ == "__main__":

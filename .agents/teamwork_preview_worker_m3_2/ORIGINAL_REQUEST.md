@@ -1,20 +1,34 @@
-## 2026-07-22T14:25:53Z
+## 2026-07-24T12:04:29Z
+You are Worker 2 (teamwork_preview_worker) for Milestone 3: Interactive Dual Interface Remediation.
+Your working directory is C:\vazus\.agents\teamwork_preview_worker_m3_2.
 
-You are Worker 4 for Milestone 3 of DNTS OS SuperGraph Architecture Integration.
-Working directory: C:\vazus\.agents\teamwork_preview_worker_m3_2
-Project root: C:\vazus
+OBJECTIVE:
+Fix the critical Security Vulnerability (Path Traversal / Unsanitized File Access) in `scripts/dashboard.py` identified by Reviewer 2.
+
+REMEDIATION DETAILS:
+1. Inspect `scripts/dashboard.py` around `handle_stream` and `handle_thumbnail` (and any other file-serving methods).
+2. Implement strict path canonicalization and boundary validation enforcing that all resolved file paths MUST reside within `C:\vazus` (or allowed workspace root):
+   ```python
+   allowed_base = Path("C:/vazus").resolve()
+   try:
+       resolved_path = file_path.resolve()
+       resolved_path.relative_to(allowed_base)
+   except (ValueError, RuntimeError):
+       self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+       return
+   ```
+3. Ensure file path existence check is performed AFTER boundary validation.
+4. Verify that:
+   a) Requests for legitimate course videos (e.g. `C:/vazus/knowledge/telegram_courses/...`) and thumbnails (e.g. `C:/vazus/knowledge/.thumbnails/...`) continue to succeed with HTTP 200/206.
+   b) Requests for files outside `C:\vazus` (e.g. `C:/Windows/win.ini` or relative traversal `../../Windows/win.ini`) return HTTP 403 Forbidden.
+   c) `python scripts/knowledge_chat.py --query "тест"` continues to execute with exit code 0.
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A Forensic Auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-Task:
-Apply 2 robustness improvements to C:\vazus\pyenv\dnts_core\supergraph_linker.py identified by the Challenger:
-1. In calculate_cosine_similarity(vec1, vec2):
-   - Check if math.isnan(...) or any vector element is nan or if norm is zero. Return 0.0 for nan / invalid vectors so min(1.0, float('nan')) doesn't return 1.0.
-2. In calculate_provenance_similarity(node1, node2):
-   - Set baseline default score to 0.0 when no provenance match is present (instead of 0.5 baseline), so node pairs without provenance metadata don't get an artificial score boost.
+BUILD & TEST VERIFICATION:
+1. Run server test and verify HTTP 403 on `GET /api/v1/knowledge/stream?path=C:/Windows/win.ini`.
+2. Run HTTP 206 stream test on a valid video path in `C:/vazus/knowledge/telegram_courses`.
+3. Document test commands and results in your `handoff.md`.
 
-Verification:
-Execute C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py and C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py. Ensure both pass with Exit Code 0.
-
-Write your handoff report to C:\vazus\.agents\teamwork_preview_worker_m3_2\handoff.md and notify parent via send_message when finished.
+Send a completion message back to parent when done.

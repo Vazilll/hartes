@@ -1,415 +1,802 @@
-import os
+#!/usr/bin/env python3
+"""
+vazus.scripts.dashboard — Fast, Resilient Python Web Server for Multimodal Knowledge & Cognitive Mastery Dashboard.
+
+Serves SPA frontend and REST APIs:
+- GET / : dashboard.html
+- GET /api/v1/knowledge/search?query=...&top_k=...&domain=...
+- GET /api/v1/knowledge/stream?path=... (206 Partial Content Range streaming)
+- GET /api/v1/knowledge/thumbnail?path=...
+- GET /api/v1/knowledge/stats
+- GET /api/v1/cognitive/stats
+- GET /api/v1/cognitive/next-question
+- POST /api/v1/cognitive/evaluate-answer
+- GET /api/v1/wiki/note?id=...
+- POST /api/v1/wiki/checkbox
+"""
+
 import sys
+import os
+import argparse
 import json
-import glob
-import time
-import socket
-import subprocess
+import sqlite3
+import urllib.parse
+import mimetypes
+import datetime
+import re
+import uuid
 from pathlib import Path
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 
-# Try to import streamlit. If not installed, print a helpful message.
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 try:
-    import streamlit as st
+    from vazus_core.embeddings import UnifiedEmbeddingManager
 except ImportError:
-    print("Error: Streamlit is not installed in the current environment.")
-    print("Please install it using: C:/vazus/pyenv/.venv/Scripts/pip.exe install streamlit")
-    sys.exit(1)
+    from embeddings import UnifiedEmbeddingManager
 
-# Paths Configuration
-WORKSPACE_DIR = Path("C:/vazus/pyenv")
-LOGS_DIR = WORKSPACE_DIR / "logs"
-MEMORY_INDEX_PATH = LOGS_DIR / "memory_index.json"
-REGISTRY_PATH = WORKSPACE_DIR / "rlm_prompts.json"
-MANIFEST_PATH = WORKSPACE_DIR / "rlm_tools" / "manifest.json"
-ADAPTER_SCRIPT = WORKSPACE_DIR / "scripts" / "agy_openai_adapter.py"
-PYTHON_EXE = WORKSPACE_DIR / ".venv" / "Scripts" / "python.exe"
+DEFAULT_DB_PATH = "C:/vazus/services/memory/vazus.db"
+DEFAULT_HTML_PATH = Path(__file__).resolve().parent / "dashboard.html"
 
-# Sync codebase AST to SQLite vazus.db at startup
-try:
-    sys.path.append(str(WORKSPACE_DIR / "scripts"))
-    import sync_ast_to_sqlite
-    sync_ast_to_sqlite.sync()
-except Exception as e:
-    print(f"Startup database sync failed: {e}")
+# Threading HTTPServer for concurrent requests
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
 
-# 1. Page Configuration
-st.set_page_config(
-    page_title="AI Agent Scaffolding Monitor",
-    page_icon="🍊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
 
-# 2. Premium Basalt/Titanium Theme CSS Injection
-st.markdown("""
-<style>
-    /* Global Background and Colors */
-    .stApp {
-        background-color: #0f1011;
-        color: #e3e4e6;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    
-    /* Sidebar styling */
-    section[data-testid="stSidebar"] {
-        background-color: #151719;
-        border-right: 1px solid #2d3035;
-    }
-    
-    /* Headers styling */
-    h1, h2, h3, h4, h5, h6 {
-        color: #f1f2f4;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-    }
-    
-    /* Custom divider */
-    .premium-divider {
-        height: 1px;
-        background: linear-gradient(90deg, rgba(226,135,67,0.1) 0%, rgba(45,48,53,1) 50%, rgba(226,135,67,0.1) 100%);
-        margin: 20px 0;
-    }
-    
-    /* Cards for Iterations */
-    .iteration-card {
-        background-color: #17181c;
-        border: 1px solid #282a30;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    
-    /* Badge styling */
-    .badge-amber {
-        background-color: rgba(226, 135, 67, 0.15);
-        color: #e28743;
-        border: 1px solid rgba(226, 135, 67, 0.3);
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        display: inline-block;
-    }
-    
-    .badge-green {
-        background-color: rgba(46, 160, 67, 0.15);
-        color: #3fb950;
-        border: 1px solid rgba(46, 160, 67, 0.3);
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        display: inline-block;
-    }
-    
-    /* Console-style logs output */
-    .console-box {
-        background-color: #0b0c0d;
-        border: 1px solid #1f2124;
-        border-radius: 6px;
-        font-family: 'Fira Code', 'Courier New', Courier, monospace;
-        padding: 12px;
-        color: #a9b2c3;
-        font-size: 0.85rem;
-        white-space: pre-wrap;
-        margin-top: 10px;
-    }
+class DashboardRequestHandler(BaseHTTPRequestHandler):
+    db_path: str = DEFAULT_DB_PATH
 
-    /* Buttons styling */
-    div.stButton > button {
-        background-color: #1d1f21;
-        color: #f1f2f4;
-        border: 1px solid #33373e;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-    }
-    div.stButton > button:hover {
-        border-color: #e28743;
-        color: #e28743;
-        background-color: #242629;
-    }
-</style>
-""", unsafe_allow_html=True)
+    def log_message(self, format, *args):
+        # Clean logging format
+        sys.stderr.write(f"[Dashboard] {self.address_string()} - {format % args}\n")
 
-# 3. Adapter Management Functions
-def check_adapter_status():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5)
-        return s.connect_ex(('127.0.0.1', 5001)) == 0
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
 
-def stop_adapter():
-    try:
-        import psutil
-        terminated_count = 0
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+    def do_GET(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        query_params = urllib.parse.parse_qs(parsed_url.query)
+
+        try:
+            if path == "/" or path == "/dashboard.html" or path == "/index.html":
+                self.handle_serve_html()
+            elif path == "/api/v1/knowledge/search":
+                self.handle_search(query_params)
+            elif path == "/api/v1/knowledge/stream":
+                self.handle_stream(query_params)
+            elif path == "/api/v1/knowledge/thumbnail":
+                self.handle_thumbnail(query_params)
+            elif path == "/api/v1/knowledge/stats":
+                self.handle_stats()
+            elif path == "/api/v1/cognitive/stats":
+                self.handle_cognitive_stats()
+            elif path == "/api/v1/cognitive/next-question":
+                self.handle_cognitive_next_question(query_params)
+            elif path == "/api/v1/wiki/note":
+                self.handle_wiki_note(query_params)
+            elif path == "/api/v1/notebooklm/study-guides":
+                self.handle_notebooklm_study_guides()
+            elif path == "/api/v1/notebooklm/podcasts":
+                self.handle_notebooklm_podcasts()
+            else:
+                self.send_error(404, "Endpoint Not Found")
+        except Exception as e:
+            sys.stderr.write(f"[Dashboard] GET Request Error: {e}\n")
+            self.send_error(500, f"Internal Server Error: {str(e)}")
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+
+        try:
+            if path == "/api/v1/cognitive/evaluate-answer":
+                self.handle_cognitive_evaluate_answer()
+            elif path == "/api/v1/wiki/checkbox":
+                self.handle_wiki_checkbox()
+            elif path == "/api/v1/notebooklm/generate-podcast":
+                self.handle_notebooklm_generate_podcast()
+            elif path == "/api/v1/notebooklm/generate-study-guide":
+                self.handle_notebooklm_generate_study_guide()
+            else:
+                self.send_error(404, "Endpoint Not Found")
+        except Exception as e:
+            sys.stderr.write(f"[Dashboard] POST Request Error: {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_serve_html(self):
+        if not DEFAULT_HTML_PATH.exists():
+            self.send_error(404, f"HTML UI file not found at {DEFAULT_HTML_PATH}")
+            return
+        
+        with open(DEFAULT_HTML_PATH, "rb") as f:
+            content = f.read()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def handle_search(self, query_params):
+        query = query_params.get("query", [""])[0].strip()
+        top_k_str = query_params.get("top_k", ["5"])[0]
+        domain = query_params.get("domain", [""])[0].strip()
+
+        try:
+            top_k = int(top_k_str)
+        except ValueError:
+            top_k = 5
+
+        if not query:
+            self.send_json_response({"results": [], "query": "", "count": 0})
+            return
+
+        embedder = UnifiedEmbeddingManager()
+        raw_results = embedder.search_unified_vector_space(
+            query=query,
+            db_path=Path(self.db_path),
+            top_k=top_k,
+            domain_filter=domain if domain else None
+        )
+
+        formatted = []
+        for idx, r in enumerate(raw_results, 1):
+            node_type = r.get("node_type", "Unknown")
+            props = r.get("properties", {}) or {}
+            sim = r.get("similarity", 0.0)
+
+            item = {
+                "rank": idx,
+                "id": r.get("id"),
+                "name": r.get("name"),
+                "node_type": node_type,
+                "domain": r.get("domain"),
+                "similarity": sim,
+                "properties": props
+            }
+
+            if node_type == "MediaScene":
+                st = float(props.get("start_sec", 0.0))
+                en = float(props.get("end_sec", 0.0))
+                src_file = props.get("source_file", "")
+                item.update({
+                    "title": r.get("name"),
+                    "start_sec": st,
+                    "end_sec": en,
+                    "duration": props.get("duration", round(en - st, 2)),
+                    "player_fragment": f"#t={st:.1f},{en:.1f}",
+                    "stream_url": f"/api/v1/knowledge/stream?path={urllib.parse.quote(src_file)}#t={st:.1f},{en:.1f}",
+                    "source_file": src_file,
+                    "thumbnail_path": props.get("thumbnail_path", ""),
+                    "thumbnail_url": f"/api/v1/knowledge/thumbnail?path={urllib.parse.quote(props.get('thumbnail_path', ''))}",
+                    "transcript": props.get("transcript") or r.get("description", ""),
+                    "media_type": props.get("media_type", "video"),
+                    "next_scene_id": props.get("next_scene_id"),
+                    "prev_scene_id": props.get("prev_scene_id"),
+                })
+            elif node_type == "TelegramMessage":
+                item.update({
+                    "msg_id": props.get("msg_id"),
+                    "channel_name": props.get("channel_name", ""),
+                    "timestamp": props.get("date", ""),
+                    "text_snippet": props.get("text") or r.get("description", ""),
+                    "referenced_media": props.get("referenced_media_files", []),
+                })
+            formatted.append(item)
+
+        self.send_json_response({"results": formatted, "query": query, "count": len(formatted)})
+
+    def handle_stream(self, query_params):
+        raw_path = query_params.get("path", [""])[0]
+        if not raw_path:
+            self.send_error(400, "Missing path parameter")
+            return
+
+        file_path = Path(urllib.parse.unquote(raw_path))
+
+        allowed_base = Path("C:/vazus").resolve()
+        try:
+            resolved_path = file_path.resolve()
+            resolved_path.relative_to(allowed_base)
+        except ValueError:
+            self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+            return
+        except Exception:
+            self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+            return
+
+        if not resolved_path.exists() or not resolved_path.is_file():
+            self.send_error(404, f"Media file not found: {raw_path}")
+            return
+
+        file_size = resolved_path.stat().st_size
+        mime_type, _ = mimetypes.guess_type(str(resolved_path))
+        if not mime_type:
+            ext = resolved_path.suffix.lower()
+            if ext in ('.mp4', '.m4v'):
+                mime_type = 'video/mp4'
+            elif ext in ('.oga', '.ogg'):
+                mime_type = 'audio/ogg'
+            elif ext == '.mp3':
+                mime_type = 'audio/mpeg'
+            elif ext == '.wav':
+                mime_type = 'audio/wav'
+            else:
+                mime_type = 'application/octet-stream'
+
+        range_header = self.headers.get("Range")
+
+        if range_header and range_header.startswith("bytes="):
+            byte_range = range_header.replace("bytes=", "").strip()
+            parts = byte_range.split("-")
+            start = int(parts[0]) if parts[0] else 0
+            end = int(parts[1]) if parts[1] else file_size - 1
+
+            if start >= file_size or end >= file_size or start > end:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{file_size}")
+                self.end_headers()
+                return
+
+            chunk_size = end - start + 1
+            self.send_response(206)
+            self.send_header("Content-Type", mime_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Range", f"bytes {start}-{end}/{file_size}")
+            self.send_header("Content-Length", str(chunk_size))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            with open(resolved_path, "rb") as f:
+                f.seek(start)
+                bytes_to_send = chunk_size
+                buffer_size = 64 * 1024
+                while bytes_to_send > 0:
+                    read_len = min(bytes_to_send, buffer_size)
+                    data = f.read(read_len)
+                    if not data:
+                        break
+                    self.wfile.write(data)
+                    bytes_to_send -= len(data)
+        else:
+            self.send_response(200)
+            self.send_header("Content-Type", mime_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(file_size))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+
+            with open(resolved_path, "rb") as f:
+                buffer_size = 64 * 1024
+                while True:
+                    data = f.read(buffer_size)
+                    if not data:
+                        break
+                    self.wfile.write(data)
+
+    def handle_thumbnail(self, query_params):
+        raw_path = query_params.get("path", [""])[0]
+        if not raw_path:
+            self.send_error(400, "Missing path parameter")
+            return
+
+        clean_path = urllib.parse.unquote(raw_path)
+        file_path = Path(clean_path)
+
+        allowed_base = Path("C:/vazus").resolve()
+        try:
+            resolved_path = file_path.resolve()
+            resolved_path.relative_to(allowed_base)
+        except ValueError:
+            self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+            return
+        except Exception:
+            self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+            return
+
+        if not resolved_path.exists():
+            default_thumb_dir = Path("C:/vazus/knowledge/.thumbnails")
+            fallback_path = default_thumb_dir / file_path.name
             try:
-                cmdline = proc.info.get('cmdline')
-                if cmdline and any('agy_openai_adapter.py' in part for part in cmdline):
-                    proc.terminate()
-                    terminated_count += 1
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess, FileNotFoundError):
-                continue
-        return f"Terminated {terminated_count} adapter processes via psutil."
-    except Exception as e:
+                resolved_path = fallback_path.resolve()
+                resolved_path.relative_to(allowed_base)
+            except ValueError:
+                self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+                return
+            except Exception:
+                self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+                return
+
+        if not resolved_path.exists() or not resolved_path.is_file():
+            self.send_error(404, f"Thumbnail image not found: {raw_path}")
+            return
+
+        with open(resolved_path, "rb") as f:
+            content = f.read()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(content)))
+        self.send_header("Cache-Control", "public, max-age=86400")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(content)
+
+    def handle_stats(self):
+        db_p = Path(self.db_path)
+        if not db_p.exists():
+            self.send_json_response({"error": f"Database not found at {db_p}"}, status=404)
+            return
+
+        conn = sqlite3.connect(db_p)
         try:
-            powershell_exe = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-            if not os.path.exists(powershell_exe):
-                powershell_exe = "powershell"
-            cmd = [powershell_exe, "-Command", "Get-CimInstance Win32_Process -Filter \"CommandLine like '%agy_openai_adapter.py%'\" | ForEach-Object { $_.Terminate() }"]
-            r = subprocess.run(cmd, capture_output=True, text=True)
-            return f"Stopped adapter server via PowerShell Get-CimInstance. Output: {r.stdout.strip()} (psutil error: {e})"
-        except Exception as ex:
-            return f"Failed to stop adapter: {e} (Fallback error: {ex})"
+            c = conn.cursor()
+            total_nodes = c.execute("SELECT COUNT(*) FROM kg_nodes").fetchone()[0]
+            total_edges = c.execute("SELECT COUNT(*) FROM kg_edges").fetchone()[0]
 
-def start_adapter():
-    try:
-        if not PYTHON_EXE.exists() or not ADAPTER_SCRIPT.exists():
-            return "Error: Python executable or adapter script not found."
-        subprocess.Popen([str(PYTHON_EXE), str(ADAPTER_SCRIPT)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return "Start signal sent."
-    except Exception as e:
-        return f"Error starting adapter: {e}"
+            ms_count = c.execute("SELECT COUNT(*) FROM kg_nodes WHERE node_type='MediaScene'").fetchone()[0]
+            tm_count = c.execute("SELECT COUNT(*) FROM kg_nodes WHERE node_type='TelegramMessage'").fetchone()[0]
+            emb_count = c.execute("SELECT COUNT(*) FROM kg_nodes WHERE embedding_json IS NOT NULL").fetchone()[0]
 
-# 4. Sidebar Content
-st.sidebar.markdown("<h2 style='text-align: center; color: #e28743;'>🍊 TELEMETRY</h2>", unsafe_allow_html=True)
-st.sidebar.markdown("<div class='premium-divider'></div>", unsafe_allow_html=True)
+            stats = {
+                "kg_nodes": total_nodes,
+                "kg_edges": total_edges,
+                "MediaScene": ms_count,
+                "TelegramMessage": tm_count,
+                "embedded_count": emb_count
+            }
+            self.send_json_response(stats)
+        finally:
+            conn.close()
 
-# Adapter Status
-is_active = check_adapter_status()
-status_html = "<span class='badge-green'>RUNNING</span>" if is_active else "<span class='badge-amber'>STOPPED</span>"
-st.sidebar.markdown(f"**OpenAI Adapter (Port 5001):** {status_html}", unsafe_allow_html=True)
-
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    if st.button("Start"):
-        res = start_adapter()
-        st.sidebar.toast(res)
-        time.sleep(1.0)
-        st.rerun()
-with col2:
-    if st.button("Stop"):
-        res = stop_adapter()
-        st.sidebar.toast(res)
-        time.sleep(1.0)
-        st.rerun()
-
-st.sidebar.markdown("<div class='premium-divider'></div>", unsafe_allow_html=True)
-
-# Project Info
-st.sidebar.subheader("System Info")
-st.sidebar.text(f"Workspace: {WORKSPACE_DIR}")
-if REGISTRY_PATH.exists():
-    with open(REGISTRY_PATH, "r", encoding="utf-8") as f:
-        reg = json.load(f)
-    st.sidebar.text(f"Prompt Size: {len(reg.get('RLM_SYSTEM_PROMPT', ''))} chars")
-
-# Refresh Controls
-st.sidebar.markdown("<div class='premium-divider'></div>", unsafe_allow_html=True)
-if st.sidebar.button("↻ Force UI Refresh", use_container_width=True):
-    st.rerun()
-
-if st.sidebar.button("Sync Codebase AST to vazus.db", use_container_width=True):
-    try:
-        import sync_ast_to_sqlite
-        sync_ast_to_sqlite.sync()
-        st.sidebar.success("Database synchronized successfully!")
-        time.sleep(1.0)
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Sync failed: {e}")
-
-# 5. Main Title & Tabs
-st.markdown("<h1 style='color: #f1f2f4;'>Agent Scaffolding & Evolution Monitor</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #8a8f98;'>Real-time analysis, memory consolidation, and rollout visualization</p>", unsafe_allow_html=True)
-st.markdown("<div class='premium-divider'></div>", unsafe_allow_html=True)
-
-tab1, tab2, tab3, tab4 = st.tabs(["🚀 Live Rollout Monitor", "🧠 Memory Index", "🧬 System Prompts", "🛠️ Compiled Tools"])
-
-# TAB 1: Live Rollout Monitor
-with tab1:
-    st.subheader("Trace Log Viewer")
-    
-    # Locate log files
-    log_files = glob.glob(str(LOGS_DIR / "rlm_*.jsonl")) + glob.glob(str(LOGS_DIR / "eval_*.jsonl"))
-    if not log_files:
-        st.warning("No RLM execution logs found in logs/ directory.")
-    else:
-        # Sort by modification time (newest first)
-        log_files.sort(key=os.path.getmtime, reverse=True)
-        log_options = {os.path.basename(p): p for p in log_files}
-        
-        selected_log_name = st.selectbox("Select Rollout Log File:", list(log_options.keys()))
-        selected_log_path = log_options[selected_log_name]
-        
-        # Read selected log file lines
+    def handle_cognitive_stats(self):
         try:
-            with open(selected_log_path, "r", encoding="utf-8") as f:
-                lines = [json.loads(line) for line in f if line.strip()]
+            from vazus_core.cognitive_tutor_engine import CognitiveTutorEngine
+            engine = CognitiveTutorEngine(db_path=self.db_path)
+            stats = engine.get_mastery_stats()
+            
+            conn = sqlite3.connect(self.db_path)
+            try:
+                conn.row_factory = sqlite3.Row
+                total_cards = conn.execute("SELECT COUNT(*) FROM tutor_cards").fetchone()[0]
+                
+                # Auto-sync notes if database is fresh/empty
+                if total_cards == 0:
+                    engine.sync_zettelkasten_notes()
+                    stats = engine.get_mastery_stats()
+                    total_cards = conn.execute("SELECT COUNT(*) FROM tutor_cards").fetchone()[0]
+
+                mastered_cards = conn.execute("SELECT COUNT(*) FROM tutor_cards WHERE repetition_n >= 3 AND ease_factor >= 2.3").fetchone()[0]
+                learning_cards = conn.execute("SELECT COUNT(*) FROM tutor_cards WHERE repetition_n < 3").fetchone()[0]
+                
+                now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                due_cards = conn.execute("SELECT COUNT(*) FROM tutor_cards WHERE next_review_at IS NULL OR next_review_at <= ?", (now_str,)).fetchone()[0]
+                
+                ef_row = conn.execute("SELECT AVG(ease_factor) FROM tutor_cards").fetchone()
+                avg_ef = round(ef_row[0], 2) if ef_row and ef_row[0] is not None else 2.50
+                
+                int_row = conn.execute("SELECT AVG(interval_days) FROM tutor_cards").fetchone()
+                avg_interval = round(int_row[0], 1) if int_row and int_row[0] is not None else 1.0
+            finally:
+                conn.close()
+
+            mastery_score_pct = round((mastered_cards / total_cards * 100.0), 1) if total_cards > 0 else 0.0
+            
+            if stats.get("total_reviews", 0) > 0:
+                est_retention_pct = round(stats.get("average_score_percent", 90.0), 1)
+            else:
+                est_retention_pct = 92.5
+
+            res = {
+                "status": "ok",
+                "total_cards": total_cards,
+                "mastered_cards": mastered_cards,
+                "learning_cards": learning_cards,
+                "due_cards": due_cards,
+                "due_count": due_cards,
+                "average_score_percent": stats.get("average_score_percent", 0.0),
+                "average_q_rating": stats.get("average_q_rating", 0.0),
+                "average_ease_factor": avg_ef,
+                "avg_ease_factor": avg_ef,
+                "average_interval_days": avg_interval,
+                "avg_interval_days": avg_interval,
+                "estimated_retention_pct": est_retention_pct,
+                "retention_pct": est_retention_pct,
+                "mastery_score_pct": mastery_score_pct,
+                "mastery_pct": mastery_score_pct,
+                "mastery_level": stats.get("mastery_level", "Novice"),
+                "total_reviews": stats.get("total_reviews", 0),
+                "q_distribution": stats.get("q_distribution", {})
+            }
+            self.send_json_response(res)
         except Exception as e:
-            st.error(f"Error reading log file: {e}")
-            lines = []
-            
-        if lines:
-            metadata = lines[0] if lines[0].get("type") == "metadata" else {}
-            iterations = [l for l in lines if l.get("type") == "iteration"]
-            
-            # Metadata Box
-            if metadata:
-                st.markdown(
-                    f"**Model:** `{metadata.get('root_model')}` | "
-                    f"**Max Depth:** `{metadata.get('max_depth')}` | "
-                    f"**Timestamp:** `{metadata.get('timestamp')}`"
-                )
-            
-            # Display each turn
-            for it in iterations:
-                iter_num = it.get("iteration")
-                response = it.get("response", "")
-                code_blocks = it.get("code_blocks", [])
-                final_answer = it.get("final_answer")
-                
-                # Split response into planning / code if code block is present
-                plan_text = response
-                if "```repl" in response:
-                    parts = response.split("```repl", 1)
-                    plan_text = parts[0].strip()
-                
-                st.markdown(f"### Turn {iter_num}")
-                
-                # Plan Card
-                st.markdown(f"""
-                <div class="iteration-card">
-                    <strong style="color: #e28743;">Reasoning & Plan:</strong><br/>
-                    {plan_text.replace(chr(10), '<br/>')}
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # Executed Code and Outputs
-                if code_blocks:
-                    for cb_idx, cb in enumerate(code_blocks):
-                        code = cb.get("code", "")
-                        res_obj = cb.get("result", {})
-                        stdout = res_obj.get("stdout", "")
-                        stderr = res_obj.get("stderr", "")
-                        
-                        st.markdown("**Executed REPL Code:**")
-                        st.code(code, language="python")
-                        
-                        if stdout.strip() or stderr.strip():
-                            st.markdown("**REPL Console Output:**")
-                            console_content = ""
-                            if stdout.strip():
-                                console_content += stdout.strip()
-                            if stderr.strip():
-                                if console_content:
-                                    console_content += "\n"
-                                console_content += f"[ERROR] {stderr.strip()}"
-                                
-                            st.markdown(f"<div class='console-box'>{console_content}</div>", unsafe_allow_html=True)
-                
-                # Check for final answer in this iteration
-                if final_answer:
-                    st.markdown(f"<h4>Final Answer:</h4>", unsafe_allow_html=True)
-                    st.success(final_answer)
-                
-                st.markdown("---")
+            sys.stderr.write(f"[Dashboard] cognitive/stats error: {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
 
-# TAB 2: Memory Index
-with tab2:
-    st.subheader("Experience Replay Memory Index")
-    
-    if not MEMORY_INDEX_PATH.exists():
-        st.warning("Memory index does not exist yet. Run the memory indexer first.")
-    else:
+    def handle_cognitive_next_question(self, query_params):
         try:
-            with open(MEMORY_INDEX_PATH, "r", encoding="utf-8") as f:
-                index = json.load(f)
-        except Exception as e:
-            st.error(f"Error reading memory index: {e}")
-            index = {}
+            from vazus_core.cognitive_tutor_engine import CognitiveTutorEngine
+            engine = CognitiveTutorEngine(db_path=self.db_path)
             
-        if index:
-            st.metric("Total Indexed Trajectories", len(index))
-            st.markdown("Below are successful agent runs stored in the memory index for Few-Shot prompting:")
-            
-            for task_id, entry in index.items():
-                with st.expander(f"Task: `{task_id}`"):
-                    st.markdown("**Original Prompt:**")
-                    st.write(entry.get("prompt"))
-                    st.markdown("**Few-shot Trajectory Trace:**")
-                    st.code(entry.get("few_shot_trace"), language="markdown")
-        else:
-            st.info("Memory index is currently empty.")
+            all_cards = engine.get_all_cards(limit=1)
+            if not all_cards:
+                engine.sync_zettelkasten_notes()
+                
+            due_cards = engine.get_due_cards(limit=1)
+            if due_cards:
+                card = due_cards[0]
+                is_due = True
+            else:
+                all_cards = engine.get_all_cards(limit=1)
+                if all_cards:
+                    card = all_cards[0]
+                    is_due = False
+                else:
+                    card = None
+                    is_due = False
 
-# TAB 3: System Prompts
-with tab3:
-    st.subheader("Current Prompts & Configuration")
-    
-    if not REGISTRY_PATH.exists():
-        st.error(f"Prompt registry not found at {REGISTRY_PATH}")
-    else:
-        try:
-            with open(REGISTRY_PATH, "r", encoding="utf-8") as f:
-                registry = json.load(f)
+            if card:
+                res = {
+                    "status": "ok",
+                    "is_due": is_due,
+                    "card": card,
+                    "card_id": card["id"],
+                    "id": card["id"],
+                    "entity_id": card["entity_id"],
+                    "entity_type": card["entity_type"],
+                    "question_type": card["question_type"],
+                    "question_text": card["question_text"],
+                    "target_answer": card["target_answer"],
+                    "repetition_n": card["repetition_n"],
+                    "ease_factor": card["ease_factor"],
+                    "interval_days": card["interval_days"]
+                }
+                self.send_json_response(res)
+            else:
+                self.send_json_response({"status": "empty", "card": None, "message": "No cards available"}, status=200)
         except Exception as e:
-            st.error(f"Error reading prompt registry: {e}")
-            registry = {}
+            sys.stderr.write(f"[Dashboard] cognitive/next-question error: {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_cognitive_evaluate_answer(self):
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            data = json.loads(body_bytes.decode("utf-8"))
             
-        if registry:
-            # Load registered tools to demonstrate expanded view
-            tools_list = []
-            if MANIFEST_PATH.exists():
+            card_id = data.get("card_id")
+            user_answer = data.get("user_answer", "")
+            quality_grade = data.get("quality_grade")
+
+            if not card_id:
+                self.send_json_response({"error": "Missing card_id parameter"}, status=400)
+                return
+
+            from vazus_core.cognitive_tutor_engine import CognitiveTutorEngine, evaluate_answer, calculate_sm2_update
+            engine = CognitiveTutorEngine(db_path=self.db_path)
+            card = engine.get_card(card_id)
+            if not card:
+                self.send_json_response({"error": f"Card not found: {card_id}"}, status=404)
+                return
+
+            eval_res = evaluate_answer(card, user_answer)
+            score = eval_res["score_percent"]
+            q_rating = eval_res["q_rating"]
+            feedback = eval_res["feedback_rationale"]
+
+            if quality_grade is not None:
                 try:
-                    tools_data = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-                    for name, info in tools_data.items():
-                        tools_list.append(f"- `{name}`: {info['description']}")
-                except Exception:
+                    q_rating = max(0, min(5, int(quality_grade)))
+                except (ValueError, TypeError):
                     pass
-            
-            custom_tools_text = "\n".join(tools_list) if tools_list else "None registered"
-            custom_tools_section_val = f"### Custom tools available:\n{custom_tools_text}"
-            
-            raw_system_prompt = registry.get("RLM_SYSTEM_PROMPT", "")
-            expanded_system_prompt = raw_system_prompt.replace("{custom_tools_section}", custom_tools_section_val)
-            
-            st.markdown("### Expanded System Prompt (With Injected Hebbian Tools)")
-            st.code(expanded_system_prompt, language="markdown")
-            
-            st.markdown("### Raw Prompt Template")
-            st.code(raw_system_prompt, language="markdown")
-            
-            st.markdown("### Orchestrator Addendum")
-            st.code(registry.get("ORCHESTRATOR_ADDENDUM", ""), language="markdown")
 
-# TAB 4: Compiled Tools
-with tab4:
-    st.subheader("Hebbian Compiled Tools Registry")
-    
-    if not MANIFEST_PATH.exists():
-        st.info("No compiled tools manifest found. Build tools using 'compile_hebbian_tool' first.")
-    else:
-        try:
-            manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+            cur_n = card["repetition_n"]
+            cur_ef = card["ease_factor"]
+            cur_interval = card["interval_days"]
+            cur_lapses = card["lapses"]
+
+            new_n, new_ef, new_interval = calculate_sm2_update(cur_n, cur_ef, cur_interval, q_rating)
+            new_lapses = cur_lapses + (1 if q_rating < 3 else 0)
+
+            now_dt = datetime.datetime.now(datetime.timezone.utc)
+            next_dt = now_dt + datetime.timedelta(days=new_interval)
+            now_str = now_dt.isoformat()
+            next_str = next_dt.isoformat()
+
+            card["repetition_n"] = new_n
+            card["ease_factor"] = new_ef
+            card["interval_days"] = new_interval
+            card["lapses"] = new_lapses
+            card["last_review_at"] = now_str
+            card["next_review_at"] = next_str
+            engine.save_card(card)
+
+            review_id = f"review_{uuid.uuid4().hex[:12]}"
+            conn = sqlite3.connect(self.db_path)
+            try:
+                conn.execute("""
+                    INSERT INTO tutor_reviews (
+                        id, card_id, score_percent, q_rating, user_response,
+                        feedback_rationale, response_time_sec, reviewed_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (review_id, card_id, score, q_rating, user_answer, feedback, 0.0, now_str))
+                conn.commit()
+            finally:
+                conn.close()
+
+            res = {
+                "status": "ok",
+                "review_id": review_id,
+                "card_id": card_id,
+                "score_percent": score,
+                "score_pct": score,
+                "q_rating": q_rating,
+                "quality_grade": q_rating,
+                "feedback_rationale": feedback,
+                "feedback": feedback,
+                "target_answer": card.get("target_answer", ""),
+                "new_ease_factor": new_ef,
+                "new_interval_days": new_interval,
+                "sm2_update": {
+                    "repetition_n": new_n,
+                    "ease_factor": new_ef,
+                    "interval_days": new_interval,
+                    "lapses": new_lapses,
+                    "next_review_at": next_str
+                }
+            }
+            self.send_json_response(res)
         except Exception as e:
-            st.error(f"Error reading tools manifest: {e}")
-            manifest = {}
+            sys.stderr.write(f"[Dashboard] cognitive/evaluate-answer error: {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_wiki_note(self, query_params):
+        try:
+            raw_id = query_params.get("id", [""])[0].strip() or query_params.get("path", [""])[0].strip()
+            if not raw_id:
+                self.send_json_response({"error": "Missing note id or path parameter"}, status=400)
+                return
+
+            allowed_base = Path("C:/vazus").resolve()
+            clean_id = urllib.parse.unquote(raw_id)
+
+            try:
+                if Path(clean_id).is_absolute():
+                    test_path = Path(clean_id)
+                else:
+                    test_path = allowed_base / clean_id
+                resolved_path = test_path.resolve()
+                resolved_path.relative_to(allowed_base)
+            except ValueError:
+                self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+                return
+            except Exception:
+                self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+                return
+
+            candidate_paths = [
+                resolved_path,
+                allowed_base / "services/memory/semantic/wiki" / f"{clean_id}.md",
+                allowed_base / "services/memory/semantic/wiki" / clean_id,
+                allowed_base / f"{clean_id}.md"
+            ]
+
+            target_file = None
+            for cand in candidate_paths:
+                try:
+                    res = cand.resolve()
+                    res.relative_to(allowed_base)
+                    if res.exists() and res.is_file():
+                        target_file = res
+                        break
+                except (ValueError, Exception):
+                    pass
+
+            if not target_file:
+                self.send_json_response({"error": f"Note not found: {raw_id}"}, status=404)
+                return
+
+            from vazus_core.cognitive_tutor_engine import parse_zettel_markdown
+            parsed = parse_zettel_markdown(target_file)
+            raw_content = target_file.read_text(encoding="utf-8", errors="ignore")
+
+            res = {
+                "status": "ok",
+                "id": parsed.get("id", target_file.stem),
+                "title": parsed.get("title", target_file.stem),
+                "content": raw_content,
+                "parsed_entity": parsed,
+                "wikilinks": parsed.get("wikilinks", []),
+                "source_file": str(target_file)
+            }
+            self.send_json_response(res)
+        except Exception as e:
+            sys.stderr.write(f"[Dashboard] wiki/note error: {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_wiki_checkbox(self):
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body_bytes = self.rfile.read(content_length) if content_length > 0 else b"{}"
+            data = json.loads(body_bytes.decode("utf-8"))
             
-        if manifest:
-            st.metric("Total Compiled Tools", len(manifest))
-            
-            for tool_name, info in manifest.items():
-                with st.expander(f"🛠️ Tool: `{tool_name}` — {info.get('description')}"):
-                    st.markdown(f"**Path:** `{info.get('path')}`")
-                    st.markdown(f"**Source Log:** `{info.get('source_log')}`")
-                    st.markdown(f"**Compiled At:** `{info.get('timestamp')}`")
-                    
-                    # Read and show compiled script code
-                    script_path = WORKSPACE_DIR / info.get("path", "")
-                    if script_path.exists():
-                        st.markdown("**Python Source Code:**")
-                        st.code(script_path.read_text(encoding="utf-8"), language="python")
-                    else:
-                        st.warning("Tool source code file missing.")
-        else:
-            st.info("Compiled tools manifest is currently empty.")
+            raw_id = str(data.get("id") or data.get("note_id") or "").strip()
+            checkbox_index = int(data.get("checkbox_index", 0))
+            checked = bool(data.get("checked", False))
+
+            if not raw_id:
+                self.send_json_response({"error": "Missing id parameter"}, status=400)
+                return
+
+            allowed_base = Path("C:/vazus").resolve()
+            clean_id = urllib.parse.unquote(raw_id)
+
+            try:
+                if Path(clean_id).is_absolute():
+                    test_path = Path(clean_id)
+                else:
+                    test_path = allowed_base / clean_id
+                resolved_path = test_path.resolve()
+                resolved_path.relative_to(allowed_base)
+            except ValueError:
+                self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+                return
+            except Exception:
+                self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+                return
+
+            candidate_paths = [
+                resolved_path,
+                allowed_base / "services/memory/semantic/wiki" / f"{clean_id}.md",
+                allowed_base / "services/memory/semantic/wiki" / clean_id,
+                allowed_base / f"{clean_id}.md"
+            ]
+
+            target_file = None
+            for cand in candidate_paths:
+                try:
+                    res = cand.resolve()
+                    res.relative_to(allowed_base)
+                    if res.exists() and res.is_file():
+                        target_file = res
+                        break
+                except (ValueError, Exception):
+                    pass
+
+            if not target_file:
+                self.send_json_response({"error": f"Note file not found: {raw_id}"}, status=404)
+                return
+
+            content = target_file.read_text(encoding="utf-8", errors="ignore")
+            lines = content.splitlines()
+
+            current_idx = 0
+            modified = False
+
+            for i in range(len(lines)):
+                line = lines[i]
+                m = re.match(r'^([ \t]*- \[)([ xX])(\].*)$', line)
+                if m:
+                    if current_idx == checkbox_index:
+                        new_mark = "x" if checked else " "
+                        lines[i] = f"{m.group(1)}{new_mark}{m.group(3)}"
+                        modified = True
+                        break
+                    current_idx += 1
+
+            if modified:
+                new_content = "\n".join(lines)
+                if content.endswith("\n"):
+                    new_content += "\n"
+                target_file.write_text(new_content, encoding="utf-8")
+
+            self.send_json_response({
+                "status": "ok",
+                "updated": modified,
+                "id": raw_id,
+                "checkbox_index": checkbox_index,
+                "checked": checked
+            })
+        except Exception as e:
+            sys.stderr.write(f"[Dashboard] wiki/checkbox error: {e}\n")
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_notebooklm_study_guides(self):
+        try:
+            guide_dir = Path("C:/vazus/knowledge/.study_guides")
+            guides = []
+            if guide_dir.exists():
+                for f in guide_dir.glob("*.md"):
+                    guides.append({
+                        "name": f.name,
+                        "path": str(f).replace("\\", "/"),
+                        "size": f.stat().st_size,
+                        "created": datetime.datetime.fromtimestamp(f.stat().st_ctime).strftime("%Y-%m-%d %H:%M")
+                    })
+            self.send_json_response({"study_guides": guides})
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_notebooklm_podcasts(self):
+        try:
+            podcast_dir = Path("C:/vazus/knowledge/.podcasts")
+            podcasts = []
+            if podcast_dir.exists():
+                for f in podcast_dir.glob("*.*"):
+                    if f.suffix in (".mp3", ".wav", ".txt", ".json"):
+                        podcasts.append({
+                            "name": f.name,
+                            "path": str(f).replace("\\", "/"),
+                            "size": f.stat().st_size,
+                            "type": f.suffix[1:]
+                        })
+            self.send_json_response({"podcasts": podcasts})
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_notebooklm_generate_podcast(self):
+        try:
+            from vazus_core.notebook_synthesis_engine import NotebookSynthesisEngine
+            from vazus_core.tts_podcast_generator import synthesize_podcast_audio
+            engine = NotebookSynthesisEngine()
+            script = engine.generate_audio_podcast_script(topic="Сводный обзор базы знаний и МИРЭА")
+            audio_path = synthesize_podcast_audio(script["dialogue"])
+            self.send_json_response({"status": "ok", "audio_path": audio_path, "script": script})
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_notebooklm_generate_study_guide(self):
+        try:
+            from vazus_core.notebook_synthesis_engine import NotebookSynthesisEngine
+            engine = NotebookSynthesisEngine()
+            guide = engine.generate_study_guide(title="Общий Учебный Гид по Базе Знаний")
+            self.send_json_response({"status": "ok", "guide": guide})
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def send_json_response(self, data: dict, status: int = 200):
+        body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="vazus Multimodal Knowledge & Cognitive Mastery Dashboard Server")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Host address (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8501, help="Port number (default: 8501)")
+    parser.add_argument("--db", type=str, default=DEFAULT_DB_PATH, help="Path to SQLite database")
+
+    args = parser.parse_args()
+
+    DashboardRequestHandler.db_path = args.db
+
+    server = ThreadedHTTPServer((args.host, args.port), DashboardRequestHandler)
+    print(f"[Dashboard] vazus Multimodal Knowledge & Cognitive Mastery Dashboard running at http://{args.host}:{args.port}/")
+    print(f"[Dashboard] Database: {args.db}")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\n[Dashboard] Shutting down server.")
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()

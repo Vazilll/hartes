@@ -1,59 +1,53 @@
-# BRIEFING — 2026-07-22T16:56:00+03:00
+# BRIEFING — 2026-07-24T15:53:50Z
 
 ## Mission
-Implement Python bridge scripts in C:\vazus\pyenv\scripts linking native subagents directly to downloaded GitHub repositories (RLM MIT, Open Deep Research, Jules Verifier & Git Provenance) with 100% genuine execution and zero hardcoding.
+Implement Milestone 2 (R2): KGB/FSB Analytical Knowledge Extractor in `vazus_core/kgb_analytical_extractor.py` and test suite `tests/test_kgb_analytical_extractor.py`.
 
 ## 🔒 My Identity
 - Archetype: implementer
 - Roles: implementer, qa, specialist
 - Working directory: C:\vazus\.agents\teamwork_preview_worker_m2_1
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 2 (R1: Native Subagents & GitHub Wrappers Bridge)
+- Original parent: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Milestone: Milestone 2 (R2: KGB/FSB Analytical Knowledge Extractor)
 
 ## 🔒 Key Constraints
-- DO NOT CHEAT or hardcode test results.
-- Implement genuine bridge logic in Python scripts.
-- Scripts must execute with Exit Code 0 when run with C:\vazus\pyenv\.venv\Scripts\python.exe.
-- Write handoff report to C:\vazus\.agents\teamwork_preview_worker_m2_1\handoff.md and notify parent via send_message.
+- CODE_ONLY mode, no external internet network requests.
+- DO NOT CHEAT. Genuine implementations only. No hardcoding expected test outputs or facade implementations.
+- SQLite Graph DB target: `C:\vazus\vazus.db` and `C:\vazus\memory\dnts.db` (also support `C:\vazus\services\memory\vazus.db`).
+- Must export `extract_kgb_analytics(scene_or_text_dict: Dict, db_path: str = r"C:\vazus\vazus.db") -> Dict`.
+- Must export helper `evaluate_ach_hypotheses(hypotheses: List[Dict], evidence: List[Dict]) -> Dict`.
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T16:56:00+03:00
+- Conversation ID: 7c8cb965-8ab5-4f70-a7b0-3c7a9c10f884
+- Updated: 2026-07-24T15:53:50Z
 
 ## Task Summary
-- **What to build**:
-  1. `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py` linking `rlm_code_engineer` to `rlm-mit` and `dnts_core.workers.rlm`.
-  2. `C:\vazus\pyenv\scripts\subagent_research_bridge.py` linking `open_deep_researcher` to `open-deep-research`.
-  3. `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py` linking `verifier_worker` to `jules_verifier.py` and `git_provenance.py`.
-- **Success criteria**: All three scripts run via `C:\vazus\pyenv\.venv\Scripts\python.exe` with Exit Code 0, genuine integration, clean error handling.
-- **Interface contracts**: CLI / python invocation of each bridge module.
-- **Code layout**: Scripts in `C:\vazus\pyenv\scripts\`.
+- **What to build**: `vazus_core/kgb_analytical_extractor.py` containing ИАД decomposition into `ThesisNode` and `ProtocolNode`, ACH matrix evaluation, `CAUSES`/`REQUIRES`/`CONTRADICTS`/`BELONGS_TO` edge detection, 768D embedding persistence into `kg_nodes` and `kg_edges` in `vazus.db` and `dnts.db`. Unit test suite `tests/test_kgb_analytical_extractor.py`.
+- **Success criteria**: All unittest assertions pass (8/8 PASSED), py_compile passes, `vazus.db` and `dnts.db` persist entities properly, handoff report generated.
+- **Interface contracts**: `C:\vazus\.agents\orchestrator\PROJECT.md`
 
 ## Key Decisions Made
-- `subagent_rlm_bridge.py`: Supports `rlm_code_engineer` with MIT RLM engine `RLM` and `dnts_core.workers.rlm.run`.
-- `subagent_research_bridge.py`: Supports `open_deep_researcher` with `deep_researcher_builder` StateGraph compilation and `MemorySaver`.
-- `subagent_verifier_bridge.py`: Supports `verifier_worker` with AST syntax parsing, contract checks, `CodeVerifier` isolated process runner, `GitProvenanceManager`, and `JulesCloudEscalator`.
-
-## Artifact Index
-- `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py` — RLM bridge script
-- `C:\vazus\pyenv\scripts\subagent_research_bridge.py` — Open Deep Research bridge script
-- `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py` — Verifier & Git Provenance bridge script
-- `C:\vazus\.agents\teamwork_preview_worker_m2_1\ORIGINAL_REQUEST.md` — Initial user request
-- `C:\vazus\.agents\teamwork_preview_worker_m2_1\BRIEFING.md` — Context index
-- `C:\vazus\.agents\teamwork_preview_worker_m2_1\handoff.md` — Handoff report
+- Implemented regex and heuristic pattern extraction for ИАД scene/text decomposition into `ThesisNode` (declarative facts/claims) and `ProtocolNode` (operational rules/steps).
+- Added sub-sentence splitting support for `REQUIRES` prerequisite edge extraction in single-sentence transcripts.
+- Integrated `UnifiedEmbeddingManager` from `vazus_core.embeddings` for 768D embeddings generation stored in `kg_nodes.embedding_json`.
+- Implemented SMT DAG acyclicity checks for `CAUSES` relation edges.
+- Implemented ACH (Analysis of Competing Hypotheses) matrix evaluation calculating weighted inconsistency scores $IS(H_j)$ and rejecting disproved hypotheses.
+- Persisted to SQLite databases `vazus.db`, `dnts.db`, and `services/memory/vazus.db`.
 
 ## Change Tracker
 - **Files modified**:
-  - `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py` (Created RLM bridge)
-  - `C:\vazus\pyenv\scripts\subagent_research_bridge.py` (Created Research bridge)
-  - `C:\vazus\pyenv\scripts\subagent_verifier_bridge.py` (Created Verifier bridge)
-- **Build status**: All 3 scripts execute successfully with Exit Code 0.
+  - `C:\vazus\vazus_core\kgb_analytical_extractor.py` [Updated, Verified]
+  - `C:\vazus\tests\test_kgb_analytical_extractor.py` [Created, 8/8 Tests Passed]
+- **Build status**: 8/8 Tests PASSED (Exit Code 0)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: All 3 scripts passed verification with Exit Code 0.
-- **Lint status**: Clean
-- **Tests added/modified**: Main execution blocks in all 3 bridge scripts test full functionality.
+- **Build/test result**: PASS (8/8 tests passed in 18.232s)
+- **Lint status**: Clean py_compile
+- **Tests added/modified**: `tests/test_kgb_analytical_extractor.py` (8 test methods)
 
-## Loaded Skills
-- None
+## Artifact Index
+- `C:\vazus\.agents\teamwork_preview_worker_m2_1\ORIGINAL_REQUEST.md`
+- `C:\vazus\.agents\teamwork_preview_worker_m2_1\BRIEFING.md`
+- `C:\vazus\.agents\teamwork_preview_worker_m2_1\progress.md`
+- `C:\vazus\.agents\teamwork_preview_worker_m2_1\handoff.md`

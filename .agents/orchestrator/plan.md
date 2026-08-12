@@ -1,27 +1,21 @@
-# PROJECT PLAN: DNTS OS SuperGraph Architecture Integration
+# Orchestration Plan: vazus SuperGraph OS Extension
 
-## Architecture Overview
-DNTS OS SuperGraph Architecture unifies:
-1. GitHub Wrappers: `rlm-mit` (C:\vazus\pyenv\rlm-mit), `open-deep-research` (C:\vazus\pyenv\open-deep-research), `dnts_core` (C:\vazus\pyenv\dnts_core)
-2. Native Subagents: `open_deep_researcher`, `rlm_code_engineer`, `verifier_worker`
-3. Embeddings & Graph Memory: 768D Gemini Embeddings (`embeddings.py`), AST Code Topology (`codebase-memory-mcp`), Karpathy Memory Wiki (`C:\vazus\services\memory\semantic\wiki`)
-4. Token Economy: AST Pruning & Context Caching
+## Iteration Status
+Current iteration: 1 / 32
 
-## Milestones
+## Workflow Strategy
+For each milestone:
+1. Dispatch Explorer subagents (3 parallel instances) to analyze codebase, inspect files, check existing models/tables/interfaces, and design implementation details.
+2. Synthesize Explorer reports.
+3. Dispatch Worker subagent to implement code, run syntax checks and unit verification, and produce implementation handoff.
+4. Dispatch 2 Reviewer subagents independently to perform code review and verify compliance.
+5. Dispatch Challenger subagent to empirically test functionality, edge cases, and runtime behavior.
+6. Dispatch Forensic Auditor (`teamwork_preview_auditor`) to verify anti-cheat integrity and non-fabricated code.
+7. Evaluate Gate criteria. If pass, advance to next milestone. If fail, loop back with audit evidence.
 
-| # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| 1 | Exploration & Mapping | Explore existing files in `pyenv\scripts`, `pyenv\rlm-mit`, `pyenv\open-deep-research`, `pyenv\dnts_core`, `verify_ov_npu.py`, `embeddings.py`, `AGENTS.md` | None | DONE |
-| 2 | R1: Native Subagents & GitHub Wrappers Bridge | Implement Python bridge scripts in `C:\vazus\pyenv\scripts\subagent_rlm_bridge.py`, `subagent_research_bridge.py`, and verifier bridge connecting native subagents to repositories | M1 | DONE |
-| 3 | R2: Unified SuperGraph & 768D Embeddings Integration | Integrate 768D Google Gemini Embeddings (`embeddings.py`) with codebase-memory-mcp (Graphify AST) and Karpathy Memory Wiki using hybrid node-linking metric | M1, M2 | DONE |
-| 4 | R3: DeepMind Token Economy & Prompt Compression | Implement AST Pruning for Python files and prefix context caching structures to minimize token usage across subagents | M1, M3 | DONE |
-| 5 | E2E Verification & Forensic Audit | Run `verify_ov_npu.py`, `embeddings.py`, `subagent_rlm_bridge.py`, `subagent_research_bridge.py` in `C:\vazus\pyenv\.venv`, update `AGENTS.md` and configuration files, run Forensic Auditor | M2, M3, M4 | DONE |
-
-## Interface Contracts & Paths
-- Python Executable: `C:\vazus\pyenv\.venv\Scripts\python.exe`
-- Scripts Directory: `C:\vazus\pyenv\scripts\`
-- RLM Repository: `C:\vazus\pyenv\rlm-mit\`
-- Open Deep Research Repository: `C:\vazus\pyenv\open-deep-research\`
-- DNTS Core: `C:\vazus\pyenv\dnts_core\`
-- Memory Wiki: `C:\vazus\services\memory\semantic\wiki\`
-- Verification Script: `C:\vazus\verify_ov_npu.py`
+## Milestones Summary
+- Milestone 1 (R1): High-Precision ASR Upgrade in `vazus_core/multimodal_knowledge.py`
+- Milestone 2 (R2): KGB/FSB Analytical Knowledge Extractor in `vazus_core/kgb_analytical_extractor.py`
+- Milestone 3 (R3): Automated Zettelkasten Obsidian Wiki Exporter to `C:\vazus\services\memory\semantic\wiki\`
+- Milestone 4 (R4): Active Learning Engine & Spaced Repetition (SuperMemo SM-2) in `vazus_core/cognitive_tutor_engine.py` and `scripts/personal_tutor.py`
+- Milestone 5 (R5): Web Dashboard Cognitive & Mastery Tab in `scripts/dashboard.py` / `scripts/dashboard.html`

@@ -1,51 +1,58 @@
-# BRIEFING — 2026-07-22T17:32:00Z
+# BRIEFING — 2026-07-22T23:45:30+03:00
 
 ## Mission
-Implement R3 (DeepMind Token Economy & Prompt Compression) for DNTS OS SuperGraph Architecture Integration.
+Milestone 4: Implement Requirements R3 (Subagent Handoff Ledger Integration), R4 (SMT Z3 Code Contract Verification), and R5 (Dialogue & Memory Persistence).
 
 ## 🔒 My Identity
-- Archetype: implementer, qa, specialist
+- Archetype: implementer/qa/specialist
 - Roles: implementer, qa, specialist
 - Working directory: C:\vazus\.agents\teamwork_preview_worker_m4_1
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 4 (R3: DeepMind Token Economy & Prompt Compression)
+- Original parent: 0d707673-78fa-47a8-b5c1-bd8a8c79c850
+- Milestone: Milestone 4
 
 ## 🔒 Key Constraints
-- Native Python `ast` module (`ast.NodeTransformer`).
-- Replace function/method implementation statements with `ast.Expr(value=ast.Constant(value=Ellipsis))`.
-- Preserve docstrings, annotations, decorators, imports, signatures.
-- Expose `prune_python_code(code_str: str) -> str` and `prune_python_file(file_path: str) -> str`.
-- Compute compression ratio (verifying 70-90% reduction for large modules).
-- Implements 3-tier prefix prompt structure in `context_caching.py` (`build_cached_prompt(tier1_static, tier2_semistatic, tier3_dynamic) -> str`).
-- Exit Code 0 verification script `C:\vazus\pyenv\scripts\test_token_economy.py`.
-- No cheating, no hardcoding, genuine implementation.
+- NO CHEATING. Genuine implementation required.
+- Do not hardcode test results, dummy implementations, or circumvent intended tasks.
+- Keep changes minimal and maintain existing architecture.
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T17:32:00Z
+- Conversation ID: 0d707673-78fa-47a8-b5c1-bd8a8c79c850
+- Updated: 2026-07-22T23:45:30+03:00
 
 ## Task Summary
-- **What to build**: `dnts_core/ast_pruner.py`, `dnts_core/context_caching.py`, `scripts/test_token_economy.py`.
-- **Success criteria**: Genuine AST pruning with 70-90% compression on large files, 3-tier prompt prefix generator, python script exit code 0.
+- **What to build**:
+  - R3: Connected all subagent bridges (`subagent_research_bridge.py`, `subagent_rlm_bridge.py`, `subagent_verifier_bridge.py`) to `RaytSwarmHandoffManager` (`vazus_core/agent_handoff.py`). All bridge runs log verifiable handoff events to `raytsystem_ledger` table in `dnts.db`. Implemented `/api/v1/ledger` REST endpoint in Raytsystem webapp (`labs/raytsystem/src/raytsystem/webapp/app.py`).
+  - R4: Created `vazus_core/smt_z3_verifier.py` providing SMT Z3 contract model checking. Integrated `--verify-smt` flag into `subagent_verifier_bridge.py`, returning SAT/UNSAT proof status and metadata.
+  - R5: Created `vazus_core/dialogue_persister.py` with `SubagentDialoguePersister` persisting subagent dialogues and memory traces into SQLite `dnts.db` (`subagent_dialogues` & `subagent_memory_traces`) and exporting formatted Obsidian Markdown notes with `[[WikiLinks]]` into `C:\vazus\memory\semantic\wiki`.
+- **Success criteria**: Genuine implementation complete, automated verification test `verify_m4_requirements.py` passed with HTTP 200 on `/api/v1/ledger`, SMT Z3 model checking SAT/UNSAT verification, and generated Obsidian wiki notes.
 
 ## Key Decisions Made
-- Implemented `ASTPrunerTransformer` subclassing `ast.NodeTransformer` to prune function/method implementation statements to `ast.Constant(Ellipsis)` (`...`), preserving module docstrings, class structure, class variables, function decorators, signatures, type annotations, return types, and docstrings.
-- Implemented `build_cached_prompt` and supporting dataclasses (`Tier1Static`, `Tier2SemiStatic`, `Tier3Dynamic`) in `dnts_core/context_caching.py` enforcing strict Tier 1 -> Tier 2 -> Tier 3 sequence to optimize KV-cache prefix hit rate.
-- Implemented verification script `pyenv/scripts/test_token_economy.py` testing synthetic code, real `dnts_core` modules (`embeddings.py`, `supergraph_linker.py`), context caching tier ordering, and dynamic integrity checks.
-- Verification executed with exit code 0.
+- Implemented `SubagentDialoguePersister` as global singleton in `vazus_core/dialogue_persister.py` computing 768D embeddings via `UnifiedEmbeddingManager` and writing Obsidian Markdown notes with frontmatter to `C:\vazus\memory\semantic\wiki`.
+- Implemented `SMTZ3Verifier` in `vazus_core/smt_z3_verifier.py` with AST contract parsing and symbolic Z3 solver integration.
+- Added `record_handoff` convenience method to `RaytSwarmHandoffManager` in `vazus_core/agent_handoff.py`.
+- Added GET `/api/v1/ledger` endpoint to FastAPI web control plane (`labs/raytsystem/src/raytsystem/webapp/app.py`).
 
 ## Change Tracker
-- `C:\vazus\pyenv\dnts_core\ast_pruner.py`: Created AST pruner using Python native `ast` module.
-- `C:\vazus\pyenv\dnts_core\context_caching.py`: Created 3-tier prompt context cache builder.
-- `C:\vazus\pyenv\scripts\test_token_economy.py`: Created verification script for token economy and prompt compression.
+- **Files modified**:
+  - `C:\vazus\vazus_core\agent_handoff.py`: Added `record_handoff` method.
+  - `C:\vazus\vazus_core\dialogue_persister.py`: NEW engine for R5 persistence & Obsidian note exporter.
+  - `C:\vazus\vazus_core\smt_z3_verifier.py`: NEW engine for R4 SMT Z3 contract model checking.
+  - `C:\vazus\scripts\subagent_research_bridge.py`: Integrated R3 handoff logging & R5 dialogue/memory persistence.
+  - `C:\vazus\scripts\subagent_rlm_bridge.py`: Integrated R3 handoff logging & R5 dialogue/memory persistence.
+  - `C:\vazus\scripts\subagent_verifier_bridge.py`: Integrated R3 handoff logging, R4 SMT Z3 contract validation (`--verify-smt`), & R5 dialogue/memory persistence.
+  - `C:\vazus\labs\raytsystem\src\raytsystem\webapp\app.py`: Added `/api/v1/ledger` GET route.
+  - `C:\vazus\labs\raytsystem\src\raytsystem\webapp\security.py`: Allowed `testclient` host.
+  - `C:\vazus\scripts\verify_m4_requirements.py`: NEW automated test suite for R3, R4, R5.
+- **Build status**: PASS
+- **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: Pass (Exit Code 0).
-- **Lint status**: Passed syntax parsing via `ast.parse` and runtime execution.
-- **Tests added/modified**: `test_token_economy.py` covering synthetic pruning, real module pruning, compression ratios (81.67% on `supergraph_linker.py`), 3-tier order validation, and non-hardcoded integrity checks.
+- **Build/test result**: All verification tests in `verify_m4_requirements.py` PASS.
+- **Lint status**: Clean
+- **Tests added/modified**: `C:\vazus\scripts\verify_m4_requirements.py`
 
 ## Artifact Index
-- C:\vazus\.agents\teamwork_preview_worker_m4_1\ORIGINAL_REQUEST.md — Original User Request
-- C:\vazus\.agents\teamwork_preview_worker_m4_1\BRIEFING.md — Working briefing index
-- C:\vazus\.agents\teamwork_preview_worker_m4_1\progress.md — Progress log
-- C:\vazus\.agents\teamwork_preview_worker_m4_1\handoff.md — Handoff report
+- `C:\vazus\.agents\teamwork_preview_worker_m4_1\ORIGINAL_REQUEST.md`
+- `C:\vazus\.agents\teamwork_preview_worker_m4_1\BRIEFING.md`
+- `C:\vazus\.agents\teamwork_preview_worker_m4_1\progress.md`
+- `C:\vazus\.agents\teamwork_preview_worker_m4_1\handoff.md`

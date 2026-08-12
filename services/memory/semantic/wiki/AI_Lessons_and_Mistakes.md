@@ -31,3 +31,8 @@ Daimon: статус ACTIVE AWAKE, CPU 64.8°C, RAM 52%, батарея 80% за
 
 1. **Pre-flight Path Validation** — проверять существование пути ДО вызова read_file/write_file/patch. Устраняет FileNotFoundError (9 ошибок).
 2. **Web Fallback Chain** — каскад из 3 бэкендов: default web_search/web_extract → MCP web_fetch/web_research → cu...
+
+## Links & Related Notes
+- [[system_test_insights]] — MCP Server verification results and calendar check.
+- [[auto_test_insights]] — Automated test pipeline completion insights.
+- [[Dialog_Context]] — Historical user dialogue context logs.

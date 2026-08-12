@@ -1,59 +1,64 @@
-# BRIEFING — 2026-07-22T17:18:00Z
+# BRIEFING — 2026-07-24T12:01:10Z
 
 ## Mission
-Implement R2 (Unified SuperGraph & 768D Embeddings Integration) for DNTS OS SuperGraph Architecture.
+Implement Dual Interactive Interface for Multimodal Knowledge Engine in `vazus` (Milestone 3).
 
 ## 🔒 My Identity
-- Archetype: implementer, qa, specialist
+- Archetype: teamwork_preview_worker
 - Roles: implementer, qa, specialist
 - Working directory: C:\vazus\.agents\teamwork_preview_worker_m3_1
-- Original parent: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Milestone: Milestone 3 (R2: Unified SuperGraph & 768D Embeddings Integration)
+- Original parent: d62044f0-88bb-4a22-92ca-21b5a89d041c
+- Milestone: Milestone 3: Interactive Dual Interface
 
 ## 🔒 Key Constraints
-- DO NOT CHEAT. All implementations must be genuine.
-- Hybrid linking metric formula:
-  S(u, v) = 0.45 * S_cosine(E(u), E(v)) + 0.25 * S_fts(u, v) + 0.20 * S_structural(u, v) + 0.10 * S_provenance(u, v)
-- Link Layer A (AST code nodes) with Layer B (Memory Wiki notes) into `C:\vazus\services\memory\vazus.db` kg_edges table.
-- Save 768D embeddings into llm_cache / kg_nodes.
-- Pass verification commands:
-  `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\scripts\test_supergraph_integration.py`
-  `C:\vazus\pyenv\.venv\Scripts\python.exe C:\vazus\pyenv\tests\test_dnts_system.py`
+- Minimal changes, genuine implementation (DO NOT CHEAT).
+- All tools/scripts must be properly tested.
+- Output files in `scripts/`:
+  - `scripts/knowledge_chat.py`
+  - `scripts/knowledge_mcp.py`
+  - `scripts/dashboard.py`
+  - `scripts/dashboard.html`
 
 ## Current Parent
-- Conversation ID: 7ae975e0-1db2-4b25-b6f3-9e6e51ec3a93
-- Updated: 2026-07-22T17:18:00Z
+- Conversation ID: d62044f0-88bb-4a22-92ca-21b5a89d041c
+- Updated: 2026-07-24T12:01:10Z
 
 ## Task Summary
-- **What to build**: Created `supergraph_linker.py` and `test_supergraph_integration.py`.
-- **Success criteria**: Genuine 4-component hybrid metric calculating cosine similarity, FTS token score, structural connection, and provenance matching. Persisting edges and 768D embeddings into `vazus.db`. Both test scripts exit code 0.
-- **Interface contracts**: `dnts_core.embeddings.UnifiedGoogleEmbedder`, `kg_nodes`, `kg_edges`, `llm_cache` in `C:\vazus\services\memory\vazus.db`.
-- **Code layout**: `C:\vazus\pyenv\dnts_core\supergraph_linker.py`, `C:\vazus\pyenv\scripts\test_supergraph_integration.py`.
+- **What to build**: Interactive CLI Chat, FastMCP Tool Server, Python Web Server Backend, HTML5 Video Player & Graph Browser SPA.
+- **Success criteria**:
+  - `python scripts/knowledge_chat.py --query "тест"` returns valid JSON/text with citations/timestamps/thumbnails and exit code 0. Passed!
+  - `scripts/knowledge_mcp.py` exposes fastmcp tools `search_multimodal_knowledge`, `get_media_scene_details`, `stream_video_segment_info`. Passed!
+  - `scripts/dashboard.py` serves `/`, `/api/v1/knowledge/search`, `/api/v1/knowledge/stream`, `/api/v1/knowledge/thumbnail`, `/api/v1/knowledge/stats` supporting 206 Partial Content. Passed!
+  - `scripts/dashboard.html` responsive UI with HTML5 video player seeking and graph navigation. Passed!
+- **Interface contracts**: `vazus_core.embeddings` (`UnifiedEmbeddingManager`), `C:/vazus/vazus.db` schema.
 
 ## Key Decisions Made
-- Implemented `SuperGraphLinker` in `dnts_core/supergraph_linker.py` with 768D `UnifiedGoogleEmbedder` integration.
-- Built 4-component hybrid metric function matching exact weight breakdown: 0.45 cosine + 0.25 fts + 0.20 structural + 0.10 provenance.
-- Saved node embeddings into `llm_cache` and `kg_nodes` with 768D float lists.
-- Linked 972 AST code topology nodes with Karpathy Memory Wiki notes into `kg_edges` in `C:\vazus\services\memory\vazus.db`.
-- Created integration test `C:\vazus\pyenv\scripts\test_supergraph_integration.py`.
-- Successfully verified both test scripts (`test_supergraph_integration.py` & `test_dnts_system.py`) with Exit Code 0.
+- Updated `vazus_core/embeddings.py` `domain_filter` to match both domain and node_type case-insensitively.
+- Implemented `scripts/knowledge_chat.py` with CLI text and `--json` formatting.
+- Implemented `scripts/knowledge_mcp.py` with 3 FastMCP tools.
+- Implemented `scripts/dashboard.py` using ThreadedHTTPServer with full HTTP Range 206 Partial Content support for HTML5 video seeking.
+- Implemented `scripts/dashboard.html` single-page application with dark theme, debounced live search, domain tabs, HTML5 video player, active transcript box, and graph navigation.
 
 ## Artifact Index
-- ORIGINAL_REQUEST.md — Prompt log
-- BRIEFING.md — Working memory index
-- progress.md — Progress log
-- C:\vazus\pyenv\dnts_core\supergraph_linker.py — SuperGraph Linker implementation
-- C:\vazus\pyenv\scripts\test_supergraph_integration.py — Integration test script
-- handoff.md — Handoff report
+- C:\vazus\.agents\teamwork_preview_worker_m3_1\ORIGINAL_REQUEST.md — Original request description.
+- C:\vazus\.agents\teamwork_preview_worker_m3_1\BRIEFING.md — Working memory index.
+- C:\vazus\.agents\teamwork_preview_worker_m3_1\progress.md — Execution progress log.
+- C:\vazus\.agents\teamwork_preview_worker_m3_1\handoff.md — Final handoff report.
 
 ## Change Tracker
 - **Files modified**:
-  - `C:\vazus\pyenv\dnts_core\supergraph_linker.py`: New SuperGraph Linker module
-  - `C:\vazus\pyenv\scripts\test_supergraph_integration.py`: New integration test script
-- **Build status**: PASS (Exit Code 0 for both test scripts)
+  - `vazus_core/embeddings.py`: Domain filter update
+  - `scripts/knowledge_chat.py`: Interactive CLI Chat interface
+  - `scripts/knowledge_mcp.py`: FastMCP tool server
+  - `scripts/dashboard.py`: Threaded Web Server backend with 206 Range streaming
+  - `scripts/dashboard.html`: HTML5 Video Player & Graph Browser SPA
+- **Build status**: All tests passing (Exit Code 0)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: All integration tests passed (Exit Code 0)
-- **Lint status**: Clean (no syntax errors, proper formatting)
-- **Tests added/modified**: `C:\vazus\pyenv\scripts\test_supergraph_integration.py`
+- **Build/test result**: All 4 components compiled & verified successfully.
+- **Lint status**: 0 violations.
+- **Tests added/modified**: Ran CLI query test, REST search API, Stats API, 206 Partial Content Range request, thumbnail serving test.
+
+## Loaded Skills
+- None.
