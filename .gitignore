@@ -15,4 +15,4 @@ logs/
 .sidecar.pid
 scratch/
 *.log
-*.tmp
+*.tmplabs/git_open/
