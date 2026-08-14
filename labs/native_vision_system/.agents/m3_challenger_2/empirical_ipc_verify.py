@@ -100,18 +100,18 @@ async def run_empirical_tests():
     print("PASS: SQLite persistence in C:\\vazus\\memory\\vazus.db verified successfully.")
 
     # Test 1: WebSocket Server connection & Broadcast
-    print("\n--- Test 3: WebSocket Server (ws://127.0.0.1:8765/ws/vision) Connection & Broadcast ---")
-    ws_port = 8765
+    print("\n--- Test 3: WebSocket Server (ws://127.0.0.1:8766/ws/vision) Connection & Broadcast ---")
+    ws_port = 8766
     ipc_ws = VisionDaemonIPC(host="127.0.0.1", port=ws_port, db_path=vazus_db_path)
     
     # Start WS server
     server = await ipc_ws.start_server()
-    print("WebSocket server started on port 8765.")
+    print("WebSocket server started on port 8766.")
     
     # Connect client
-    ws_uri = "ws://127.0.0.1:8765/ws/vision"
+    ws_uri = "ws://127.0.0.1:8766/ws/vision"
     async with websockets.connect(ws_uri) as client_ws:
-        print("Client connected to ws://127.0.0.1:8765/ws/vision.")
+        print("Client connected to ws://127.0.0.1:8766/ws/vision.")
         
         # Broadcast visual token payload
         test_img = Image.new("RGB", (64, 64), color="blue")

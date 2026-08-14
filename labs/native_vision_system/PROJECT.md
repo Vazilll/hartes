@@ -16,7 +16,7 @@ The Native Terminal Multimodal Vision System integrates seamlessly into `vazus_c
 3. **Real-Time Vision Daemon (`vazus_vision_daemon.py`)**:
    - Background watcher monitoring Win32 clipboard (`AddClipboardFormatListener` / `Win+Shift+S`) and workspace image file drops (`watchfiles==1.2.0`).
    - Generates visual token payloads (<500ms latency, <0.1% CPU load) containing SHA-256 deduplicated metadata, `inlineData`, rapidocr text extraction, and TUI ANSI strings.
-   - Broadcasts events via WebSocket (`ws://127.0.0.1:8765/ws/vision`) and SQLite WAL table (`vision_event_stream` in `memory/vazus.db`).
+   - Broadcasts events via WebSocket (`ws://127.0.0.1:8766/ws/vision`) and SQLite WAL table (`vision_event_stream` in `memory/vazus.db`).
 
 4. **E2E Testing Suite**:
    - Opaque-box test suite verifying zero-bash direct vision payload delivery, ANSI preview rendering, clipboard detection, and Gemini 3.6 Flash payload formatting.

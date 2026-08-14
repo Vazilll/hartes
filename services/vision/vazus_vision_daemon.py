@@ -8,7 +8,7 @@ Features:
    - Channel B: Workspace file watcher using watchfiles.awatch for .png, .jpg, .jpeg, .webp drops.
 2. Deduplication LRU Cache (SHA-256 fingerprinting with TTL).
 3. Payload Generator integrating MultimodalResolver, TUIPreviewRenderer, and RapidOCR.
-4. Local IPC: WebSocket server (ws://127.0.0.1:8765/ws/vision) and SQLite WAL event logging.
+4. Local IPC: WebSocket server (ws://127.0.0.1:8766/ws/vision) and SQLite WAL event logging.
 5. CLI controls: --start, --stop, --status, --once, --test-clip, --test-drop.
 """
 
@@ -25,7 +25,7 @@ import argparse
 import threading
 import collections
 from pathlib import Path
-from typing import Dict, Any, Optional, Set, List
+from typing import Dict, Any, Optional, Set
 from PIL import Image, ImageGrab
 
 # --- Workspace Imports ---
@@ -69,7 +69,9 @@ else:
 
 # --- Configuration Constants ---
 DEFAULT_WS_HOST = "127.0.0.1"
-DEFAULT_WS_PORT = 8765
+# Note: 8765 belongs to vazus_core system_daemon (HTTP health, /healthz).
+# Vision WS lives on 8766 to avoid the collision (audit 2026-08-15).
+DEFAULT_WS_PORT = int(os.getenv("VAZUS_VISION_WS_PORT", "8766"))
 DEFAULT_WS_PATH = "/ws/vision"
 DEFAULT_WORKSPACE_DIR = r"C:\vazus\labs\native_vision_system"
 DEFAULT_DB_PATH = r"C:\vazus\services\memory\vazus.db"
