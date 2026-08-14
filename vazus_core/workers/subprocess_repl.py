@@ -102,6 +102,42 @@ def assign_process_to_job(job_handle: int, pid: int) -> bool:
     return False
 
 
+def block_network_on_job(job_handle: int) -> bool:
+    """Best-effort: sets JobObjectNetRateControlInformation with 0 bandwidth,
+    denying network I/O for all processes in the job (Chromium sandbox pattern)."""
+    if sys.platform != "win32" or not job_handle:
+        return False
+
+    JOB_OBJECT_NET_RATE_CONTROL_ENABLE = 0x00000001
+    JOB_OBJECT_NET_RATE_CONTROL_MAX_BANDWIDTH = 0x00000002
+
+    class JOBOBJECT_NET_RATE_CONTROL_INFORMATION(ctypes.Structure):
+        _fields_ = [
+            ("MaxBandwidth", ctypes.c_uint64),
+            ("ControlFlags", ctypes.wintypes.DWORD),
+            ("DscpTag", ctypes.c_uint8),
+        ]
+
+    JobObjectNetRateControlInformation = 32
+    info = JOBOBJECT_NET_RATE_CONTROL_INFORMATION()
+    info.ControlFlags = (
+        JOB_OBJECT_NET_RATE_CONTROL_ENABLE | JOB_OBJECT_NET_RATE_CONTROL_MAX_BANDWIDTH
+    )
+    info.MaxBandwidth = 0
+    res = kernel32.SetInformationJobObject(
+        job_handle, JobObjectNetRateControlInformation, ctypes.byref(info), ctypes.sizeof(info)
+    )
+    return bool(res)
+
+
+def close_win32_sandbox_job(job_handle: int) -> bool:
+    """Closes a sandbox Job Object handle. KILL_ON_JOB_CLOSE deterministically
+    terminates any remaining child processes of the job."""
+    if sys.platform != "win32" or not job_handle:
+        return False
+    return bool(kernel32.CloseHandle(job_handle))
+
+
 @dataclass
 class SubprocessREPLResult:
     stdout: str

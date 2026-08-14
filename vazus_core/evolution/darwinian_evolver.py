@@ -8,8 +8,15 @@ import os
 import json
 import time
 import subprocess
-from typing import Dict, Any, List
-from vazus_core.memory.organic_memory_bridge import record_insight, search_memory
+import tempfile
+from typing import Dict, Any
+from vazus_core.memory.organic_memory_bridge import record_insight
+from vazus_core.workers.subprocess_repl import (
+    create_win32_sandbox_job,
+    assign_process_to_job,
+    close_win32_sandbox_job,
+    block_network_on_job,
+)
 
 MEMORY_WIKI_LESSONS = r"C:\vazus\services\memory\semantic\wiki\AI_Lessons_and_Mistakes.md"
 
@@ -19,31 +26,90 @@ from vazus_core.verification.ast_pruner import ASTPruner
 import re
 import sys
 
+def _sanitized_pytest_env(extra_path: str) -> Dict[str, str]:
+    """Zero-trust environment for sandboxed pytest: only system vars, no
+    credential leakage (API keys, tokens) from the parent process. Home vars
+    are required by pathlib.Path.home() used across vazus_core."""
+    env = {
+        "SYSTEMROOT": os.environ.get("SYSTEMROOT", r"C:\Windows"),
+        "PATH": os.environ.get("PATH", r"C:\Windows\system32;C:\Windows"),
+        "PYTHONUTF8": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": extra_path,
+        "VAZUS_DB_PATH": r"C:\vazus\services\memory\vazus.db",
+        "TEMP": tempfile.gettempdir(),
+        "TMP": tempfile.gettempdir(),
+    }
+    for var in ("USERPROFILE", "HOMEDRIVE", "HOMEPATH", "HOME", "LOCALAPPDATA", "APPDATA"):
+        val = os.environ.get(var)
+        if val:
+            env[var] = val
+    return env
+
+
 def evaluate_variant_pytest(test_path: str = r"C:\vazus\tests\test_ast_pruner.py", timeout: int = 15) -> float:
     """
-    Evaluates fitness of a variant using real pytest execution,
-    measuring test pass ratio and execution latency.
+    Evaluates fitness of a variant using real pytest execution inside the
+    Zero-Trust sandbox (audit V-6): Win32 Job Object (1GB memory cap, process
+    cap, KILL_ON_JOB_CLOSE), network denied via net-rate-control, sanitized
+    env, ephemeral cwd, fail-closed if the kernel sandbox cannot be
+    established. NOTE: cwd must stay C:\\vazus — vazus_core resolves the
+    canonical DB by relative path and breaks from a foreign cwd.
     """
     start_time = time.time()
+    job_handle = None
+    proc = None
     try:
-        cmd = [sys.executable, "-m", "pytest", test_path, "-q", "--tb=no"]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        job_handle = create_win32_sandbox_job(max_memory_bytes=1024 * 1024 * 1024)
+        if sys.platform == "win32" and not job_handle:
+            print("SecurityIsolationError: Win32 Job Object unavailable — refusing unsandboxed pytest.", file=sys.stderr)
+            return 0.0
+
+        if job_handle and not block_network_on_job(job_handle) and sys.platform == "win32":
+            print("WARNING: network rate-control could not be applied to evolve sandbox (best-effort).", file=sys.stderr)
+
+        cmd = [sys.executable, "-m", "pytest", test_path, "-q", "--tb=no", "-p", "no:cacheprovider"]
+        proc = subprocess.Popen(
+            cmd,
+            cwd=r"C:\vazus",
+            env=_sanitized_pytest_env(r"C:\vazus"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+        )
+
+        if job_handle and not assign_process_to_job(job_handle, proc.pid) and sys.platform == "win32":
+            proc.kill()
+            print("SecurityIsolationError: failed to bind pytest to Job Object — refusing unsandboxed execution.", file=sys.stderr)
+            return 0.0
+
+        try:
+            res_stdout, res_stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            if sys.platform == "win32":
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
+            return 0.0
+
         elapsed = time.time() - start_time
-        
-        output = res.stdout + "\n" + res.stderr
+        output = res_stdout + "\n" + res_stderr
         passed_match = re.search(r"(\d+)\s+passed", output)
         failed_match = re.search(r"(\d+)\s+failed", output)
-        
-        passed = int(passed_match.group(1)) if passed_match else (1 if res.returncode == 0 else 0)
+
+        passed = int(passed_match.group(1)) if passed_match else (1 if proc.returncode == 0 else 0)
         failed = int(failed_match.group(1)) if failed_match else 0
         total = passed + failed
-        
-        pass_ratio = (passed / total) if total > 0 else (1.0 if res.returncode == 0 else 0.0)
+
+        pass_ratio = (passed / total) if total > 0 else (1.0 if proc.returncode == 0 else 0.0)
         # Latency scaling factor: faster execution yields higher fitness
         time_factor = 1.0 / (1.0 + elapsed * 0.05)
         return round(pass_ratio * time_factor, 4)
     except Exception:
         return 0.0
+    finally:
+        if job_handle and sys.platform == "win32":
+            close_win32_sandbox_job(job_handle)
 
 
 def evaluate_fitness(target_file_or_dir: str) -> float:

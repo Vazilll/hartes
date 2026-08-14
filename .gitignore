@@ -15,4 +15,14 @@ logs/
 .sidecar.pid
 scratch/
 *.log
-*.tmplabs/git_open/
+*.tmp
+labs/git_open/
+bin/*
+!bin/*.py
+*.scip
+index.scip
+services/memory/qdrant_db/
+data/
+knowledge/
+apps/**/.gradle/
+apps/**/build/

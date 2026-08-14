@@ -19,7 +19,27 @@ if env_path.exists():
 
 pk = os.environ.get("LANGFUSE_PK", "")
 sk = os.environ.get("LANGFUSE_SK", "")
-host = os.environ.get("LANGFUSE_HOST", "http://213.165.36.252:3000")
+host = os.environ.get("LANGFUSE_HOST", "http://127.0.0.1:3000")
+
+# Privacy gate (audit V-11): disabled by default; external hosts are blocked.
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _is_local_host(url: str) -> bool:
+    try:
+        hostname = url.split("://", 1)[-1].split("/", 1)[0].split(":", 1)[0].strip("[]")
+    except Exception:
+        return False
+    return hostname.lower() in _LOCAL_HOSTS
+
+
+if os.environ.get("LANGFUSE_DISABLED", "1") == "1":
+    print("Langfuse bridge: disabled by policy (LANGFUSE_DISABLED=1).", file=sys.stderr)
+    sys.exit(0)
+
+if not _is_local_host(host):
+    print(f"Langfuse bridge: refusing external host {host} (privacy policy).", file=sys.stderr)
+    sys.exit(0)
 
 if not pk or not sk:
     print("No Langfuse credentials in langfuse.env", file=sys.stderr)
