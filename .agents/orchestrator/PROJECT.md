@@ -1,50 +1,80 @@
-# Project: vazus SuperGraph OS Extension (ASR, KGB Analytics, Zettelkasten, SM-2 Tutor, Mastery Dashboard)
+# Project: Antigravity CLI Reverse Engineering & Self-Polishing Memory Engine (Project Sentinel)
 
 ## Architecture
-- **Target Directory**: `C:\vazus`
-- **Core Packages & Modules**:
-  - `vazus_core/multimodal_knowledge.py` (High-Precision ASR upgrade with Whisper large-v3-turbo/medium, OpenVINO/PyTorch CPU, Russian text normalization, garbage transcript filter) [DONE]
-  - `vazus_core/kgb_analytical_extractor.py` (KGB/FSB ИАД + ACH analytical extractor decomposing transcript scenes/discussions into `ThesisNode`, `ProtocolNode`, `CAUSES`, `REQUIRES`, `CONTRADICTS` edges) [DONE]
-  - `vazus_core/zettelkasten_exporter.py` (Automated Zettelkasten Obsidian Markdown exporter writing to `C:\vazus\services\memory\semantic\wiki\` with 3+ bidirectional [[Wikilinks]] and action checklists) [DONE]
-  - `vazus_core/cognitive_tutor_engine.py` (Active Learning Engine & SuperMemo SM-2 Spaced Repetition tutor with 0-100% scoring, Socratic Active Recall, SM-2 scheduling intervals 1, 3, 7, 21 days) [DONE]
-  - `scripts/personal_tutor.py` (CLI runner for active recall session, testing, interactive review, SM-2 updates) [DONE]
-  - `scripts/dashboard.py` & `scripts/dashboard.html` (Web Dashboard update adding Cognitive & Mastery Tab: Mastery Score progress bar, interactive question trainer, atomic note reader) [DONE]
-- **Database**: SQLite Graph DB at `C:\vazus\vazus.db` and `C:\vazus\memory\dnts.db` storing nodes (`ThesisNode`, `ProtocolNode`, `MediaScene`, etc.) and edges (`CAUSES`, `REQUIRES`, `CONTRADICTS`, etc.) with 768D Gemini embeddings.
+The system builds a background sidecar daemon integrated with `vazus_core` and the Antigravity CLI ecosystem (`C:\Users\Vaz\.gemini\antigravity-cli`).
+
+- **Background Daemon Sidecar (`vazus_core/daemon_sidecar.py` & `system_daemon.py`)**:
+  - Non-blocking SQLite WAL watcher (`mode=ro`) reading `conversation_summaries.db`, `conversations/<id>.db`, and `subagent_dialogues`.
+  - Event dispatch queue delivering dialogue turns to R2 and R3 engines without lock contention.
+  - Path normalization using `Path.home()` replacing hardcoded path strings.
+
+- **Automated Skill Generation Engine (`vazus_core/auto_skill_engine.py`)**:
+  - `TranscriptAnalyzer`: Vector clustering (cosine similarity >= 0.82) & multi-step trajectory analysis (>12 steps).
+  - `SkillGenerator`: Synthesizes tools & command workflows into valid Markdown.
+  - `SkillSyntacticValidator`: Enforces byte-0 `---` frontmatter, name/description length limits, and 57-char `"Use when ..."` trigger rules.
+  - Auto-registers skills to `C:\Users\Vaz\.gemini\config\skills\<skill_name>\SKILL.md` and triggers `SkillIntentParser.build_index()`.
+
+- **Persistent Context Memory Engine (`vazus_core/context_memory_engine.py`)**:
+  - Dialogue Indexer: Extracts user preferences, architectural decisions (ADRs), and verified refactors into `vazus.db` (tables `kg_nodes`, `vec_kg_nodes` 768D float vector virtual table, `organic_insights`) and `services/memory/semantic/wiki` Zettelkasten.
+  - Dynamic Prompt Injector: Constructs `<persistent_context>` XML blocks (retrieved via 768D vector similarity >= 0.70) and `<active_skills>` XML blocks (compressed via `ASTPruner` for >77% token savings).
+
+- **E2E Verification & Integration Suite (`tests/`)**:
+  - Programmatic pytest suite validating R1 (daemon health & multi-agent WAL concurrency), R2 (silent mock transcript skill generation), R3 (768D vector memory recall), and end-to-end integration.
+
+## Feature Inventory
+| # | Feature | Description | Milestone | Source |
+|---|---------|-------------|-----------|--------|
+| 1 | Non-blocking CLI DB Watcher | Polling `conversation_summaries.db` and `<id>.db` via `mode=ro` WAL SQLite connections | M1 | R1 Survey |
+| 2 | Daemon Sidecar Process | Background daemon process management, health checks, entry point refactoring | M1 | R1 Survey |
+| 3 | Path Normalization | Replace hardcoded user home paths with dynamic `Path.home()` resolution | M1 | R1 Survey |
+| 4 | Transcript Repetition Analyzer | Vector clustering (cosine similarity >= 0.82) across dialogue turns | M2 | R2 Survey |
+| 5 | High-Step Trajectory Miner | Trajectory step analysis detecting trial-and-error workflows (>12 steps) | M2 | R2 Survey |
+| 6 | Hermes SKILL.md Synthesizer | Synthesizes tool execution history into valid SKILL.md Markdown | M2 | R2 Survey |
+| 7 | Hermes Frontmatter Validator | Strict validation of byte-0 `---`, name, description, and 57-char trigger phrase | M2 | R2 Survey |
+| 8 | Auto-Skill Registration & Sync | Automatic file creation in `.gemini/config/skills/` and `SkillIntentParser` index refresh | M2 | R2 Survey |
+| 9 | Dialogue Transcript Memory Indexer | Indexes turns to extract user preferences, ADRs, and refactors into `vazus.db` | M3 | R3 Survey |
+| 10 | 768D Vector Memory Store | Stores float vectors in `vec_kg_nodes` and `organic_insights` with Obsidian wiki sync | M3 | R3 Survey |
+| 11 | Prompt Context Injector | Dynamic context injector formatting `<persistent_context>` and `<active_skills>` (AST-pruned) | M3 | R3 Survey |
+| 12 | R1 Daemon Health Pytest | Programmatic test verifying non-blocking initialization & 5-thread WAL concurrency | M4 | R3 Survey |
+| 13 | R2 Skill Auto-Gen Pytest | Programmatic test verifying mock transcript processing & silent SKILL.md creation | M4 | R3 Survey |
+| 14 | R3 Memory Recall Pytest | Programmatic test verifying 768D vector recall & persistent context formatting | M4 | R3 Survey |
+| 15 | E2E Integration Suite | Full acceptance test proving all 4 acceptance criteria pass | M4 | Survey |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | R1: High-Precision ASR Upgrade | Upgrade `vazus_core/multimodal_knowledge.py` with Whisper large-v3-turbo / medium, OpenVINO / PyTorch CPU, Russian speech normalization, filtering garbage/hallucinated transcripts | None | DONE |
-| 2 | R2: KGB/FSB Analytical Knowledge Extractor | Create `vazus_core/kgb_analytical_extractor.py` implementing ИАД + ACH algorithms, decomposing scenes/messages into `ThesisNode`, `ProtocolNode`, creating `CAUSES`, `REQUIRES`, `CONTRADICTS` edges in `vazus.db` | M1 | DONE |
-| 3 | R3: Automated Zettelkasten Exporter | Exporter in `vazus_core` writing atomic markdown notes to `C:\vazus\services\memory\semantic\wiki\` with 3+ bidirectional [[Wikilinks]] per note, tags, and action checklists | M2 | DONE |
-| 4 | R4: Active Learning & SM-2 Engine | Create `vazus_core/cognitive_tutor_engine.py` and CLI `scripts/personal_tutor.py` implementing Socratic active recall questions, 0-100% scoring, SuperMemo SM-2 interval scheduling (1, 3, 7, 21 days) | M2, M3 | DONE |
-| 5 | R5: Web Dashboard Cognitive & Mastery Tab | Update `scripts/dashboard.py` & `scripts/dashboard.html` adding Cognitive & Mastery tab with Mastery Score progress bar, interactive question trainer, and atomic note reader | M3, M4 | DONE |
+| 1 | M1: R1 Reverse Engineering & Code Polish | Refactor `system_daemon.py`, create `daemon_sidecar.py` with read-only WAL CLI watchers and dynamic path resolution | none | IN_PROGRESS |
+| 2 | M2: R2 Automated Skill Generation Engine | Build `auto_skill_engine.py` (TranscriptAnalyzer, SkillGenerator, SkillSyntacticValidator, AutoSkillEngineDaemon) | M1 | PLANNED |
+| 3 | M3: R3 Persistent Context Memory | Build `context_memory_engine.py` (DialogueIndexer, VectorMemoryStore, PromptContextInjector) | M1, M2 | PLANNED |
+| 4 | M4: Final E2E Test Suite & Forensic Audit | Write test scripts in `tests/`, execute full test suite, conduct forensic audit, verify acceptance criteria | M1, M2, M3 | PLANNED |
+
+## Feature Inventory Cross-Check
+- Total Features: 15
+- Milestone 1: Features 1, 2, 3 (3 features)
+- Milestone 2: Features 4, 5, 6, 7, 8 (5 features)
+- Milestone 3: Features 9, 10, 11 (3 features)
+- Milestone 4: Features 12, 13, 14, 15 (4 features)
+- All 15 features assigned: YES (100% assigned).
 
 ## Interface Contracts
-### `vazus_core.multimodal_knowledge` (DONE)
-- `transcribe_media_high_precision(file_path: str, model_name: str = "large-v3-turbo") -> List[Dict]`
-- Includes Russian speech normalization and garbage/hallucination transcript filtering.
+### `daemon_sidecar.py` ↔ `auto_skill_engine.py`
+- `TranscriptEvent(conversation_id: str, step_idx: int, user_input: str, tool_calls: list[dict], status: str, timestamp: str)`
+- `AutoSkillEngine.process_transcript_event(event: TranscriptEvent) -> Optional[str]` (returns generated `skill_path` or `None`)
 
-### `vazus_core.kgb_analytical_extractor`
-- `extract_kgb_analytics(scene_or_text_dict: Dict) -> Dict`
-- Inserts `ThesisNode` and `ProtocolNode` into `vazus.db` with `CAUSES`, `REQUIRES`, and `CONTRADICTS` edges.
+### `daemon_sidecar.py` ↔ `context_memory_engine.py`
+- `ContextMemoryEngine.index_dialogue_turn(conversation_id: str, prompt: str, response: str, metadata: dict) -> dict` (returns extracted insights & vector IDs)
+- `ContextMemoryEngine.get_persistent_context(query: str, threshold: float = 0.70) -> str` (returns formatted `<persistent_context>` XML string)
 
-### Zettelkasten Exporter (`vazus_core/zettelkasten_exporter.py` or integrated)
-- `export_zettelkasten_note(thesis_data: Dict, output_dir: str = r"C:\vazus\services\memory\semantic\wiki") -> str`
-- Writes atomic markdown note with 3+ bidirectional [[Wikilinks]] and action checklists.
+### `auto_skill_engine.py` ↔ `dynamic_skill_dispatcher.py`
+- `SkillSyntacticValidator.validate(skill_content: str) -> tuple[bool, list[str]]`
+- `SkillIntentParser.build_index()`
 
-### `vazus_core.cognitive_tutor_engine` & `scripts/personal_tutor.py`
-- `generate_active_recall_question(thesis_node_id: str) -> Dict`
-- `evaluate_answer(question_id: str, user_answer: str) -> Dict` (returns score 0-100%, SM-2 update: next_review_days=1,3,7,21)
-- `scripts/personal_tutor.py --test` runs self-test CLI verification.
-
-### `dashboard.py` & `dashboard.html`
-- Serves `/api/v1/cognitive/mastery`, `/api/v1/cognitive/trainer`, `/api/v1/cognitive/notes`
-- HTML UI tab for Cognitive & Mastery view.
-
-## Acceptance Criteria
-1. Syntax checks pass on all updated/created files. (M1 DONE)
-2. `vazus.db` nodes (`ThesisNode`, `ProtocolNode`) and edges (`CAUSES`, `REQUIRES`, `CONTRADICTS`) populated and verified.
-3. Zettelkasten atomic notes in `C:\vazus\services\memory\semantic\wiki\` generated with 3+ bidirectional [[Wikilinks]] and action checklists.
-4. `python scripts/personal_tutor.py --test` executes cleanly with Exit Code 0.
-5. `scripts/dashboard.py` starts, serves REST API, and renders Cognitive & Mastery tab.
+## Code Layout
+- `C:\vazus\vazus_core\system_daemon.py` (Owner: Worker M1)
+- `C:\vazus\vazus_core\daemon_sidecar.py` (Owner: Worker M1)
+- `C:\vazus\vazus_core\auto_skill_engine.py` (Owner: Worker M2)
+- `C:\vazus\vazus_core\context_memory_engine.py` (Owner: Worker M3)
+- `C:\vazus\tests\test_r1_daemon_health.py` (Owner: Worker M4)
+- `C:\vazus\tests\test_r2_skill_autogen.py` (Owner: Worker M4)
+- `C:\vazus\tests\test_r3_memory_recall.py` (Owner: Worker M4)
+- `C:\vazus\tests\test_sentinel_e2e.py` (Owner: Worker M4)

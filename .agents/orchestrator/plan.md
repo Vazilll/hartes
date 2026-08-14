@@ -1,21 +1,19 @@
-# Orchestration Plan: vazus SuperGraph OS Extension
+# Implementation Plan: Vazus OS Dynamic Skill-Loading Architecture & Analysis Pipeline
 
-## Iteration Status
-Current iteration: 1 / 32
+## Objective
+Design and implement an automated, context-aware skill-loading architecture and transcript analysis pipeline for Vazus OS.
 
-## Workflow Strategy
-For each milestone:
-1. Dispatch Explorer subagents (3 parallel instances) to analyze codebase, inspect files, check existing models/tables/interfaces, and design implementation details.
-2. Synthesize Explorer reports.
-3. Dispatch Worker subagent to implement code, run syntax checks and unit verification, and produce implementation handoff.
-4. Dispatch 2 Reviewer subagents independently to perform code review and verify compliance.
-5. Dispatch Challenger subagent to empirically test functionality, edge cases, and runtime behavior.
-6. Dispatch Forensic Auditor (`teamwork_preview_auditor`) to verify anti-cheat integrity and non-fabricated code.
-7. Evaluate Gate criteria. If pass, advance to next milestone. If fail, loop back with audit evidence.
+## Requirements
+- R1. Transcript Audit Pipeline: Scan local conversation transcripts (`C:\Users\Vaz\.gemini\antigravity-cli\brain\*\.system_generated\logs\transcript.jsonl`), identify infinite loops, repetitive user tasks, and natural REPL communication patterns.
+- R2. Web Research Synthesis: Research open-source enthusiast skill-loading & sandboxing mechanisms (OpenHands, SWE-agent, etc.) and integrate into design.
+- R3. Dynamic Python Dispatcher: Develop `C:\vazus\vazus_core\dynamic_skill_dispatcher.py` with intent parsing context manager, `SKILL.md` matching, and runnable `__main__` test block.
+- R4. Architectural Design Document: Create `C:\vazus\vazus_core\vazus_skill_architecture.md` with transcript citations (>= 3 conversation IDs / timestamps), enthusiast REPL/sandbox integration section, and step-by-step implementation plan.
 
-## Milestones Summary
-- Milestone 1 (R1): High-Precision ASR Upgrade in `vazus_core/multimodal_knowledge.py`
-- Milestone 2 (R2): KGB/FSB Analytical Knowledge Extractor in `vazus_core/kgb_analytical_extractor.py`
-- Milestone 3 (R3): Automated Zettelkasten Obsidian Wiki Exporter to `C:\vazus\services\memory\semantic\wiki\`
-- Milestone 4 (R4): Active Learning Engine & Spaced Repetition (SuperMemo SM-2) in `vazus_core/cognitive_tutor_engine.py` and `scripts/personal_tutor.py`
-- Milestone 5 (R5): Web Dashboard Cognitive & Mastery Tab in `scripts/dashboard.py` / `scripts/dashboard.html`
+## Phases
+1. **Phase 0: Survey & Scoping**: Dispatch 3 Explorers in parallel to inspect local transcripts, research web patterns, and define dispatcher code requirements.
+2. **Phase 1: Architecture & Decomposition**: Synthesize survey findings into `PROJECT.md` and define milestones.
+3. **Phase 2: Execution & Verification**:
+   - Milestone 1: Transcript Audit & Web Research Synthesis
+   - Milestone 2: Dynamic Skill Dispatcher Implementation & Test Suite
+   - Milestone 3: Architectural Design Document Synthesis & Validation
+4. **Phase 3: Review, Forensic Audit & Final Gate**: Validate zero errors, 0 exit code on `dynamic_skill_dispatcher.py`, >= 3 transcript citations, and sandbox/REPL section.
