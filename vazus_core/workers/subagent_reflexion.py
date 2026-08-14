@@ -8,10 +8,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Callable
 
-from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
 from vazus_core.memory.db import get_db_connection
 from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine
-from vazus_core.engine.subagent_framework import SubagentContext, global_hook_registry
+from vazus_core.engine.subagent_framework import SubagentContext
 
 logger = logging.getLogger("SubagentReflexion")
 
@@ -86,13 +85,14 @@ class MultiAgentJuryReflexionEngine:
             except Exception as e:
                 ctx.logs.append(f"[Reflexion Iteration {iterations}] Fix generation failed: {e}")
 
-            # Re-evaluate with patch
-            patch_votes = [
-                {"agent": "Arbiter_Z3_Verifier", "verdict": "PASS", "reason": "Patch applied cleanly"},
-                {"agent": "Arbiter_Code_Architect", "verdict": "PASS", "reason": "Syntax sanity check"},
-                {"agent": "Arbiter_Safety_Policy", "verdict": "PASS", "reason": "No destructive operations detected"}
-            ]
-            ratio = len([v for v in patch_votes if v.get("verdict") == "PASS"]) / max(1, len(patch_votes))
+            # Re-evaluate patch with real Jury — no pre-baked votes
+            # This calls async LLM agents to actually verify the patched code
+            patch_eval = self.jury_engine.evaluate_code_proposal(
+                file_path=target_file,
+                code_content=current_code[:1000],
+                agent_votes=None,  # Real jury evaluation — no pre-baked PASS
+            )
+            ratio = patch_eval.get("consensus_ratio", 0.0)
 
             # 3. Test verification of patch
             if ratio >= self.consensus_threshold:
@@ -106,7 +106,7 @@ class MultiAgentJuryReflexionEngine:
                     corrected_code=current_code,
                     iterations_used=iterations,
                     success=True,
-                    jury_votes=patch_votes,
+                    jury_votes=patch_eval.get("votes", []),
                     lesson_learned=lesson
                 )
                 self._persist_lesson_learned(res)

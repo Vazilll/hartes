@@ -8,7 +8,7 @@ import os
 import time
 import ast
 import z3
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from vazus_core.verification.safety_guardrail import (
     SMTZ3Verifier,
@@ -39,7 +39,7 @@ class SMTZ3VerifierAlias(SMTZ3Verifier):
     - Method verify_memory_safety(offset, length, capacity):
       Formally checks whether buffer slicing or memory access violates zero lower bounds or capacity upper bounds.
     """
-    def verify_code_contracts(self, code_str: str = "", depth: int = 1, python_code: str = None) -> VerificationResult:
+    def verify_code_contracts(self, code_str: str = "", depth: int = 1, python_code: str = None, **_kwargs) -> VerificationResult:
         """
         Parses Python code into AST, extracts docstring contracts (:requires:, :ensures:),
         and checks formal satisfiability with SMT Z3 solver.

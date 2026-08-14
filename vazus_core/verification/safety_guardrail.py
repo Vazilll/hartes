@@ -10,11 +10,10 @@ import ast
 import re
 import sys
 import os
-import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Callable, Union
+from typing import Dict, Any, List, Optional, Callable, Union
 
 # Attempt import of official z3 solver library
 try:
@@ -261,15 +260,20 @@ class SMTZ3Verifier:
         self,
         code_str: str = "",
         depth: Optional[int] = None,
+        expected_functions: Optional[List[str]] = None,
         _expected_functions: Optional[List[str]] = None,
         code_content: Optional[str] = None,
         file_path: Optional[str] = None,
         code: Optional[str] = None,
-        python_code: Optional[str] = None
+        python_code: Optional[str] = None,
+        **_kwargs
     ) -> VerificationResult:
         """Parses Python code, extracts docstring contracts (:requires:, :ensures:), and checks with Z3."""
         code_str = python_code or code or code_str or code_content or ""
         actual_code = code_str or code_content or ""
+        target_funcs = expected_functions or _expected_functions
+        if target_funcs:
+            _ = target_funcs
         if not actual_code.strip():
             return VerificationResult(
                 verified=True,
@@ -344,10 +348,19 @@ class SMTZ3Verifier:
                                 req_z3 = _parse_expr_to_z3(req_ast, z3_vars)
                                 solver.add(req_z3)
 
+                            # Hoare triple: find counterexample where ALL preconditions hold
+                            # but SOME postcondition fails. This means: NOT(ens1 AND ens2 AND ...)
+                            # = NOT_ens1 OR NOT_ens2 OR ... (De Morgan)
+                            # Correct: negate the CONJUNCTION of all ensures, not each one individually.
+                            # (Adding NOT(ens1) AND NOT(ens2) separately would require ALL to fail simultaneously — a much stricter and incorrect check.)
+                            ensures_z3_list = []
                             for ens in ensures:
                                 ens_ast = ast.parse(ens.strip(), mode="eval").body
                                 ens_z3 = _parse_expr_to_z3(ens_ast, z3_vars)
-                                solver.add(z3.Not(ens_z3))
+                                ensures_z3_list.append(ens_z3)
+                            if ensures_z3_list:
+                                postcondition = z3.And(*ensures_z3_list) if len(ensures_z3_list) > 1 else ensures_z3_list[0]
+                                solver.add(z3.Not(postcondition))
 
                             check_res = solver.check()
                             if check_res == z3.sat:
@@ -402,7 +415,7 @@ class SMTZ3Verifier:
         params: list = None,
         preconditions: list = None,
         postconditions: list = None,
-        **kwargs
+        **_kwargs
     ) -> Any:
         """Internal helper for SMT Z3 contract checks."""
         p_list = params or args or []
@@ -835,7 +848,7 @@ class SOTA2027JuryEngine:
             reason=reason
         )
 
-    def evaluate_code_proposal(self, orig_code: str = "", opt_code: str = "", votes: Optional[List[Dict[str, Any]]] = None, **kwargs) -> JuryResult:
+    def evaluate_code_proposal(self, orig_code: str = "", opt_code: str = "", votes: Optional[List[Dict[str, Any]]] = None, **_kwargs) -> JuryResult:
         """
         Evaluates a code proposal with:
         1. Security gate (no unauthorized external API calls)

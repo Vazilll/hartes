@@ -100,9 +100,10 @@ class YandexIMAP2FAReader:
         except Exception:
             return mime_str
 
-    def fetch_latest_2fa_code(self, timeout_sec: int = 30, _target_tag: Optional[str] = None) -> Optional[str]:
+    def fetch_latest_2fa_code(self, timeout_sec: int = 30, target_tag: Optional[str] = None, **_kwargs) -> Optional[str]:
         """Polls Yandex Mail IMAP with transparent progress logging."""
-        print(f"📩 [2FA IMAP Reader] Подключение к Yandex IMAP ({self.email_address})...")
+        tag_info = f" (target: {target_tag})" if target_tag else ""
+        print(f"📩 [2FA IMAP Reader] Подключение к Yandex IMAP ({self.email_address}){tag_info}...")
         start_time = time.time()
 
         try:
