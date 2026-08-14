@@ -15,15 +15,9 @@ from pathlib import Path
 from typing import Union, Optional, Tuple, List, Dict, Any
 from PIL import Image
 
-from vazus_core.multimodal_resolver import (
+from vazus_core.memory.multimodal_resolver import (
     MultimodalResolver,
     ResolvedMultimodalPayload,
-    MultimodalResolverError,
-    UnsupportedFormatError,
-    ImageNotFoundError,
-    ClipboardEmptyError,
-    ArtifactNotFoundError,
-    ClipboardAccessError,
     CorruptedImageError,
 )
 

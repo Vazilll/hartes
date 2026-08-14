@@ -38,8 +38,8 @@ except ImportError as e:
     MemorySaver = None
 
 try:
-    from vazus_core.agent_handoff import handoff_manager
-    from vazus_core.dialogue_persister import dialogue_persister
+    from vazus_core.workers.agent_handoff import handoff_manager
+    from vazus_core.memory.dialogue_persister import dialogue_persister
 except ImportError as e:
     sys.stderr.write(f"[ResearchBridge] Core module import warning: {e}\n")
     handoff_manager = None

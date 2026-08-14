@@ -66,7 +66,7 @@ class CLIPixelVisualizer:
 
         # Export PNG Artifact for Antigravity preview card
         try:
-            from PIL import Image, ImageDraw, ImageFont
+            from PIL import Image, ImageDraw
             img = Image.new("RGB", (900, 600), color=(11, 13, 14))
             draw = ImageDraw.Draw(img)
 

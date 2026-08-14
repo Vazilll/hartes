@@ -236,7 +236,7 @@ class ASTPruner:
         import json
         import os
         from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB
-        from vazus_core.organic_memory_bridge import record_insight
+        from vazus_core.memory.organic_memory_bridge import record_insight
         from vazus_core.memory.embeddings import get_embedding
 
         file_name = path.name

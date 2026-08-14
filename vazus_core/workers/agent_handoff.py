@@ -19,7 +19,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from vazus_core.memory.embeddings import UnifiedEmbeddingManager
-from vazus_core.sota2027_jury import SOTA2027JuryEngine
+from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine
 
 
 class RaytSwarmHandoffManager:

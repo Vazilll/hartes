@@ -1,7 +1,7 @@
 """
 vazus_core.google_sync_engine — Compatibility bridge for GoogleSuperSyncEngine.
 """
-from vazus_core.google_super_sync_engine import GoogleSuperSyncEngine as GoogleSyncEngine
+from vazus_core.integrations.google_super_sync_engine import GoogleSuperSyncEngine as GoogleSyncEngine
 
 class MarkdownTaskExtractor:
     """Extracts markdown tasks for sync."""

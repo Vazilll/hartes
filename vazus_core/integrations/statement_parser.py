@@ -11,7 +11,7 @@ from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.path.append(r"C:\vazus")
-from vazus_core.tinkoff_finance_manager import init_finance_db, DB_PATH
+from vazus_core.integrations.tinkoff_finance_manager import init_finance_db, DB_PATH
 
 def parse_tinkoff_csv_statement(csv_path, db_path=None):
     """

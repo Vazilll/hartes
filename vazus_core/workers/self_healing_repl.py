@@ -15,9 +15,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Tuple
 
-from vazus_core.repl_engine import LocalREPL, REPLResult
-from vazus_core.verification.concordia_jury import ConcordiaJury, JuryVerdict
-from vazus_core.safety_guardrail import SMTZ3Verifier, RollbackGuardrail, VerificationResult
+from vazus_core.workers.repl_engine import LocalREPL
+from vazus_core.verification.concordia_jury import ConcordiaJury
+from vazus_core.verification.safety_guardrail import SMTZ3Verifier, RollbackGuardrail, VerificationResult
 from vazus_core.engine.circuit_breaker import AntiLoopCircuitBreaker
 
 logger = logging.getLogger("SelfHealingREPL")

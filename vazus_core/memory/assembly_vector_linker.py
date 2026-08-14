@@ -19,7 +19,7 @@ VAZUS_DIR = Path("C:/vazus")
 if str(VAZUS_DIR) not in sys.path:
     sys.path.insert(0, str(VAZUS_DIR))
 
-from vazus_core.supergraph_linker import SuperGraphLinker, DEFAULT_DB_PATH, DEFAULT_GRAPH_JSON_PATH
+from vazus_core.engine.supergraph_linker import SuperGraphLinker, DEFAULT_DB_PATH, DEFAULT_GRAPH_JSON_PATH
 from vazus_core.memory.embeddings import UnifiedEmbeddingManager, get_embedding_manager
 from vazus_core.memory.db import get_db_connection
 

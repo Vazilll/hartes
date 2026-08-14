@@ -87,7 +87,7 @@ print("  ✅ Vector space alignment 100% verified.")
 # STEP 3: Real Organic Insight Recording with Auto-Wikilinking
 # ==============================================================================
 step_header(3, "Organic Memory Bridge & Dynamic Knowledge Graph Writing")
-from vazus_core.memory.organic_memory_bridge import record_insight, recommend_wikilinks, sanitize_zettel_id
+from vazus_core.memory.organic_memory_bridge import record_insight
 
 t0 = time.perf_counter()
 insight_res = record_insight(
@@ -250,7 +250,7 @@ print("  ✅ Concordia Multi-Agent Consensus Jury verified.")
 # STEP 9: Zettelkasten Obsidian Wiki Notes Generator
 # ==============================================================================
 step_header(9, "Obsidian Zettelkasten Markdown Exporter & Wikilink Topology")
-from vazus_core.memory.zettelkasten_exporter import export_zettelkasten_note, sanitize_filename
+from vazus_core.memory.zettelkasten_exporter import export_zettelkasten_note
 
 zettel_entity = {
     "id": "Zettel_Live_System_Audit_2026",

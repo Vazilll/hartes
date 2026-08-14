@@ -18,7 +18,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 from typing import Any
 
-from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB, pack_vector_f32, unpack_vector_f32
+from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB, unpack_vector_f32
 from vazus_core.memory.embeddings import get_embedding, UnifiedEmbeddingManager, get_embedding_manager
 from vazus_core.engine.config import settings
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-dnts_rag.py — ArXiv API, Text Chunker, and RAG Prompt tools for DNTS.
+vazus_rag.py — ArXiv API, Text Chunker, and RAG Prompt tools for DNTS.
 
 Integrated from jamwithai/production-agentic-rag-course into DNTS ecosystem.
 
@@ -17,7 +17,7 @@ import logging
 import re
 import time
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import quote, urlencode
@@ -401,7 +401,7 @@ class TextChunker:
         self,
         small_sections: List[tuple],
         header: str,
-        existing_chunks: List[TextChunk],
+        _existing_chunks: List[TextChunk],
         idx: int,
         source: str,
     ) -> List[TextChunk]:

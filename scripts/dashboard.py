@@ -37,7 +37,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from vazus_core.embeddings import UnifiedEmbeddingManager
+    from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 except ImportError:
     from embeddings import UnifiedEmbeddingManager
 
@@ -364,7 +364,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def handle_cognitive_stats(self):
         try:
-            from vazus_core.cognitive_tutor_engine import CognitiveTutorEngine
+            from vazus_core.integrations.cognitive_tutor_engine import CognitiveTutorEngine
             engine = CognitiveTutorEngine(db_path=self.db_path)
             stats = engine.get_mastery_stats()
             
@@ -428,7 +428,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def handle_cognitive_next_question(self, query_params):
         try:
-            from vazus_core.cognitive_tutor_engine import CognitiveTutorEngine
+            from vazus_core.integrations.cognitive_tutor_engine import CognitiveTutorEngine
             engine = CognitiveTutorEngine(db_path=self.db_path)
             
             all_cards = engine.get_all_cards(limit=1)
@@ -485,7 +485,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 self.send_json_response({"error": "Missing card_id parameter"}, status=400)
                 return
 
-            from vazus_core.cognitive_tutor_engine import CognitiveTutorEngine, evaluate_answer, calculate_sm2_update
+            from vazus_core.integrations.cognitive_tutor_engine import CognitiveTutorEngine, evaluate_answer, calculate_sm2_update
             engine = CognitiveTutorEngine(db_path=self.db_path)
             card = engine.get_card(card_id)
             if not card:
@@ -609,7 +609,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 self.send_json_response({"error": f"Note not found: {raw_id}"}, status=404)
                 return
 
-            from vazus_core.cognitive_tutor_engine import parse_zettel_markdown
+            from vazus_core.integrations.cognitive_tutor_engine import parse_zettel_markdown
             parsed = parse_zettel_markdown(target_file)
             raw_content = target_file.read_text(encoding="utf-8", errors="ignore")
 
@@ -749,8 +749,8 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def handle_notebooklm_generate_podcast(self):
         try:
-            from vazus_core.notebook_synthesis_engine import NotebookSynthesisEngine
-            from vazus_core.tts_podcast_generator import synthesize_podcast_audio
+            from vazus_core.integrations.notebook_synthesis_engine import NotebookSynthesisEngine
+            from vazus_core.integrations.tts_podcast_generator import synthesize_podcast_audio
             engine = NotebookSynthesisEngine()
             script = engine.generate_audio_podcast_script(topic="Сводный обзор базы знаний и МИРЭА")
             audio_path = synthesize_podcast_audio(script["dialogue"])
@@ -760,7 +760,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def handle_notebooklm_generate_study_guide(self):
         try:
-            from vazus_core.notebook_synthesis_engine import NotebookSynthesisEngine
+            from vazus_core.integrations.notebook_synthesis_engine import NotebookSynthesisEngine
             engine = NotebookSynthesisEngine()
             guide = engine.generate_study_guide(title="Общий Учебный Гид по Базе Знаний")
             self.send_json_response({"status": "ok", "guide": guide})

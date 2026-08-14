@@ -7,7 +7,7 @@ import os
 import json
 import time
 from typing import Dict, Any
-from vazus_core.organic_memory_bridge import record_insight
+from vazus_core.memory.organic_memory_bridge import record_insight
 
 MANIFEST_PATH = r"C:\vazus\services\memory\hebbian_tools_manifest.json"
 

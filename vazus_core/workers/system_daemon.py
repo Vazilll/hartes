@@ -87,7 +87,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from vazus_core.memory.db import get_db_connection
-from vazus_core.config import settings
+from vazus_core.engine.config import settings
 
 # Configure logging safely without sys.stderr StreamHandler dependency
 logging.raiseExceptions = False
@@ -329,7 +329,7 @@ class VazusSystemDaemon:
     def _background_worker_loop(self) -> None:
         logger.info("Background worker loop initialized.")
         try:
-            from vazus_core.daemon_sidecar import DaemonSidecar
+            from vazus_core.workers.daemon_sidecar import DaemonSidecar
             sidecar_pid = settings.GEMINI_CLI_DIR / "sidecar.pid"
             self._sidecar_instance = DaemonSidecar(pid_file=sidecar_pid)
 
@@ -594,7 +594,7 @@ class VazusSystemDaemon:
             "timestamp": time.time()
         }
         try:
-            from vazus_core.daemon_sidecar import DaemonSidecar
+            from vazus_core.workers.daemon_sidecar import DaemonSidecar
             sidecar = DaemonSidecar()
             events = sidecar.run_single_pass()
             res["sidecar_events"] = len(events)

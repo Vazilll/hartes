@@ -26,7 +26,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from vazus_core.mirea_exporter import MoodleSessionManager, MireaCourseExporter, load_env_credentials
+from vazus_core.integrations.mirea_exporter import MoodleSessionManager, MireaCourseExporter, load_env_credentials
 
 
 def parse_selection(choice_str: str, max_count: int) -> list[int]:

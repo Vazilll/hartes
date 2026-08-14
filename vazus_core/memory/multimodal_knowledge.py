@@ -10,12 +10,13 @@ import json
 import math
 import hashlib
 import sqlite3
+import threading
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 # Lazy model singletons
 _WHISPER_MODEL_CACHE: Dict[str, Any] = {}
@@ -74,9 +75,9 @@ class OpenVINOWhisperWrapper:
         self,
         file_path: Any,
         language: str = "ru",
-        vad_filter: bool = True,
-        vad_parameters: Optional[Dict[str, Any]] = None,
-        beam_size: int = 5
+        _vad_filter: bool = True,
+        _vad_parameters: Optional[Dict[str, Any]] = None,
+        _beam_size: int = 5
     ) -> Tuple[List[_WhisperSegment], Dict[str, Any]]:
         if isinstance(file_path, np.ndarray):
             audio = file_path

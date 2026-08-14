@@ -261,7 +261,7 @@ class SMTZ3Verifier:
         self,
         code_str: str = "",
         depth: Optional[int] = None,
-        expected_functions: Optional[List[str]] = None,
+        _expected_functions: Optional[List[str]] = None,
         code_content: Optional[str] = None,
         file_path: Optional[str] = None,
         code: Optional[str] = None,
@@ -608,8 +608,7 @@ class SMTZ3Verifier:
         Explores dynamic input domains with automatic shrinking on failure.
         """
         try:
-            import hypothesis
-            from hypothesis import given, settings, strategies as st
+            from hypothesis import settings
             
             @settings(max_examples=max_examples, deadline=2000)
             def run_test():

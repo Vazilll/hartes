@@ -20,7 +20,7 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 from scripts.unified_supergraph_bridge import UnifiedSuperGraphBridge
-from vazus_core.ast_pruner import ASTPruner
+from vazus_core.verification.ast_pruner import ASTPruner
 
 BASE_URL = "http://127.0.0.1:8765"
 

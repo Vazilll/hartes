@@ -30,7 +30,7 @@ except ImportError:
 
 # Import text normalization from multimodal_knowledge if available
 try:
-    from vazus_core.multimodal_knowledge import normalize_russian_text
+    from vazus_core.memory.multimodal_knowledge import normalize_russian_text
 except ImportError:
     def normalize_russian_text(text: str) -> str:
         if not text:

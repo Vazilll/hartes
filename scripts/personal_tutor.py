@@ -34,7 +34,7 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     except Exception:
         pass
 
-from vazus_core.cognitive_tutor_engine import (
+from vazus_core.integrations.cognitive_tutor_engine import (
     CognitiveTutorEngine,
     calculate_sm2_update,
     generate_active_recall_question,

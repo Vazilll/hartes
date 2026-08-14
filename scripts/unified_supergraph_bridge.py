@@ -26,16 +26,19 @@ sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 # Item 1 Imports
-from vazus_core.smt_z3_verifier import smt_verifier
-from vazus_core.sota2027_jury import SOTA2027JuryEngine
-
-# Item 3 Imports
+from vazus_core.verification.smt_z3_verifier import smt_verifier
 try:
-    from raytsystem.contracts import SkillDefinition, TrustClass, Sensitivity
-    from raytsystem.skill_authoring import SkillAuthoringError
-    SKILL_AUTHORING_AVAILABLE = True
+    from vazus_core.verification.concordia_jury import ConcordiaJury as SOTA2027JuryEngine
 except ImportError:
-    SKILL_AUTHORING_AVAILABLE = False
+    from vazus_core.verification.concordia_jury import ConcordiaJury
+    SOTA2027JuryEngine = ConcordiaJury
+
+# Item 3 Capability Detection
+import importlib.util
+SKILL_AUTHORING_AVAILABLE = (
+    importlib.util.find_spec("raytsystem.contracts") is not None and
+    importlib.util.find_spec("raytsystem.skill_authoring") is not None
+)
 
 
 class UnifiedSuperGraphBridge:

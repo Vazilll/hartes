@@ -357,7 +357,7 @@ class DynamicSkillDispatcher:
         self.context = self.load_skill_context()
         return self.context
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, _exc_type, _exc_val, _exc_tb) -> None:
         if self.context:
             self._log_telemetry(self.context)
 
@@ -450,7 +450,7 @@ class DynamicSkillDispatcher:
     def _log_telemetry(self, ctx: SkillContext) -> None:
         """Logs telemetry to organic insights bridge if available."""
         try:
-            from vazus_core.organic_memory_bridge import record_insight
+            from vazus_core.memory.organic_memory_bridge import record_insight
             record_insight(
                 category="dynamic_skill_dispatcher",
                 insight=(

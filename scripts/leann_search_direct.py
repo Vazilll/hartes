@@ -22,7 +22,7 @@ def normalize_memory_chunk(raw_text: str) -> str:
     Uses a fast LLM call to rewrite raw logs/text into structured episodic memory.
     Format: [At TIME], [AGENT] did [ACTION] and observed [CONSEQUENCE].
     """
-    from vazus_core.utils import load_adapter_key
+    from vazus_core.engine.utils import load_adapter_key
     prompt = (
         "You are an episodic memory normalizer. Rewrite the following raw text into a strict, concise, chronological format:\n"
         "[At TIME/CONTEXT], [AGENT/COMPONENT] did [ACTION] and observed [CONSEQUENCE/STATE].\n\n"

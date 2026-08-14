@@ -9,7 +9,7 @@ import json
 import time
 import subprocess
 from typing import Dict, Any, List
-from vazus_core.organic_memory_bridge import record_insight, search_memory
+from vazus_core.memory.organic_memory_bridge import record_insight, search_memory
 
 MEMORY_WIKI_LESSONS = r"C:\vazus\services\memory\semantic\wiki\AI_Lessons_and_Mistakes.md"
 

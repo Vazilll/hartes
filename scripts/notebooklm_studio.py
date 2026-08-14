@@ -21,8 +21,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from vazus_core.notebook_synthesis_engine import NotebookSynthesisEngine
-from vazus_core.tts_podcast_generator import synthesize_podcast_audio
+from vazus_core.integrations.notebook_synthesis_engine import NotebookSynthesisEngine
+from vazus_core.integrations.tts_podcast_generator import synthesize_podcast_audio
 
 
 def main():

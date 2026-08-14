@@ -13,8 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, "C:/vazus")
 
-from vazus_core.skill_author import create_autonomous_skill
-from vazus_core.mem0_memory_engine import Mem0Engine
+from vazus_core.integrations.skill_author import create_autonomous_skill
+from vazus_core.memory.mem0_memory_engine import Mem0Engine
 
 logger = logging.getLogger("BackgroundReviewHook")
 

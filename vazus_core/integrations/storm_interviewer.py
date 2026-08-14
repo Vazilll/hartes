@@ -41,6 +41,7 @@ class STORMResearchInterviewer:
         outline = [
             f"# {topic}: Stanford STORM Research Synthesis",
             "## 1. Executive Summary",
+            f"Synthesized from {len(research_findings)} grounded research source(s).",
             "## 2. Multi-Perspective Analysis",
         ]
         for p in perspectives:
@@ -52,6 +53,7 @@ class STORMResearchInterviewer:
             "subagent": "open_deep_researcher",
             "mode": "storm_multi_perspective",
             "topic": topic,
+            "findings_count": len(research_findings),
             "perspectives_count": len(perspectives),
             "vector_dim": len(vector_768d),
             "report_md": report_md,

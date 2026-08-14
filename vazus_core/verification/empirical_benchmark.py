@@ -25,7 +25,7 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from vazus_core.verification.ast_pruner import ASTPruner
-from vazus_core.organic_memory_bridge import record_code_optimization, DEFAULT_VAZUS_DB
+from vazus_core.memory.organic_memory_bridge import record_code_optimization, DEFAULT_VAZUS_DB
 
 
 TARGET_MODULES = [
@@ -68,7 +68,7 @@ class EmpiricalBenchmarkRunner:
         mode can be 'baseline' (unoptimized/full execution) or 'optimized' (pruned/cached execution).
         """
         if module_name == "kgb_analytical_extractor.py":
-            from vazus_core.kgb_analytical_extractor import KGBAnalyticalExtractor
+            from vazus_core.integrations.kgb_analytical_extractor import KGBAnalyticalExtractor
             extractor = KGBAnalyticalExtractor(db_path=self.db_path)
             sample_text = (
                 "SuperGraph OS v4.0 autonomous code optimization architecture. "
@@ -101,7 +101,7 @@ class EmpiricalBenchmarkRunner:
             return {"sim": sim, "dim": len(vec1)}
 
         elif module_name in ("smt_z3_verifier.py", "safety_guardrail.py"):
-            from vazus_core.safety_guardrail import SMTZ3Verifier
+            from vazus_core.verification.safety_guardrail import SMTZ3Verifier
             verifier = SMTZ3Verifier()
             sample_code = (
                 "def add_positive(a: int, b: int) -> int:\n"
@@ -116,7 +116,7 @@ class EmpiricalBenchmarkRunner:
             return {"verified": getattr(contracts, "verified", True)}
 
         elif module_name == "supergraph_linker.py":
-            from vazus_core.supergraph_linker import (
+            from vazus_core.engine.supergraph_linker import (
                 calculate_fts_similarity,
                 calculate_structural_similarity,
                 calculate_provenance_similarity
@@ -129,7 +129,7 @@ class EmpiricalBenchmarkRunner:
             return {"fts": fts, "struct": struct, "prov": prov}
 
         elif module_name == "cognitive_tutor_engine.py":
-            from vazus_core.cognitive_tutor_engine import (
+            from vazus_core.integrations.cognitive_tutor_engine import (
                 calculate_sm2_update,
                 generate_active_recall_question,
                 ResponseEvaluator

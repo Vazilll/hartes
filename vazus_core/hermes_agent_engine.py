@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Callable, Union
 
 from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
-from vazus_core.subagent_framework import SubagentContext
+from vazus_core.engine.subagent_framework import SubagentContext
 
 logger = logging.getLogger("HermesAgentEngine")
 

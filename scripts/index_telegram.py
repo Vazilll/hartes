@@ -12,7 +12,7 @@ import json
 # Ensure C:\vazus is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from vazus_core.telegram_indexer import index_telegram_messages
+from vazus_core.integrations.telegram_indexer import index_telegram_messages
 
 
 def main():

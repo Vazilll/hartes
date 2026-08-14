@@ -48,7 +48,7 @@ def _retry_file_op(func, max_retries: int = 10, base_delay: float = 0.05, max_de
 
 from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB
 from vazus_core.evolution.prompt_optimizer import evaluate_prompt_fitness, run as run_prompt_optimizer
-from vazus_core.auto_improver import VazusAutoImprover
+from vazus_core.memory.auto_improver import VazusAutoImprover
 
 logger = logging.getLogger("vazus_core.post_task_evolver")
 
@@ -219,7 +219,7 @@ def persist_reflexion_lesson(lesson: ReflexionLesson, db_path: Optional[str] = N
 
         # Organic Memory Bridge Integration
         try:
-            from vazus_core.organic_memory_bridge import record_insight
+            from vazus_core.memory.organic_memory_bridge import record_insight
             insight_text = f"Reflexion Lesson [{lesson_id}] task [{task_id}]: {lesson_learned[:120]} (fitness: {fitness:.4f})"
             record_insight(category="reflexion_lesson", insight=insight_text, db_path=target_db)
         except Exception as e:

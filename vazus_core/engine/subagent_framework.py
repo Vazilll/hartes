@@ -21,7 +21,7 @@ logger = logging.getLogger("SubagentFramework")
 
 # Auto-import AGY Customizations HUD (registers compact on_start hook)
 try:
-    import vazus_core.agy_customizations_hud  # noqa: F401 — side-effect: registers hook
+    import vazus_core.integrations.agy_customizations_hud  # noqa: F401 — side-effect: registers hook
 except Exception as _hud_err:
     logger.debug(f"[SubagentFramework] AGY HUD hook not registered: {_hud_err}")
 
@@ -187,7 +187,7 @@ async def auto_improver_on_complete_hook(ctx: SubagentContext):
     if ctx.success:
         # On success: quick stats line (non-blocking)
         try:
-            from vazus_core.auto_improver import get_auto_improver
+            from vazus_core.memory.auto_improver import get_auto_improver
             improver = get_auto_improver()
             top_res = improver.skill_tracker.get_top_skills(3)
             top = await top_res if inspect.isawaitable(top_res) else top_res
@@ -205,7 +205,7 @@ async def auto_improver_on_complete_hook(ctx: SubagentContext):
         return  # Nothing to improve
 
     try:
-        from vazus_core.auto_improver import get_auto_improver
+        from vazus_core.memory.auto_improver import get_auto_improver
 
         async def _llm_fix_fn(code: str, critique: str, lessons: list, task_description: str = "") -> str:
             """
@@ -313,7 +313,7 @@ async def harness_security_on_start_hook(ctx: SubagentContext):
         ctx.prompt = f"{SYSTEM_HARNESS_POLICY}\n\n{ctx.prompt}"
 
     from vazus_core.hermes_skill_syncer import AutomaticSkillSelector
-    from vazus_core.tui_preview_renderer import render_terminal_harness_hud
+    from vazus_core.integrations.tui_preview_renderer import render_terminal_harness_hud
 
     def _sync_skill_load():
         selector = AutomaticSkillSelector()

@@ -45,7 +45,7 @@ except ImportError:
 
 # AVX-512 SIMD Vector Engine lazy import
 try:
-    from vazus_core.avx512_cosine import AVX512VectorEngine
+    from vazus_core.memory.avx512_cosine import AVX512VectorEngine
 except ImportError:
     AVX512VectorEngine = None
 

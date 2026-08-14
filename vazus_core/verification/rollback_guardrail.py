@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Callable, List, Optional, Union
 
-from vazus_core.git_provenance import GitProvenanceManager
+from vazus_core.verification.git_provenance import GitProvenanceManager
 
 logger = logging.getLogger("RollbackGuardrail")
 

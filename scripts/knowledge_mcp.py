@@ -28,7 +28,7 @@ except ImportError:
     from mcp.server.fastmcp import FastMCP
 
 try:
-    from vazus_core.embeddings import UnifiedEmbeddingManager
+    from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 except ImportError:
     from embeddings import UnifiedEmbeddingManager
 

@@ -35,13 +35,13 @@ class HyDERetriever:
         self.db_path = Path(db_path)
         self.embedder = embedder or get_embedding_manager()
 
-    def generate_hypothetical_document(self, query: str, context_type: str = "code_spec") -> str:
+    def generate_hypothetical_document(self, query: str, context_type: Optional[str] = None) -> str:
         """
         Synthesizes a structured hypothetical document snippet based on query intent.
         """
         clean_q = query.strip()
         
-        if any(w in clean_q.lower() for w in ["def ", "class ", "function", "method", "ast", "code"]):
+        if context_type == "code_spec" or (context_type is None and any(w in clean_q.lower() for w in ["def ", "class ", "function", "method", "ast", "code"])):
             # Hypothetical Python code & architecture document
             return f"""# Technical Specification: {clean_q}
 ## Summary
@@ -56,7 +56,7 @@ def implementation_{re.sub(r'[^a-zA-Z0-9_]', '_', clean_q[:30])}():
 - Complexity bounded by O(N log N)
 - 100% compliant with SuperGraph OS standards
 """
-        elif any(w in clean_q.lower() for w in ["adr", "decision", "architecture", "pattern"]):
+        elif context_type == "adr" or (context_type is None and any(w in clean_q.lower() for w in ["adr", "decision", "architecture", "pattern"])):
             # Hypothetical ADR document
             return f"""# Architectural Decision Record: {clean_q}
 ## Status: ACCEPTED

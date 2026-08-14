@@ -26,13 +26,13 @@ if WORKSPACE_ROOT not in sys.path:
 from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
 from vazus_core.memory.db import get_db_connection
 from vazus_core.engine.reasoning_effort_controller import ReasoningEffortController
-from vazus_core.subagent_framework import (
+from vazus_core.engine.subagent_framework import (
     SubagentContext,
     DeclarativeSubagentEngine,
     subagent_registry,
     global_hook_registry
 )
-from vazus_core.dialogue_persister import SubagentDialoguePersister
+from vazus_core.memory.dialogue_persister import SubagentDialoguePersister
 
 logger = logging.getLogger("SubagentAutoTrigger")
 
@@ -374,7 +374,7 @@ class HermesTaskIntentEvaluator:
         }
         self.skill_parser = None
         try:
-            from vazus_core.dynamic_skill_dispatcher import SkillIntentParser
+            from vazus_core.engine.dynamic_skill_dispatcher import SkillIntentParser
             self.skill_parser = SkillIntentParser(auto_index=True)
         except Exception as e:
             logger.debug(f"[HermesTaskIntentEvaluator] SkillIntentParser initialization skipped: {e}")
@@ -720,7 +720,7 @@ class SubagentBackgroundDispatcher:
             cmd = [
                 sys.executable, "-c",
                 "import sys, json; "
-                "from vazus_core.subagent_framework import DeclarativeSubagentEngine; "
+                "from vazus_core.engine.subagent_framework import DeclarativeSubagentEngine; "
                 "data = json.loads(sys.argv[1]); "
                 "DeclarativeSubagentEngine().run_subagent_sync(data['subagent_name'], data['prompt'], task_id=data['task_id'], params=data.get('params', {}))",
                 payload_json

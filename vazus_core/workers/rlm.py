@@ -11,8 +11,8 @@ from typing import Dict, Any
 
 from vazus_core.verification.ast_pruner import ASTPruner
 from vazus_core.engine.model_selector import ModelSelector
-from vazus_core.sota2027_jury import SOTA2027JuryEngine
-from vazus_core.repl_engine import LocalREPL
+from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine
+from vazus_core.workers.repl_engine import LocalREPL
 
 
 def load_compiled_tools() -> Dict[str, Any]:

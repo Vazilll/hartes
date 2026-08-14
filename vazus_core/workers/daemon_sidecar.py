@@ -21,7 +21,7 @@ from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional, Tuple, Callable
 
-from vazus_core.config import settings
+from vazus_core.engine.config import settings
 
 logger = logging.getLogger("DaemonSidecar")
 

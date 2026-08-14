@@ -10,6 +10,7 @@ import ast
 import os
 import sys
 from pathlib import Path
+from typing import Any, Optional
 
 # Fix Windows console UTF-8 output
 if hasattr(sys.stdout, "reconfigure"):
@@ -27,10 +28,10 @@ if str(PYENV_DIR) not in sys.path:
 import json
 
 try:
-    from vazus_core.sota2027_jury import SOTA2027JuryEngine
-    from vazus_core.agent_handoff import handoff_manager
-    from vazus_core.dialogue_persister import dialogue_persister
-    from vazus_core.smt_z3_verifier import smt_verifier
+    from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine
+    from vazus_core.workers.agent_handoff import handoff_manager
+    from vazus_core.memory.dialogue_persister import dialogue_persister
+    from vazus_core.verification.smt_z3_verifier import smt_verifier
     from scripts.unified_supergraph_bridge import UnifiedSuperGraphBridge
 except ImportError as e:
     sys.stderr.write(f"[VerifierBridge] Core module import warning: {e}\n")
@@ -43,7 +44,23 @@ except ImportError as e:
 
 class JulesCloudEscalator:
     def escalate(self, error_msg: str) -> dict:
-        return {"status": "ESCALATED_LOCAL", "escalation_id": "jules-local-001"}
+        import uuid
+        return {
+            "status": "ESCALATED_LOCAL",
+            "escalation_id": f"jules-local-{uuid.uuid4().hex[:6]}",
+            "error": error_msg,
+            "workspace_status": "LOCAL_SANDBOX_ACTIVE",
+        }
+
+    def submit_task(self, prompt: str, repo_path: str = None) -> dict:
+        import uuid
+        return {
+            "status": "SUBMITTED",
+            "task_id": f"jules-task-{uuid.uuid4().hex[:6]}",
+            "prompt": prompt,
+            "repo_path": repo_path,
+            "workspace_status": "LOCAL_SANDBOX_ACTIVE",
+        }
 
 class GitProvenanceManager:
     @staticmethod
@@ -59,8 +76,91 @@ class GitProvenanceManager:
 class CodeVerifier:
     def __init__(self, timeout_sec: int = 10):
         self.timeout = timeout_sec
+
     def verify(self, code: str) -> dict:
-        return {"success": True, "execution": "PASSED", "timeout": self.timeout}
+        import io, sys, threading, traceback, ast
+
+        if not code or not code.strip():
+            return {
+                "success": False,
+                "execution": "FAILED",
+                "timeout": self.timeout,
+                "error": "Empty code payload",
+                "stdout": "",
+                "stderr": "ValueError: Empty code payload",
+            }
+
+        try:
+            ast.parse(code)
+        except SyntaxError as se:
+            return {
+                "success": False,
+                "execution": "SYNTAX_ERROR",
+                "timeout": self.timeout,
+                "error": str(se),
+                "stdout": "",
+                "stderr": f"SyntaxError: {str(se)}",
+            }
+
+        stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
+        exec_exception = []
+        exec_completed = threading.Event()
+
+        def target():
+            old_stdout, old_stderr = sys.stdout, sys.stderr
+            try:
+                sys.stdout, sys.stderr = stdout_buf, stderr_buf
+                exec(code, {}, {})
+            except Exception as e:
+                exec_exception.append(e)
+                stderr_buf.write(traceback.format_exc())
+            finally:
+                sys.stdout, sys.stderr = old_stdout, old_stderr
+                exec_completed.set()
+
+        t = threading.Thread(target=target)
+        t.daemon = True
+        t.start()
+
+        finished = exec_completed.wait(timeout=self.timeout)
+        if not finished:
+            return {
+                "success": False,
+                "execution": "TIMEOUT",
+                "timeout": self.timeout,
+                "error": f"Execution timed out after {self.timeout} seconds",
+                "stdout": stdout_buf.getvalue(),
+                "stderr": stderr_buf.getvalue() or f"TimeoutError: Execution exceeded {self.timeout}s limit",
+            }
+
+        if exec_exception:
+            e = exec_exception[0]
+            if isinstance(e, SyntaxError):
+                return {
+                    "success": False,
+                    "execution": "SYNTAX_ERROR",
+                    "timeout": self.timeout,
+                    "error": str(e),
+                    "stdout": stdout_buf.getvalue(),
+                    "stderr": stderr_buf.getvalue() or f"SyntaxError: {str(e)}",
+                }
+            return {
+                "success": False,
+                "execution": "FAILED",
+                "timeout": self.timeout,
+                "error": str(e),
+                "stdout": stdout_buf.getvalue(),
+                "stderr": stderr_buf.getvalue() or f"{type(e).__name__}: {str(e)}",
+            }
+
+        return {
+            "success": True,
+            "execution": "PASSED",
+            "timeout": self.timeout,
+            "stdout": stdout_buf.getvalue(),
+            "stderr": stderr_buf.getvalue(),
+            "error": None,
+        }
 
 
 class VerifierSubagentBridge:
@@ -157,6 +257,53 @@ class VerifierSubagentBridge:
             return {"status": "UNAVAILABLE", "error": "JulesCloudEscalator module not available"}
         return self.jules.submit_task(prompt, repo_path=repo_path)
 
+    def verify_functional_equivalence(self, orig_code: str, opt_code: str, func_name: str) -> dict:
+        """Helper API forwarding functional equivalence proof check to smt_verifier."""
+        if smt_verifier:
+            res = smt_verifier.verify_functional_equivalence(orig_code, opt_code, func_name)
+            return res.to_dict() if hasattr(res, "to_dict") else res
+        return {"verified": False, "solver_status": "UNAVAILABLE"}
+
+    def verify_memory_safety(self, offset: int, length: int, capacity: int) -> dict:
+        """Helper API forwarding memory bounds safety proof check to smt_verifier."""
+        if smt_verifier:
+            res = smt_verifier.verify_memory_safety(offset, length, capacity)
+            return res.to_dict() if hasattr(res, "to_dict") else res
+        return {"verified": False, "solver_status": "UNAVAILABLE"}
+
+    def verify_cremniy_patch(
+        self,
+        buffer_capacity: int,
+        offset: int,
+        patch_bytes: bytes,
+        original_bytes: Optional[bytes] = None
+    ) -> dict:
+        """Verifies Cremniy binary patch safety within buffer capacity."""
+        patch_len = len(patch_bytes) if patch_bytes else 0
+        mem_res = self.verify_memory_safety(offset=offset, length=patch_len, capacity=buffer_capacity)
+        verified = mem_res.get("verified", False)
+        status = "PASSED" if verified else "VIOLATION"
+        patch_hex = patch_bytes.hex() if patch_bytes else ""
+        orig_hex = original_bytes.hex() if original_bytes else ""
+        mask_bytes = "F" * len(patch_hex) if patch_hex else ""
+        return {
+            "verified": verified,
+            "bounds_safe": verified,
+            "status": status,
+            "solver_status": mem_res.get("solver_status", "UNSAT" if verified else "SAT"),
+            "buffer_capacity": buffer_capacity,
+            "offset": offset,
+            "patch_length": patch_len,
+            "hexmask_overlay": {
+                "verified": verified,
+                "patch_hex": patch_hex,
+                "original_hex": orig_hex,
+                "mask_bytes": mask_bytes.upper(),
+                "offset": offset,
+                "capacity": buffer_capacity,
+            },
+        }
+
     def run_full_pipeline(
         self,
         code: str,
@@ -216,7 +363,7 @@ class VerifierSubagentBridge:
                 parent_id="user",
                 agent_name="verifier_worker",
                 prompt=f"Verify code contracts for functions: {expected_functions or 'all'}",
-                response=json.dumps(res, ensure_ascii=False)
+                response=json.dumps(res, default=str, ensure_ascii=False)
             )
             dialogue_persister.record_memory_trace(
                 agent_name="verifier_worker",

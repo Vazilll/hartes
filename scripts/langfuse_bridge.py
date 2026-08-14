@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 langfuse_bridge.py — Forward Hermes observability traces to Langfuse V2.
 Reads credentials from C:\vazus\pyenv\langfuse.env
 """

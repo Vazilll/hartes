@@ -20,7 +20,7 @@ sys.path.insert(0, "C:/vazus")
 try:
     from vazus_core.hooks.hud_writer import write_hud_event
 except Exception:
-    def write_hud_event(event_type, payload): pass
+    def write_hud_event(_event_type=None, _payload=None): pass
 
 MCP_INSTRUCTIONS = """## 🔧 Vazus OS MCP Tools Available (call via `call_mcp_tool`)
 
@@ -120,7 +120,7 @@ def auto_select_skills(user_prompt: str) -> list:
         return []
 
     try:
-        from vazus_core.dynamic_skill_dispatcher import SkillIntentParser
+        from vazus_core.engine.dynamic_skill_dispatcher import SkillIntentParser
 
         parser = SkillIntentParser(search_dirs=SKILL_SEARCH_DIRS, auto_index=True)
         matched = parser.match_skills(user_prompt, top_k=MAX_SKILLS_TO_INJECT, effort="medium")

@@ -20,14 +20,13 @@ sys.path.append(r"C:\vazus\vazus_core")
 
 from typing import Optional, Union, List, Dict, Any
 
-from vazus_core.health_telemetry_pipeline import VazusHealthPipelineManager
-from vazus_core.google_multimodal_vision import analyze_lab_report_image
-from vazus_core.tinkoff_finance_manager import TinkoffFinanceManager
-from vazus_core.self_employed_order_hunter import SelfEmployedManager
-from vazus_core.mirea_student_manager import MireaStudentManager
-from vazus_core.gemma_local_processor import GoogleGemmaLocalEngine
+from vazus_core.integrations.health_telemetry_pipeline import VazusHealthPipelineManager
+from vazus_core.integrations.tinkoff_finance_manager import TinkoffFinanceManager
+from vazus_core.integrations.self_employed_order_hunter import SelfEmployedManager
+from vazus_core.integrations.mirea_student_manager import MireaStudentManager
+from vazus_core.integrations.gemma_local_processor import GoogleGemmaLocalEngine
 from vazus_core.langgraph_health_workflow import LangGraphHealthMultiAgentWorkflow
-from vazus_core.self_healing_repl import SelfHealingREPLManager
+from vazus_core.workers.self_healing_repl import SelfHealingREPLManager
 
 DB_PATH = r"C:\vazus\services\memory\vazus.db"
 
@@ -125,7 +124,7 @@ class SuperGraphMasterOrchestrator:
         """
         fin_summary = self.finance_mgr.get_financial_summary()
         target_rev = fin_summary.get("freelance_target_revenue_rub", 10000.0)
-        from vazus_core.self_employed_order_hunter import OrderHunterEngine
+        from vazus_core.integrations.self_employed_order_hunter import OrderHunterEngine
         hunter = OrderHunterEngine(db_path=self.db_path)
         matching_res = hunter.match_orders_for_target_revenue(target_rev)
         return {

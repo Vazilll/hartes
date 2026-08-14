@@ -22,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 try:
-    from vazus_core.embeddings import UnifiedEmbeddingManager
+    from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 except ImportError:
     from embeddings import UnifiedEmbeddingManager
 

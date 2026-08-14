@@ -30,7 +30,7 @@ import inspect
 import concurrent.futures
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable, Union, Awaitable
+from typing import Dict, Any, List, Optional, Callable, Union
 
 from vazus_core.memory.db import get_db_connection
 from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
@@ -479,7 +479,7 @@ class ReflexionEvaluator:
         # 3. SMT Z3 contract check
         if ":requires:" in code or ":ensures:" in code:
             try:
-                from vazus_core.safety_guardrail import SMTZ3Verifier
+                from vazus_core.verification.safety_guardrail import SMTZ3Verifier
                 v = SMTZ3Verifier()
                 res = v.verify_code_contracts(code)
                 if not res.contract_satisfied:

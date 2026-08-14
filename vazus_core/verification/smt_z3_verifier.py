@@ -10,7 +10,7 @@ import ast
 import z3
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from vazus_core.safety_guardrail import (
+from vazus_core.verification.safety_guardrail import (
     SMTZ3Verifier,
     VerificationResult,
     ProofVerdict,
@@ -222,12 +222,12 @@ class Z3ContractEvaluator:
         res = v.verify_code_contracts(code_snippet)
         return res.verified
 
-    def evaluate_contract_set(self, contracts: list[str], target_func: str) -> VerificationResult:
+    def evaluate_contract_set(self, contracts: list[str], target_func: str = "") -> VerificationResult:
         """
         Evaluates a collection of code contract assertions against target function.
         """
         if not contracts:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
+            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True, proof_details=f"Target {target_func or 'global'} contract set empty (trivially satisfied).")
         v = SMTZ3Verifier()
         valid_contracts = [c.strip() for c in contracts if c and isinstance(c, str)]
         results = []
@@ -236,7 +236,7 @@ class Z3ContractEvaluator:
             results.append(res)
             if not res.verified:
                 return res
-        return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
+        return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True, proof_details=f"Target {target_func or 'global'} all {len(valid_contracts)} contracts verified.")
 
     def evaluate_type_hints(self, func_name: str, hints: dict[str, str]) -> bool:
         """
@@ -270,7 +270,7 @@ class Z3ContractEvaluator:
         )
         return v.verify_code_contracts(code_snippet)
 
-    def evaluate_uninterpreted_functions(self, func_name: str, args: list[str], ret_type: str) -> VerificationResult:
+    def evaluate_uninterpreted_functions(self, func_name: str, args: list[str], ret_type: str = "int") -> VerificationResult:
         """
         Evaluates uninterpreted function symbol (EUF theory) consistency assertions.
         """
@@ -279,7 +279,7 @@ class Z3ContractEvaluator:
         v = SMTZ3Verifier()
         clean_args = [a.strip() for a in args if a]
         code_snippet = (
-            f"def check_euf({', '.join(clean_args)}) -> int:\n"
+            f"def check_euf_{func_name}({', '.join(clean_args)}) -> {ret_type or 'int'}:\n"
             f"    \"\"\"\n"
             f"    :requires: len('{func_name}') > 0\n"
             f"    :ensures: result >= 0\n"

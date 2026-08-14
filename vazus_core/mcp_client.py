@@ -15,12 +15,12 @@ PROJECT_ROOT = Path("C:/vazus")
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from vazus_core.organic_memory_bridge import search_memory, record_insight
+from vazus_core.memory.organic_memory_bridge import search_memory, record_insight
 from vazus_core.memory.embeddings import get_embedding_manager
 from vazus_core.verification.ast_pruner import ASTPruner
 from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
 from vazus_core.verification.concordia_jury import ConcordiaJury
-from vazus_core.unified_reasoning_pipeline import UnifiedReasoningPipeline
+from vazus_core.engine.unified_reasoning_pipeline import UnifiedReasoningPipeline
 
 
 def call_mcp_direct(server_name: str, tool_name: str, args: dict) -> dict:
@@ -61,7 +61,7 @@ def call_mcp_direct(server_name: str, tool_name: str, args: dict) -> dict:
             return {"status": "success", "result": res}
 
         elif tool_name == "vazus_index_repository":
-            from vazus_core.repo_indexer import index_repository
+            from vazus_core.integrations.repo_indexer import index_repository
             directory_path = args.get("directory_path", "")
             project_name = args.get("project_name", "vazus")
             max_files = args.get("max_files", 500)

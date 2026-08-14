@@ -184,7 +184,7 @@ class CustomizationScanner:
         # Load EMA scores from AutoImprover
         scores: Dict[str, float] = {}
         try:
-            from vazus_core.auto_improver import SkillUsageTracker
+            from vazus_core.memory.auto_improver import SkillUsageTracker
             for s in SkillUsageTracker().get_top_skills(500):
                 scores[s["name"]] = s["score"]
         except Exception:
@@ -400,7 +400,7 @@ class CustomizationsHUD:
     def _render_internal_harness(self):
         lines = []
         try:
-            from vazus_core.subagent_framework import global_hook_registry
+            from vazus_core.engine.subagent_framework import global_hook_registry
             n_start    = len(global_hook_registry._on_start_hooks)
             n_step     = len(global_hook_registry._on_step_hooks)
             n_verify   = len(global_hook_registry._on_verify_hooks)
@@ -414,7 +414,7 @@ class CustomizationsHUD:
 
         # AutoImprover live stats
         try:
-            from vazus_core.auto_improver import get_auto_improver
+            from vazus_core.memory.auto_improver import get_auto_improver
             imp = get_auto_improver()
             top = imp.skill_tracker.get_top_skills(3)
             if top:
@@ -462,7 +462,7 @@ def render_compact_hud():
 
 def _register_hud_hook():
     try:
-        from vazus_core.subagent_framework import global_hook_registry, SubagentContext
+        from vazus_core.engine.subagent_framework import global_hook_registry, SubagentContext
 
         def _hud_on_start(ctx: SubagentContext):
             render_compact_hud()
