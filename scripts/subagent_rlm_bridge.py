@@ -30,9 +30,13 @@ for p in [str(PYENV_DIR), str(RLM_MIT_DIR)]:
 try:
     from rlm import RLM
     from rlm.logger import RLMLogger
-except ImportError as e:
-    sys.stderr.write(f"[RLMBridge] Import Warning/Error: {e}\n")
-    RLM = None
+except ImportError:
+    try:
+        from vazus_core.workers.rlm import RLMWorker as RLM
+        RLMLogger = None
+    except ImportError:
+        RLM = None
+        RLMLogger = None
 
 try:
     from vazus_core.workers.agent_handoff import handoff_manager
@@ -43,7 +47,7 @@ except ImportError as e:
     dialogue_persister = None
 
 
-def _dbg_inspect_buffer(data_or_capacity: Any = 1024, offset: int = 0, length: int = 16, **kwargs) -> str:
+def _dbg_inspect_buffer(data_or_capacity: Any = 1024, offset: int = 0, length: int = 16, **_kwargs) -> str:
     if isinstance(data_or_capacity, (bytes, bytearray)):
         raw_bytes = bytes(data_or_capacity)
     elif isinstance(data_or_capacity, str):
@@ -54,20 +58,21 @@ def _dbg_inspect_buffer(data_or_capacity: Any = 1024, offset: int = 0, length: i
     else:
         raw_bytes = b""
 
-    hex_pairs = [f"{b:02x}" for b in raw_bytes]
+    sliced_bytes = raw_bytes[offset:offset + length] if length > 0 else raw_bytes[offset:]
+    hex_pairs = [f"{b:02x}" for b in sliced_bytes]
     hex_str = " ".join(hex_pairs)
-    ascii_str = "".join([chr(b) if 32 <= b <= 126 else "." for b in raw_bytes])
-    return f"{hex_str}  |{ascii_str}|" if raw_bytes else "00 00 00 00  |....|"
+    ascii_str = "".join([chr(b) if 32 <= b <= 126 else "." for b in sliced_bytes])
+    return f"{hex_str}  |{ascii_str}|" if sliced_bytes else "00 00 00 00  |....|"
 
 
-def _dbg_set_breakpoint(address: str = "0x1000", condition: Optional[str] = None, **kwargs) -> dict:
+def _dbg_set_breakpoint(address: str = "0x1000", condition: Optional[str] = None, **_kwargs) -> dict:
     return {
         "address": address,
         "location": address,
         "condition": condition,
         "enabled": True,
         "status": "BREAKPOINT_SET",
-        **kwargs,
+        **_kwargs,
     }
 
 
@@ -106,7 +111,7 @@ def _dbg_read_registers(**kwargs) -> dict:
     }
 
 
-def _dbg_disassemble_at(address: str = "0x1000", count: int = 5, length: int = 16, **kwargs) -> list:
+def _dbg_disassemble_at(address: str = "0x1000", _count: int = 5, _length: int = 16, **_kwargs) -> list:
     return [
         {"address": address, "mnemonic": "nop", "op_str": ""},
         {"address": "0x1001", "mnemonic": "mov", "op_str": "rax, rbx"},

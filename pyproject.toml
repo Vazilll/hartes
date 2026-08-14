@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vazus-core"
+version = "5.0.0"
+description = "Vazus SuperGraph OS Core Engine & Formal Verification Substrate"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Vaz", email = "peek2mz@gmail.com" }
+]
+dependencies = [
+    "z3-solver>=4.13.0",
+    "httpx>=0.28.0",
+    "openvino>=2025.0.0",
+    "torch>=2.4.0",
+    "pydantic>=2.10.0",
+    "fastmcp>=0.4.0",
+    "rich>=13.9.0",
+    "hypothesis>=6.120.0",
+    "pytest>=8.3.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "vulture>=2.11",
+    "pyright>=1.1.380"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vazus_core*", "services*"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --tb=short"
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -39,7 +39,7 @@ if str(PROJECT_ROOT) not in sys.path:
 try:
     from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 except ImportError:
-    from embeddings import UnifiedEmbeddingManager
+    UnifiedEmbeddingManager = None
 
 DEFAULT_DB_PATH = "C:/vazus/services/memory/vazus.db"
 DEFAULT_HTML_PATH = Path(__file__).resolve().parent / "dashboard.html"

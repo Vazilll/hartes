@@ -24,7 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 try:
     from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 except ImportError:
-    from embeddings import UnifiedEmbeddingManager
+    UnifiedEmbeddingManager = None
 
 
 def format_timestamp(seconds: float) -> str:

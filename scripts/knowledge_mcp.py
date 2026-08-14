@@ -13,7 +13,7 @@ import os
 import json
 import sqlite3
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Any
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -30,9 +30,9 @@ except ImportError:
 try:
     from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 except ImportError:
-    from embeddings import UnifiedEmbeddingManager
+    UnifiedEmbeddingManager = None
 
-DEFAULT_DB_PATH = Path("C:/vazus/vazus.db")
+DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
 
 mcp = FastMCP("vazus-multimodal-knowledge")
 
