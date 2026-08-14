@@ -4,13 +4,11 @@ Provides automatic entity, fact, and preference extraction, deduplication, and 7
 inside vazus.db for Vazus SuperGraph OS v5.0.
 """
 
-import os
 import re
 import time
 import json
 import sqlite3
-from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 import sys
 sys.path.insert(0, "C:/vazus")
@@ -42,6 +40,34 @@ class Mem0Engine:
         created_at    REAL,
         updated_at    REAL
     );
+
+    CREATE TABLE IF NOT EXISTS memory_facts_v2 (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        fact_text     TEXT    NOT NULL,
+        category      TEXT    NOT NULL,
+        status        TEXT    NOT NULL DEFAULT 'UNTRUSTED_OBSERVATION'
+                      CHECK (status IN ('UNTRUSTED_OBSERVATION','CANDIDATE','VERIFIED_FACT','ARCHITECTURAL_DECISION','REJECTED','SUPERSEDED','EXPIRED')),
+        confidence    REAL    NOT NULL DEFAULT 0.0,
+        provenance    TEXT    NOT NULL,
+        source_agent  TEXT    NOT NULL,
+        content_hash  TEXT    NOT NULL UNIQUE,
+        embedding_json TEXT,
+        valid_from    REAL    NOT NULL,
+        valid_until   REAL,
+        superseded_by INTEGER REFERENCES memory_facts_v2(id),
+        created_at    REAL    NOT NULL,
+        updated_at    REAL    NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS memory_promotion_log (
+        log_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        fact_id       INTEGER NOT NULL,
+        from_status   TEXT NOT NULL,
+        to_status     TEXT NOT NULL,
+        by_agent      TEXT NOT NULL,
+        justification TEXT,
+        promoted_at   REAL NOT NULL
+    );
     """
 
     def __init__(self, db_path: str = DB_PATH):
@@ -51,24 +77,7 @@ class Mem0Engine:
 
     def _ensure_table(self):
         conn = get_db_connection(self.db_path)
-        conn.execute(self.TABLE_SQL)
-        # Safe bi-temporal column migrations for existing databases
-        try:
-            conn.execute("ALTER TABLE mem0_facts ADD COLUMN status TEXT DEFAULT 'ACTIVE';")
-        except Exception:
-            pass
-        try:
-            conn.execute("ALTER TABLE mem0_facts ADD COLUMN valid_from REAL;")
-        except Exception:
-            pass
-        try:
-            conn.execute("ALTER TABLE mem0_facts ADD COLUMN valid_until REAL;")
-        except Exception:
-            pass
-        try:
-            conn.execute("ALTER TABLE mem0_facts ADD COLUMN superseded_by TEXT;")
-        except Exception:
-            pass
+        conn.executescript(self.TABLE_SQL)
         conn.commit()
         conn.close()
 
@@ -189,6 +198,118 @@ class Mem0Engine:
             })
 
         return results
+
+    def record_observation_v2(
+        self,
+        fact_text: str,
+        category: str = "observation",
+        source_agent: str = "antigravity",
+        provenance: str = "turn_context",
+        status: str = "UNTRUSTED_OBSERVATION",
+        confidence: float = 0.5
+    ) -> Dict[str, Any]:
+        """
+        Records a new memory item into memory_facts_v2 in quarantine or candidate tier.
+        Deduplicates by SHA-256 content hash.
+        """
+        import hashlib
+        content_hash = hashlib.sha256(fact_text.strip().encode("utf-8")).hexdigest()
+        now = time.time()
+        emb = self.emb_mgr.get_embedding(fact_text)
+        emb_json = json.dumps(emb)
+
+        conn = get_db_connection(self.db_path)
+        cur = conn.cursor()
+        try:
+            cur.execute("""
+                INSERT INTO memory_facts_v2 (
+                    fact_text, category, status, confidence, provenance,
+                    source_agent, content_hash, embedding_json, valid_from, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (fact_text, category, status, confidence, provenance, source_agent, content_hash, emb_json, now, now, now))
+            row_id = cur.lastrowid
+            conn.commit()
+            conn.close()
+            return {"status": "RECORDED", "id": row_id, "tier": status, "content_hash": content_hash}
+        except sqlite3.IntegrityError:
+            # Already exists by content hash -> update timestamp
+            cur.execute("UPDATE memory_facts_v2 SET updated_at = ? WHERE content_hash = ?", (now, content_hash))
+            conn.commit()
+            conn.close()
+            return {"status": "DEDUP_EXISTS", "content_hash": content_hash}
+
+    def promote_fact_v2(
+        self,
+        fact_id: int,
+        to_status: str = "VERIFIED_FACT",
+        by_agent: str = "concordia_jury",
+        justification: str = "Passed test suite and consensus verification"
+    ) -> Dict[str, Any]:
+        """
+        Promotes a fact from UNTRUSTED_OBSERVATION / CANDIDATE to VERIFIED_FACT or ARCHITECTURAL_DECISION.
+        Logs to memory_promotion_log audit table.
+        """
+        now = time.time()
+        conn = get_db_connection(self.db_path)
+        cur = conn.cursor()
+
+        cur.execute("SELECT status FROM memory_facts_v2 WHERE id = ?", (fact_id,))
+        row = cur.fetchone()
+        if not row:
+            conn.close()
+            return {"status": "ERROR", "reason": f"Fact ID {fact_id} not found"}
+
+        from_status = row[0]
+        cur.execute(
+            "UPDATE memory_facts_v2 SET status = ?, confidence = 1.0, updated_at = ? WHERE id = ?",
+            (to_status, now, fact_id)
+        )
+        cur.execute("""
+            INSERT INTO memory_promotion_log (fact_id, from_status, to_status, by_agent, justification, promoted_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (fact_id, from_status, to_status, by_agent, justification, now))
+
+        conn.commit()
+        conn.close()
+        return {"status": "PROMOTED", "id": fact_id, "from": from_status, "to": to_status}
+
+    def search_verified_facts_v2(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+        """
+        Searches ONLY verified facts and architectural decisions, ignoring untrusted observations.
+        """
+        conn = get_db_connection(self.db_path, read_only=True)
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, fact_text, category, status, confidence, provenance, source_agent, embedding_json
+            FROM memory_facts_v2
+            WHERE status IN ('VERIFIED_FACT', 'ARCHITECTURAL_DECISION')
+        """)
+        rows = cur.fetchall()
+        conn.close()
+
+        if not rows:
+            return []
+
+        q_vec = self.emb_mgr.get_embedding(query)
+        scored = []
+        for r in rows:
+            f_id, text, cat, stat, conf, prov, agent, emb_str = r
+            emb = json.loads(emb_str) if emb_str else []
+            sim = self.emb_mgr.compute_similarity(q_vec, emb)
+            scored.append({
+                "id": f_id,
+                "fact_text": text,
+                "category": cat,
+                "status": stat,
+                "confidence": conf,
+                "provenance": prov,
+                "source_agent": agent,
+                "similarity": round(sim, 4)
+            })
+
+        scored.sort(key=lambda x: x["similarity"], reverse=True)
+        return scored[:top_k]
 
 
 if __name__ == "__main__":
