@@ -48,11 +48,10 @@ def _retry_file_op(func, max_retries: int = 10, base_delay: float = 0.05, max_de
 
 from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB
 from vazus_core.evolution.prompt_optimizer import evaluate_prompt_fitness, run as run_prompt_optimizer
-from vazus_core.memory.auto_improver import VazusAutoImprover
 
 logger = logging.getLogger("vazus_core.post_task_evolver")
 
-DEFAULT_AGENTS_MD_PATH = r"C:\vazus\AGENTS.md"
+DEFAULT_AGENTS_MD_PATH = r"C:\vazus\services\memory\semantic\wiki\Evolved_Prompts.md"
 
 
 @dataclass

@@ -84,40 +84,40 @@ def main():
 
         mem0 = Mem0Engine()
 
-        # 1. Always record the user task context / preferences
+        # 1. User Preferences: ONLY persist when explicitly requested via command/marker
         user_msg = extract_last_user_message(messages)
-        if user_msg and len(user_msg.strip()) > 10:
-            # Check if user message indicates an explicit rule or preference
-            is_rule = any(w in user_msg.lower() for w in ["запомни", "не делай", "надоело", "правило", "вариант", "стек", "проект", "мой", "хочу", "всегда"])
-            cat = "user_preference" if is_rule else "turn_context"
-            mem0.add_fact(
-                fact_text=f"[conv:{conversation_id[:8]}] {user_msg}",
-                category=cat,
-                entity="user" if is_rule else "session"
-            )
-
-        # 2. Extract a classified lesson from the model response
-        model_response = extract_last_model_response(messages)
-        if model_response and len(model_response) > 80:
-            category, excerpt = classify_insight(model_response)
-            if category and excerpt:
-                # Add to 768D Mem0 facts
+        if user_msg:
+            pref_match = re.search(r"^(?:запомни|правило|rule|remember|never|always):\s*(.+)", user_msg.strip(), re.IGNORECASE)
+            if pref_match:
+                clean_pref = pref_match.group(1).strip()
                 mem0.add_fact(
-                    fact_text=f"[{category}] {excerpt[:300]}",
-                    category=category,
-                    entity="auto_lesson"
+                    fact_text=f"[user_rule] {clean_pref}",
+                    category="user_preference",
+                    entity="user"
                 )
-                # Export to Zettelkasten Wiki
-                try:
-                    from vazus_core.memory.zettelkasten_exporter import ZettelkastenExporter
-                    exporter = ZettelkastenExporter()
-                    exporter.export_insight_note(
-                        title=f"{category}_{conversation_id[:8]}",
+
+        # 2. System Lessons: Persist only verified architectural insights periodically (every 10th turn)
+        if invocation_num > 0 and invocation_num % 10 == 0:
+            model_response = extract_last_model_response(messages)
+            if model_response and len(model_response) > 120:
+                category, excerpt = classify_insight(model_response)
+                if category in ("architecture_insight", "rule_learned") and excerpt:
+                    mem0.add_fact(
+                        fact_text=f"[{category}] {excerpt[:300]}",
                         category=category,
-                        content_text=excerpt
+                        entity="verified_insight"
                     )
-                except Exception:
-                    pass
+                    # Export note to Zettelkasten Wiki
+                    try:
+                        from vazus_core.memory.zettelkasten_exporter import ZettelkastenExporter
+                        exporter = ZettelkastenExporter()
+                        exporter.export_insight_note(
+                            title=f"{category}_{conversation_id[:8]}",
+                            category=category,
+                            content_text=excerpt
+                        )
+                    except Exception:
+                        pass
 
         print(json.dumps({}))
 

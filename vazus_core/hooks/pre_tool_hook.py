@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-vazus_core.hooks.pre_tool_hook — Antigravity PreToolUse Lifecycle Hook.
+vazus_core.hooks.pre_tool_hook — Antigravity PreToolUse Lifecycle Hook (Fail-Closed Security Gate).
 
-Triggered AUTOMATICALLY by Antigravity BEFORE file editing tools execute.
+Triggered AUTOMATICALLY by Antigravity BEFORE file editing and command execution tools run.
 Enforces:
-  - Path traversal prevention (no writes outside workspace or .git/hooks injection)
-  - Audit log of all tool invocations
-  - Block writes to .git directory (hook injection attack)
+  - Fail-Closed Policy: Stdin parse errors or unhandled exceptions REJECT execution.
+  - Strict Path Jail: Only paths inside C:/vazus and ~/.gemini are writable.
+  - Core Contract Protection: Blocks writes to .git directory and root AGENTS.md.
+  - Dangerous Command Filter: Rejects destructive OS/registry wipe attempts.
 """
 
 import sys
@@ -19,36 +20,67 @@ WORKSPACE_ROOTS = [
     Path.home() / ".gemini",
 ]
 
-BLOCKED_PATHS = [".git/hooks", ".git\\hooks"]
+# Sensitive paths forbidden for agent modification
+FORBIDDEN_PATTERNS = [
+    ".git/",
+    ".git\\",
+    "windows/system32",
+    "windows\\system32",
+    "/etc/",
+    "C:/vazus/AGENTS.md",
+    "C:\\vazus\\AGENTS.md",
+]
+
+DANGEROUS_COMMANDS = [
+    "format ",
+    "rmdir /s /q c:\\",
+    "del /f /s /q c:\\windows",
+    "reg delete",
+    "diskpart",
+]
 
 logger = logging.getLogger("vazus.pre_tool_hook")
 
 
 def _is_within_workspace(path_str: str) -> bool:
-    """Returns True if path is safely within one of the permitted workspace roots."""
+    """Returns True if path is safely within permitted workspace roots. Fail-Closed on error."""
     if not path_str:
-        return True
+        return False
     try:
         resolved = Path(path_str).resolve()
         return any(resolved.is_relative_to(root) for root in WORKSPACE_ROOTS)
-    except Exception:
-        return True  # fail-open for unresolvable paths (network, etc.)
+    except Exception as e:
+        logger.error(f"[PreToolHook] Failed to resolve path '{path_str}': {e}")
+        return False  # FAIL-CLOSED
 
 
-def _is_git_hook_injection(path_str: str) -> bool:
-    """Detects attempts to write into .git/hooks — classic supply-chain attack vector."""
+def _is_forbidden_path(path_str: str) -> bool:
+    """Detects attempts to write into .git, system paths, or immutable AGENTS.md."""
     if not path_str:
         return False
-    normalized = path_str.replace("\\", "/")
-    return ".git/hooks" in normalized
+    normalized = path_str.replace("\\", "/").lower()
+    return any(p.lower().replace("\\", "/") in normalized for p in FORBIDDEN_PATTERNS)
+
+
+def _is_dangerous_command(command_str: str) -> bool:
+    """Detects destructive system commands."""
+    if not command_str:
+        return False
+    cmd_lower = command_str.lower()
+    return any(danger in cmd_lower for danger in DANGEROUS_COMMANDS)
 
 
 def main():
     try:
-        input_data = json.load(sys.stdin)
-    except Exception:
-        # If we can't parse stdin, fail-open (don't block Antigravity on hook crash)
-        print(json.dumps({"decision": "allow", "reason": "PreToolHook: stdin parse error — fail-open"}))
+        raw_stdin = sys.stdin.read()
+        if not raw_stdin or not raw_stdin.strip():
+            # FAIL-CLOSED on empty input
+            print(json.dumps({"decision": "block", "reason": "[SECURITY] PreToolHook: Empty stdin received. Fail-closed."}))
+            return
+        input_data = json.loads(raw_stdin)
+    except Exception as e:
+        # FAIL-CLOSED on stdin parse error
+        print(json.dumps({"decision": "block", "reason": f"[SECURITY] PreToolHook parse error ({e}). Fail-closed."}))
         return
 
     tool_call = input_data.get("toolCall", {})
@@ -56,28 +88,39 @@ def main():
     args = tool_call.get("args", {})
 
     target_file = args.get("TargetFile") or args.get("AbsolutePath") or args.get("SearchPath") or ""
+    command_str = args.get("CommandLine") or ""
 
-    # Security Check 1: Git hook injection
-    if _is_git_hook_injection(target_file):
+    # Security Check 1: Command safety check
+    if command_str and _is_dangerous_command(command_str):
         response = {
             "decision": "block",
-            "reason": f"[SECURITY] Blocked write to .git/hooks: {target_file} — supply-chain injection prevention."
+            "reason": f"[SECURITY] Destructive system command rejected: '{command_str[:60]}...'"
         }
         print(json.dumps(response))
         return
 
-    # Security Check 2: Path traversal outside workspace
+    # Security Check 2: Forbidden paths (.git, root AGENTS.md, system dirs)
+    if target_file and _is_forbidden_path(target_file):
+        response = {
+            "decision": "block",
+            "reason": f"[SECURITY] Modification to protected/forbidden path blocked: '{target_file}'"
+        }
+        print(json.dumps(response))
+        return
+
+    # Security Check 3: Workspace Jail (must be inside C:/vazus or ~/.gemini)
     if target_file and not _is_within_workspace(target_file):
         response = {
             "decision": "block",
-            "reason": f"[SECURITY] Path traversal blocked: {target_file} is outside permitted workspace roots."
+            "reason": f"[SECURITY] Path traversal blocked: '{target_file}' is outside permitted workspace roots."
         }
         print(json.dumps(response))
         return
 
+    # All security checks passed
     response = {
         "decision": "allow",
-        "reason": f"PreToolHook: {tool_name} on '{target_file}' — path validated."
+        "reason": f"PreToolHook: {tool_name} validated within security boundary."
     }
     print(json.dumps(response))
 
