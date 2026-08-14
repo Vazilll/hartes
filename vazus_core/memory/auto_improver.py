@@ -22,6 +22,7 @@ import sys
 import ast
 import time
 import json
+import threading
 import sqlite3
 import logging
 import asyncio
@@ -850,13 +851,16 @@ class VazusAutoImprover:
 # ────────────────────────────────────────────────
 
 _default_improver: Optional[VazusAutoImprover] = None
+_improver_lock = threading.Lock()
 
 
 def get_auto_improver(max_iterations: int = 3) -> VazusAutoImprover:
-    """Returns the global singleton VazusAutoImprover instance."""
+    """Thread-safe getter for the global singleton VazusAutoImprover instance."""
     global _default_improver
     if _default_improver is None:
-        _default_improver = VazusAutoImprover(max_iterations=max_iterations)
+        with _improver_lock:
+            if _default_improver is None:
+                _default_improver = VazusAutoImprover(max_iterations=max_iterations)
     return _default_improver
 
 

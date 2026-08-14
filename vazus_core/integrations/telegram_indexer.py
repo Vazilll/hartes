@@ -16,19 +16,20 @@ from typing import List, Dict, Any, Optional, Set, Tuple
 from pathlib import Path
 
 
-# Lazy loader for UnifiedEmbeddingManager
+import threading
+
 _EMBEDDING_MANAGER_CACHE = None
+_EMBEDDING_LOCK = threading.Lock()
 
 
 def get_embedding_manager():
-    """Lazy loader for UnifiedEmbeddingManager instance."""
+    """Thread-safe lazy loader for UnifiedEmbeddingManager instance."""
     global _EMBEDDING_MANAGER_CACHE
     if _EMBEDDING_MANAGER_CACHE is None:
-        try:
-            from vazus_core.memory.embeddings import UnifiedEmbeddingManager
-        except ImportError:
-            from embeddings import UnifiedEmbeddingManager
-        _EMBEDDING_MANAGER_CACHE = UnifiedEmbeddingManager()
+        with _EMBEDDING_LOCK:
+            if _EMBEDDING_MANAGER_CACHE is None:
+                from vazus_core.memory.embeddings import UnifiedEmbeddingManager
+                _EMBEDDING_MANAGER_CACHE = UnifiedEmbeddingManager()
     return _EMBEDDING_MANAGER_CACHE
 
 

@@ -7,20 +7,22 @@ import sys
 import os
 import json
 
-sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+import threading
 
 _P2T_INSTANCE = None
+_P2T_LOCK = threading.Lock()
+
 
 def _get_pix2text():
     """
-    Cached module-level singleton to avoid re-initializing Pix2Text.from_config() on every call.
+    Thread-safe cached module-level singleton to avoid re-initializing Pix2Text on concurrent calls.
     """
     global _P2T_INSTANCE
     if _P2T_INSTANCE is None:
-        from pix2text import Pix2Text
-        _P2T_INSTANCE = Pix2Text.from_config()
+        with _P2T_LOCK:
+            if _P2T_INSTANCE is None:
+                from pix2text import Pix2Text
+                _P2T_INSTANCE = Pix2Text.from_config()
     return _P2T_INSTANCE
 
 def analyze_lab_report_image(image_path, user_prompt=None, extract_layout=True):

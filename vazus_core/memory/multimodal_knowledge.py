@@ -178,15 +178,18 @@ def get_whisper_model(model_size: str = "tiny", device: str = "cpu", compute_typ
     return model
 
 
+_EMBEDDING_MANAGER_CACHE = None
+_EMBEDDING_MANAGER_LOCK = threading.Lock()
+
+
 def get_embedding_manager():
-    """Lazy loader for UnifiedEmbeddingManager instance."""
+    """Thread-safe lazy loader for UnifiedEmbeddingManager instance."""
     global _EMBEDDING_MANAGER_CACHE
     if _EMBEDDING_MANAGER_CACHE is None:
-        try:
-            from vazus_core.memory.embeddings import UnifiedEmbeddingManager
-        except ImportError:
-            from embeddings import UnifiedEmbeddingManager
-        _EMBEDDING_MANAGER_CACHE = UnifiedEmbeddingManager()
+        with _EMBEDDING_MANAGER_LOCK:
+            if _EMBEDDING_MANAGER_CACHE is None:
+                from vazus_core.memory.embeddings import UnifiedEmbeddingManager
+                _EMBEDDING_MANAGER_CACHE = UnifiedEmbeddingManager()
     return _EMBEDDING_MANAGER_CACHE
 
 
