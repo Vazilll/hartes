@@ -21,7 +21,7 @@ from vazus_core.embeddings import UnifiedGoogleEmbedder, UnifiedEmbeddingManager
 from vazus_core.supergraph_linker import SuperGraphLinker
 
 
-def run_test_suite():
+def test_m2_r1_indexing_and_vector_search():
     print("=" * 70)
     print("🧪 MILESTONE 2 REQUIREMENT R1 VERIFICATION TEST SUITE")
     print("=" * 70)

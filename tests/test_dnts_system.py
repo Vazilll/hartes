@@ -10,7 +10,7 @@ sys.path.insert(0, "C:/vazus")
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-def run_tests():
+def test_dnts_system_integration():
     print("=" * 60)
     print("🧪 ЗАПУСК КОМПЛЕКСНОГО ТЕСТИРОВАНИЯ PORTLESS NATIVE СИСТЕМЫ DNTS")
     print("=" * 60)
