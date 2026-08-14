@@ -18,13 +18,14 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 from typing import Any
 
-from vazus_core.db import get_db_connection, DEFAULT_VAZUS_DB, pack_vector_f32, unpack_vector_f32
-from vazus_core.embeddings import get_embedding, UnifiedEmbeddingManager, get_embedding_manager
+from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB, pack_vector_f32, unpack_vector_f32
+from vazus_core.memory.embeddings import get_embedding, UnifiedEmbeddingManager, get_embedding_manager
+from vazus_core.engine.config import settings
 
-DB_PATH = os.getenv("VAZUS_DB_PATH", DEFAULT_VAZUS_DB)
-WIKI_DIR = r"C:\vazus\services\memory\semantic"
-SOUL_PATH = r"C:\vazus\services\memory\SOUL.md"
-USER_PATH = r"C:\vazus\services\memory\USER.md"
+DB_PATH = os.getenv("VAZUS_DB_PATH", str(settings.VAZUS_DB_PATH))
+WIKI_DIR = str(settings.WIKI_DIR)
+SOUL_PATH = str(settings.WIKI_DIR.parent / "SOUL.md")
+USER_PATH = str(settings.WIKI_DIR.parent / "USER.md")
 
 
 def init_db(db_path: str | None = None) -> sqlite3.Connection:

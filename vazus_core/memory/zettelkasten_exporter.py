@@ -20,20 +20,19 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Set, Union
 
-DEFAULT_WIKI_DIR = r"C:\vazus\services\memory\semantic\wiki"
-DEFAULT_DB_PATH = r"C:\vazus\services\memory\vazus.db"
-if not Path(DEFAULT_DB_PATH).exists() and Path(r"C:\vazus\services\memory\vazus.db").exists():
-    DEFAULT_DB_PATH = r"C:\vazus\services\memory\vazus.db"
-
-# Try importing SuperGraphLinker
 try:
-    from vazus_core.supergraph_linker import SuperGraphLinker
+    from vazus_core.engine.config import settings as _settings
+    DEFAULT_WIKI_DIR = str(_settings.WIKI_DIR)
+    DEFAULT_DB_PATH = str(_settings.VAZUS_DB_PATH)
 except ImportError:
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from vazus_core.supergraph_linker import SuperGraphLinker
-    except ImportError:
-        SuperGraphLinker = None
+    DEFAULT_WIKI_DIR = os.getenv("VAZUS_WIKI_DIR", r"C:\vazus\services\memory\semantic\wiki")
+    DEFAULT_DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
+
+# Try importing SuperGraphLinker via canonical path only
+try:
+    from vazus_core.engine.supergraph_linker import SuperGraphLinker
+except ImportError:
+    SuperGraphLinker = None
 
 
 def sanitize_zettel_id(raw_id: str) -> str:

@@ -25,7 +25,21 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-VAZUS_ROOT = Path("C:/vazus")
+VAZUS_ROOT = Path(os.getenv("VAZUS_WORKSPACE_DIR", "")) or _resolve_workspace_root()
+
+
+def _resolve_workspace_root() -> Path:
+    """Resolves workspace root relative to this file's location or env override."""
+    for parent in Path(__file__).resolve().parents:
+        if (parent / ".git").exists() or (parent / "services").exists() or parent.name.lower() == "vazus":
+            return parent
+    return Path("C:/vazus")
+
+
+VAZUS_ROOT = _resolve_workspace_root()
+# Allow override via env for CI/CD portability
+if os.getenv("VAZUS_WORKSPACE_DIR"):
+    VAZUS_ROOT = Path(os.environ["VAZUS_WORKSPACE_DIR"]).resolve()
 
 
 def get_staged_python_files() -> list[Path]:
@@ -197,9 +211,12 @@ def run_gate_3_smt_z3_contracts(staged_files: list[Path]) -> tuple[bool, list[st
     try:
         from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
         verifier = SMTZ3Verifier(depth=10)
-    except Exception as e:
-        # If Z3 cannot be imported, warn but do not block
-        return True, [f"SMT Z3 Verifier note: {e}"]
+    except ImportError as e:
+        strict = os.getenv("VAZUS_GATE_STRICT_SMT", "0") == "1"
+        msg = f"SMT Z3 unavailable ({e}). Set VAZUS_GATE_STRICT_SMT=1 to block commits when Z3 is missing."
+        if strict:
+            return False, [msg]
+        return True, [f"[WARN] {msg}"]
 
     for fpath in staged_files:
         if "test" in fpath.name.lower() or fpath.suffix != ".py":
@@ -221,8 +238,12 @@ def run_gate_4_concordia_jury(staged_files: list[Path]) -> tuple[bool, list[str]
     try:
         from vazus_core.verification.concordia_jury import ConcordiaJury
         jury = ConcordiaJury(effort_level="high", consensus_threshold=0.66)
-    except Exception as e:
-        return True, [f"Concordia Jury note: {e}"]
+    except ImportError as e:
+        strict = os.getenv("VAZUS_GATE_STRICT_JURY", "0") == "1"
+        msg = f"Concordia Jury unavailable ({e}). Set VAZUS_GATE_STRICT_JURY=1 to block commits when Jury is missing."
+        if strict:
+            return False, [msg]
+        return True, [f"[WARN] {msg}"]
 
     for fpath in staged_files:
         if "test" in fpath.name.lower() or fpath.suffix != ".py":
