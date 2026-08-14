@@ -18,6 +18,8 @@ from pathlib import Path
 WORKSPACE_ROOTS = [
     Path("C:/vazus").resolve(),
     Path.home() / ".gemini",
+    Path.home() / ".hermes",
+    Path.home() / ".mcp-colab",
 ]
 
 # Sensitive paths forbidden for agent modification
@@ -75,12 +77,12 @@ def main():
         raw_stdin = sys.stdin.read()
         if not raw_stdin or not raw_stdin.strip():
             # FAIL-CLOSED on empty input
-            print(json.dumps({"decision": "block", "reason": "[SECURITY] PreToolHook: Empty stdin received. Fail-closed."}))
+            print(json.dumps({"decision": "deny", "reason": "[SECURITY] PreToolHook: Empty stdin received. Fail-closed."}))
             return
         input_data = json.loads(raw_stdin)
     except Exception as e:
         # FAIL-CLOSED on stdin parse error
-        print(json.dumps({"decision": "block", "reason": f"[SECURITY] PreToolHook parse error ({e}). Fail-closed."}))
+        print(json.dumps({"decision": "deny", "reason": f"[SECURITY] PreToolHook parse error ({e}). Fail-closed."}))
         return
 
     tool_call = input_data.get("toolCall", {})
@@ -93,7 +95,7 @@ def main():
     # Security Check 1: Command safety check
     if command_str and _is_dangerous_command(command_str):
         response = {
-            "decision": "block",
+            "decision": "deny",
             "reason": f"[SECURITY] Destructive system command rejected: '{command_str[:60]}...'"
         }
         print(json.dumps(response))
@@ -102,16 +104,16 @@ def main():
     # Security Check 2: Forbidden paths (.git, root AGENTS.md, system dirs)
     if target_file and _is_forbidden_path(target_file):
         response = {
-            "decision": "block",
+            "decision": "deny",
             "reason": f"[SECURITY] Modification to protected/forbidden path blocked: '{target_file}'"
         }
         print(json.dumps(response))
         return
 
-    # Security Check 3: Workspace Jail (must be inside C:/vazus or ~/.gemini)
+    # Security Check 3: Workspace Jail (must be inside permitted roots)
     if target_file and not _is_within_workspace(target_file):
         response = {
-            "decision": "block",
+            "decision": "deny",
             "reason": f"[SECURITY] Path traversal blocked: '{target_file}' is outside permitted workspace roots."
         }
         print(json.dumps(response))
