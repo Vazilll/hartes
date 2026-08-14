@@ -1,20 +1,21 @@
-import sqlite3, os
+import re
+import os
+from pathlib import Path
+from vazus_core.memory.db import get_db_connection
+from vazus_core.engine.config import settings
 
-db_path = r"C:\vazus\services\memory\vazus.db"
-print("DB Path:", db_path, "Exists:", os.path.exists(db_path))
-
-if not os.path.exists(db_path):
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    print("Created directory for vazus.db")
-
-conn = sqlite3.connect(db_path)
+conn = get_db_connection()
 cur = conn.cursor()
 cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
 tables = cur.fetchall()
 print("Existing tables:", tables)
+
 for t in tables:
     t_name = t[0]
-    cur.execute(f"PRAGMA table_info({t_name})")
+    # Whitelist table name identifier
+    if not re.match(r"^[a-zA-Z0-9_]+$", t_name):
+        continue
+    cur.execute(f"PRAGMA table_info(\"{t_name}\")")
     cols = cur.fetchall()
     print(f"Table {t_name}: {[c[1] for c in cols]}")
 

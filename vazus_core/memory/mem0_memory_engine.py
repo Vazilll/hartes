@@ -15,8 +15,8 @@ from typing import List, Dict, Any, Optional
 import sys
 sys.path.insert(0, "C:/vazus")
 
-from vazus_core.db import get_db_connection
-from vazus_core.embeddings import get_embedding_manager
+from vazus_core.memory.db import get_db_connection
+from vazus_core.memory.embeddings import get_embedding_manager
 
 DB_PATH = r"C:\vazus\services\memory\vazus.db"
 

@@ -399,7 +399,7 @@ class UnifiedEmbeddingManager:
                         import json
                         node_emb = json.loads(emb_str)
                     else:
-                        from vazus_core.db import unpack_vector_f32
+                        from vazus_core.memory.db import unpack_vector_f32
                         node_emb = unpack_vector_f32(emb_str)
                     if len(node_emb) == self.dimension:
                         candidate_rows.append((r, props, transcript_text))

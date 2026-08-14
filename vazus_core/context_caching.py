@@ -17,8 +17,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from vazus_core.embeddings import UnifiedEmbeddingManager
-from vazus_core.ast_pruner import ASTPruner
+from vazus_core.memory.embeddings import UnifiedEmbeddingManager
+from vazus_core.verification.ast_pruner import ASTPruner
 
 
 class SuperGraphContextCompactor:

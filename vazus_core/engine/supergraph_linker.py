@@ -18,7 +18,7 @@ VAZUS_DIR = Path("C:/vazus")
 if str(VAZUS_DIR) not in sys.path:
     sys.path.insert(0, str(VAZUS_DIR))
 
-from vazus_core.embeddings import UnifiedGoogleEmbedder
+from vazus_core.memory.embeddings import UnifiedGoogleEmbedder
 
 DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
 if not DEFAULT_DB_PATH.exists() and Path("C:/vazus/services/memory/vazus.db").exists():

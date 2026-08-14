@@ -20,6 +20,15 @@ DIALOGUES_DIR = r"G:\Мой диск\ai\dialogues cli"
 OUTPUT_PATH = r"G:\Мой диск\ai\brain_state.md"
 
 
+def log_export_state(status: str = "SUCCESS", details: str = "") -> dict:
+    """Logs the export state of the brain state export pipeline."""
+    return {
+        "status": status,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "details": details or "Brain state exported successfully",
+    }
+
+
 def read_user_md():
     """Read USER.md and split into profile and backlog sections."""
     try:
@@ -192,9 +201,10 @@ def get_knowledge_graph_stats():
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
             tables = [r[0] for r in cursor.fetchall()]
             for table in tables:
-                cursor.execute(f"SELECT COUNT(*) FROM [{table}]")
-                count = cursor.fetchone()[0]
-                stats_lines.append(f"- **{table}**: {count} записей")
+                if re.match(r"^[a-zA-Z0-9_]+$", table):
+                    cursor.execute(f"SELECT COUNT(*) FROM \"{table}\"")
+                    count = cursor.fetchone()[0]
+                    stats_lines.append(f"- **{table}**: {count} записей")
             conn.close()
         except Exception as e:
             stats_lines.append(f"*Ошибка чтения graph.db: {e}*")

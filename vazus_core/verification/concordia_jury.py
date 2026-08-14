@@ -14,9 +14,9 @@ import inspect
 from dataclasses import dataclass, field
 from typing import Any, Optional, Dict, List
 
-from vazus_core.reasoning_effort_controller import ReasoningEffortController
-from vazus_core.smt_z3_verifier import SMTZ3Verifier
-from vazus_core.llm_client import async_generate_llm
+from vazus_core.engine.reasoning_effort_controller import ReasoningEffortController
+from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
+from vazus_core.engine.llm_client import async_generate_llm
 
 logger = logging.getLogger("ConcordiaJury")
 

@@ -183,7 +183,7 @@ def get_embedding_manager():
     global _EMBEDDING_MANAGER_CACHE
     if _EMBEDDING_MANAGER_CACHE is None:
         try:
-            from vazus_core.embeddings import UnifiedEmbeddingManager
+            from vazus_core.memory.embeddings import UnifiedEmbeddingManager
         except ImportError:
             from embeddings import UnifiedEmbeddingManager
         _EMBEDDING_MANAGER_CACHE = UnifiedEmbeddingManager()

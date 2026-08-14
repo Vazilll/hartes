@@ -19,8 +19,8 @@ VAZUS_DIR = Path("C:/vazus")
 if str(VAZUS_DIR) not in sys.path:
     sys.path.insert(0, str(VAZUS_DIR))
 
-from vazus_core.embeddings import UnifiedEmbeddingManager
-from vazus_core.ast_pruner import ASTPruner
+from vazus_core.memory.embeddings import UnifiedEmbeddingManager
+from vazus_core.verification.ast_pruner import ASTPruner
 
 DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
 EXCLUDED_DIRS = {".git", ".venv", "node_modules", "__pycache__", ".agents", "dist", "build", "coverage", ".next"}
