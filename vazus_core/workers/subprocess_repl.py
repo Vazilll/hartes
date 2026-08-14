@@ -116,9 +116,10 @@ class ZeroTrustSubprocessREPL:
     Subprocess-Isolated REPL executing untrusted Python in isolated tempdir
     with sanitized environment, CPU timeout, and kernel memory bounding.
     """
-    def __init__(self, memory_limit_mb: int = 512, timeout_seconds: float = 10.0):
+    def __init__(self, memory_limit_mb: int = 512, timeout_seconds: float = 10.0, require_kernel_sandbox: bool = True):
         self.memory_limit_bytes = memory_limit_mb * 1024 * 1024
         self.timeout_seconds = timeout_seconds
+        self.require_kernel_sandbox = require_kernel_sandbox
         self.python_bin = getattr(sys, "_base_executable", sys.executable)
 
     def execute_code(self, code: str, context: Optional[Dict[str, Any]] = None) -> SubprocessREPLResult:
@@ -172,10 +173,14 @@ except Exception as err:
             "PYTHONUTF8": "1",
         }
 
-        # 4. Spawn Subprocess with -I (Isolated) -S (No site-packages) -B (No .pyc)
-        cmd = [self.python_bin, "-I", "-S", "-B", "-u", harness_path]
-        
+        # 4. Kernel Sandbox Verification (Fail-Secure)
         job_handle = create_win32_sandbox_job(self.memory_limit_bytes)
+        if sys.platform == "win32" and not job_handle and self.require_kernel_sandbox:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise RuntimeError("SecurityIsolationError: Win32 Job Object creation failed — refusing to execute untrusted code without kernel memory bounds.")
+
+        # 5. Spawn Subprocess with -I (Isolated) -S (No site-packages) -B (No .pyc)
+        cmd = [self.python_bin, "-I", "-S", "-B", "-u", harness_path]
         proc = subprocess.Popen(
             cmd,
             cwd=temp_dir,
@@ -187,7 +192,12 @@ except Exception as err:
         )
 
         if job_handle:
-            assign_process_to_job(job_handle, proc.pid)
+            assigned = assign_process_to_job(job_handle, proc.pid)
+            if not assigned and sys.platform == "win32" and self.require_kernel_sandbox:
+                proc.kill()
+                kernel32.CloseHandle(job_handle)
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                raise RuntimeError("SecurityIsolationError: Failed to assign process to Win32 Job Object sandbox.")
 
         # 5. Monitored Execution with Timeout
         try:

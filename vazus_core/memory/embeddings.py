@@ -146,19 +146,24 @@ class OpenVINONPUEmbedder:
         return self.embed_tokens(tokens)
 
 
+import threading
+
 _shared_avx512_engine = None
+_avx512_engine_lock = threading.Lock()
 
 
 def _get_shared_avx512_engine(dimension: int = 768):
     global _shared_avx512_engine
     if _shared_avx512_engine is None:
-        if AVX512VectorEngine is not None:
-            try:
-                _shared_avx512_engine = AVX512VectorEngine(dim=dimension)
-            except Exception:
-                _shared_avx512_engine = False
-        else:
-            _shared_avx512_engine = False
+        with _avx512_engine_lock:
+            if _shared_avx512_engine is None:
+                if AVX512VectorEngine is not None:
+                    try:
+                        _shared_avx512_engine = AVX512VectorEngine(dim=dimension)
+                    except Exception:
+                        _shared_avx512_engine = False
+                else:
+                    _shared_avx512_engine = False
     return _shared_avx512_engine if _shared_avx512_engine is not False else None
 
 

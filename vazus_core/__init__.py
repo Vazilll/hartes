@@ -20,6 +20,7 @@ _SUBPKG_MAP = {
     "circuit_breaker": "engine", "llm_client": "engine", "config": "engine", "exceptions": "engine",
     "utils": "engine", "supergraph_master_orchestrator": "engine", "supergraph_linker": "engine",
     "dynamic_skill_dispatcher": "engine", "unified_reasoning_pipeline": "engine", "ast_repo_mapper": "engine",
+    "operator_dag": "engine",
     # verification
     "smt_z3_verifier": "verification", "concordia_jury": "verification", "sota2027_jury": "verification",
     "ast_pruner": "verification", "git_provenance": "verification", "safety_guardrail": "verification",
