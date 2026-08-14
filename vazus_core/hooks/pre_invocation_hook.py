@@ -24,12 +24,13 @@ except Exception:
 
 MCP_INSTRUCTIONS = """## 🔧 Vazus OS MCP Tools Available (call via `call_mcp_tool`)
 
-### Server: `codebase-memory-mcp` (AST Code Graph — 683K nodes)
-- `get_architecture` — Codebase architecture overview. Args: `{"aspects": ["overview"], "project": "C-vazus"}`
-- `search_code` — Semantic code search. Args: `{"query": "...", "project": "C-vazus"}`
-- `query_graph` — Cypher-like graph query. Args: `{"query": "MATCH ...", "project": "C-vazus"}`
-- `trace_path` — Trace call path between symbols. Args: `{"from_symbol": "A", "to_symbol": "B", "project": "C-vazus"}`
-- `get_code_snippet` — Get source by qualified name. Args: `{"qualified_name": "C-vazus.module.func", "project": "C-vazus"}`
+### Server: `ckb` (Codebase Knowledge Base — AST Symbol & Reference Graph)
+- `explore` — Explore codebase topology. Args: `{"path": "vazus_core"}`
+- `searchSymbols` — Find symbol definitions across the codebase. Args: `{"query": "..."}`
+- `findReferences` — Find all usages/calls of a symbol. Args: `{"symbol": "..."}`
+- `getCallGraph` — Get hierarchical call graph for a function/class. Args: `{"symbol": "..."}`
+- `analyzeImpact` — Analyze blast radius of changes. Args: `{"symbol": "..."}`
+- `planRefactor` — Plan refactoring steps. Args: `{"target": "..."}`
 
 ### Server: `vazus-organic` (Memory, AST Pruning, Z3 Proofs, Evolution)
 - `vazus_organic_recall` — Search 768D vector memory. Args: `{"query": "...", "top_k": 5}`
@@ -38,14 +39,8 @@ MCP_INSTRUCTIONS = """## 🔧 Vazus OS MCP Tools Available (call via `call_mcp_t
 - `vazus_smt_z3_verify` — Formal Z3 contract proof. Args: `{"code": "...", "depth": 10}`
 - `vazus_darwinian_evolve` — Genetic mutation + pytest fitness (run via subagent). Args: `{"target_module": "vazus_core", "generations": 2}`
 
-### Server: `vazus-reasoning` (Reasoning & Jury)
-- `vazus_smt_z3_verify_contract` — Contract-style Z3 verification.
-- `vazus_concordia_jury_vote` — Cast formal jury vote (APPROVED/REJECTED).
-
 ### Execution Note for Subagents
 - If `call_mcp_tool` is present in your tool schema, use `call_mcp_tool` directly.
-- If `call_mcp_tool` is NOT in your tool schema, call MCP tools via `run_command`:
-  `python C:\\vazus\\vazus_core\\mcp_client.py <server_name> <tool_name> '<json_args>'`
 - Python Virtualenv: `C:\\vazus\\.venv\\Scripts\\python.exe`
 - Workspace: `C:\\vazus` (must be in sys.path)
 """
@@ -248,12 +243,23 @@ def main():
         skills_block = build_skills_injection(matched_skills)
         memory_block = auto_retrieve_memory(user_prompt, invocation_num)
 
+        repo_map_block = ""
+        if invocation_num == 0:
+            try:
+                from vazus_core.engine.ast_repo_mapper import ASTRepoMapper
+                mapper = ASTRepoMapper()
+                repo_map_block = mapper.build_repo_map(max_tokens=1000)
+            except Exception:
+                repo_map_block = ""
+
         # Base message: MCP instructions on turn 0, empty string on subsequent turns
         full_message = MCP_INSTRUCTIONS if invocation_num == 0 else ""
         if memory_block:
             full_message += memory_block
         if skills_block:
             full_message += skills_block
+        if repo_map_block:
+            full_message += f"\n{repo_map_block}\n"
 
         # --- HUD visibility: log what we're injecting ---
         injected_skills = [{"name": s["name"], "score_pct": int(s["score"] * 100)} for s in matched_skills]
