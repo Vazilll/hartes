@@ -1,10 +1,11 @@
 """
-vazus_core.unified_reasoning_pipeline — Unified Master Reasoning Pipeline.
-Combines 4 reasoning layers into a seamless, sequential, laconic execution pipeline:
-  1. Sequential Thinking (Dynamic CoT / Tree-of-Thought)
-  2. MIT RLM LocalREPL (Execution-guided empirical validation)
-  3. SMT Z3 Theorem Prover (Formal mathematical logic verification)
-  4. Concordia Multi-Agent Jury (3-subagent quorum consensus >=66%)
+vazus_core.unified_reasoning_pipeline — Unified Master Verification Pipeline.
+
+Combines 4 verification layers into an asynchronous, robust pipeline:
+  Phase 0: Google Jules Cloud VM Pre-Commit Verification (with local fallback)
+  Phase 1: AST Pruning & Signature Optimization (via ASTPruner)
+  Phase 2: SMT Z3 Theorem Prover Contract Verification (thread-offloaded)
+  Phase 3: Concordia Multi-Agent Jury Quorum Voting (>=66% consensus)
 """
 
 import asyncio
@@ -14,14 +15,13 @@ from vazus_core.verification.ast_pruner import ASTPruner
 from vazus_core.verification.concordia_jury import ConcordiaJury
 from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
 from vazus_core.engine.reasoning_effort_controller import ReasoningEffortController
-from vazus_core.engine.exceptions import JuryConsensusError, SMTVerificationError
 from vazus_core.workers.jules_client import JulesClient
 
 
 class UnifiedReasoningPipeline:
     """
-    Unified Master Reasoning Engine orchestrating Sequential Thinking,
-    REPL execution, SMT Z3 formal logic proof, and Concordia Jury voting.
+    Unified Master Verification Engine orchestrating Google Jules Cloud VM,
+    AST signature pruning, SMT Z3 formal logic proof, and Concordia Jury quorum.
     """
 
     def __init__(self, effort_level: str = "high"):

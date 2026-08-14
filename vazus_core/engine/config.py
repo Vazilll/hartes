@@ -102,3 +102,5 @@ class Settings:
 
 
 settings = Settings()
+VAZUS_ROOT = settings.WORKSPACE_DIR
+

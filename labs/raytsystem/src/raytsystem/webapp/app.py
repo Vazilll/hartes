@@ -1465,10 +1465,7 @@ def create_app(
     def get_ledger(limit: int = 100) -> dict[str, Any]:
         import sqlite3
         db_paths = [
-            Path("C:/vazus/services/memory/vazus.db"),
-            Path("C:/vazus/memory/vazus.db"),
-            Path("C:/vazus/vazus.db"),
-            Path("C:/vazus/memory/dnts.db")
+            Path("C:/vazus/services/memory/vazus.db"),  # canonical — единственная БД
         ]
         for db_path in db_paths:
             if not db_path.is_file():
@@ -1506,7 +1503,7 @@ def create_app(
     @app.get("/api/v1/full-graph")
     def full_graph_data():
         import sqlite3
-        db_path = Path("C:/vazus/memory/dnts.db")
+        db_path = Path("C:/vazus/services/memory/vazus.db")
         if not db_path.is_file():
             return {"nodes": [], "links": []}
         try:

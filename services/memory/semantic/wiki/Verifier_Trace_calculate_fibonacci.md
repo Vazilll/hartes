@@ -2,7 +2,7 @@
 title: "Verifier_Trace_calculate_fibonacci"
 agent: "verifier_worker"
 trace_kind: "CODE_VERIFICATION"
-created_at: "2026-07-23 00:00:29"
+created_at: "2026-08-09 20:48:24"
 tags:
   - subagent
   - memory_trace
@@ -14,8 +14,8 @@ tags:
 
 > **Agent**: [[verifier_worker]]  
 > **Trace Kind**: `CODE_VERIFICATION`  
-> **Timestamp**: 2026-07-23 00:00:29  
-> **Summary**: Verifier worker status: overall_success=True
+> **Timestamp**: 2026-08-09 20:48:24  
+> **Summary**: Verifier worker status: overall_success=False
 
 ---
 
@@ -23,8 +23,8 @@ tags:
 
 Syntax: {'success': True, 'ast_parse': 'PASSED', 'functions_found': ['calculate_fibonacci'], 'classes_found': [], 'error': None}
 Contract: {'success': True, 'contract_test': 'PASSED', 'verified_functions': ['calculate_fibonacci']}
-SMT Z3: {'success': True, 'status': 'UNSAT', 'contract_satisfied': True, 'smt_z3_depth': 10, 'functions_verified': ['calculate_fibonacci'], 'preconditions': ['n >= 0'], 'postconditions': ['result >= 0'], 'details': [{'function': 'calculate_fibonacci', 'preconditions': ['n >= 0'], 'postconditions': ['result >= 0'], 'smt_result': {'smt_status': 'UNSAT', 'contract_satisfied': True, 'reason': 'Contract verified: UNSAT (no counterexample model exists)'}}], 'model_checking': {'solver': 'Z3_SMT_Solver', 'satisfiable': False, 'counterexample': None, 'proof_status': 'VERIFIED_UNSAT_NO_COUNTEREXAMPLE'}}
-Execution: {'success': True, 'execution': 'PASSED', 'timeout': 10}
+SMT Z3: VerificationResult(verified=False, smt_solver_status='SAT', contract_satisfied=False, counterexample={'_note': 'counterexample exists but no model vars captured'}, proof_details="Contract violation found for function 'calculate_fibonacci'.", ast_valid=True, error_message='', proof_type='SMT_Z3_CONTRACT', solver_status='SAT', structured_details=[{'function': 'calculate_fibonacci', 'smt_result': {'counterexample': {'_note': 'counterexample exists but no model vars captured'}, 'status': 'SAT', 'message': "Contract violation found for function 'calculate_fibonacci'."}}])
+Execution: {'success': True, 'execution': 'PASSED', 'timeout': 10, 'stdout': '', 'stderr': '', 'error': None}
 
 ---
 

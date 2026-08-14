@@ -68,11 +68,11 @@ def detect_skills(files: list[str]) -> set[str]:
             skills.add(SKILL_TRIGGERS[ext])
     return skills
 
-# ── Step 1: Save Memory Trace to vazus.db ─────────────────────────────────────
+# ── Step 1: Save Memory Trace to vazus.db with 768D Vector Embeddings ─────────
 def save_memory_trace(commit: dict, skills: set) -> str:
-    """Write structured commit memory trace to System 2 slow memory."""
+    """Write structured commit memory trace to System 2 slow memory with 768D vectors."""
     summary = f"[{commit['branch']}] {commit['short']}: {commit['message']}"
-    content = json.dumps({
+    content_dict = {
         "hash": commit["hash"],
         "branch": commit["branch"],
         "message": commit["message"],
@@ -80,22 +80,61 @@ def save_memory_trace(commit: dict, skills: set) -> str:
         "skills_triggered": list(skills),
         "stats": commit["stats"],
         "recorded_at": datetime.now().isoformat(),
-    }, ensure_ascii=False, indent=2)
-
+    }
+    content = json.dumps(content_dict, ensure_ascii=False, indent=2)
     note_path = f"Commits/{commit['short']}.md"
 
-    conn = sqlite3.connect(str(DB_PATH))
+    # Compute real 768D vector embedding for semantic search / MCP recall
+    vector_768d = []
     try:
-        conn.execute("""
-            INSERT INTO subagent_memory_traces
-                (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
-            VALUES (?, ?, ?, ?, ?, datetime('now'))
-        """, ("tars-git-hook", "commit", summary, content, note_path))
-        conn.commit()
-    finally:
-        conn.close()
+        sys.path.insert(0, str(VAZUS_ROOT))
+        from vazus_core.memory.embeddings import get_embedding
+        embed_text = f"Git Commit {commit['short']}: {commit['message']}. Branch: {commit['branch']}. Files: {', '.join(commit['files'])}. Skills: {', '.join(skills)}"
+        vector_768d = get_embedding(embed_text)
+    except Exception as e:
+        print(f"  ⚠️  [Embedder Note] Could not compute vector: {e}")
 
-    print(f"  ✅ [DB] Memory trace saved: {summary}")
+    try:
+        from vazus_core.memory.db import get_db_connection
+        with get_db_connection() as conn:
+            conn.execute("""
+                INSERT INTO subagent_memory_traces
+                    (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+            """, ("tars-git-hook", "commit", summary, content, note_path))
+
+            node_id = f"commit_{commit['short']}"
+            tags_str = "#git #commit " + " ".join(f"#{s}" for s in skills)
+            conn.execute("""
+                INSERT OR REPLACE INTO kg_nodes 
+                    (id, name, domain, node_type, description, tags, properties, embedding_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                node_id,
+                f"Commit {commit['short']}",
+                "git_commit",
+                "commit",
+                summary,
+                tags_str,
+                content,
+                json.dumps(vector_768d) if vector_768d else None
+            ))
+            conn.commit()
+    except Exception as e:
+        # Fallback to direct sqlite connection if module import has issues
+        conn = sqlite3.connect(str(DB_PATH))
+        try:
+            conn.execute("""
+                INSERT INTO subagent_memory_traces
+                    (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+            """, ("tars-git-hook", "commit", summary, content, note_path))
+            conn.commit()
+        finally:
+            conn.close()
+
+    dim_info = f" ({len(vector_768d)}D vector)" if vector_768d else ""
+    print(f"  ✅ [DB] Memory trace + KG node saved: {summary}{dim_info}")
     return note_path
 
 # ── Step 2: Create/Update Obsidian Zettelkasten Note ─────────────────────────

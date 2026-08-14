@@ -1,33 +1,25 @@
 {
     "mcpServers": {
-        "dnts-brain": {
-            "command": "C:\\vazus\\gomcp\\dnts-brain.exe",
-            "description": "44 tools: system, files, bash, search, graph, skills, obsidian, mythos, RAG FTS5, deep research"
-        },
         "sequential-thinking": {
-            "command": "npx",
+            "command": "npx.cmd",
             "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"],
             "description": "Structured step-by-step reasoning"
         },
-        "codebase-graph": {
-            "command": "C:\\vazus\\bin\\codebase-memory-mcp.exe",
-            "args": ["--ui=true"],
-            "description": "Codebase knowledge graph"
-        },
-        "desktop-commander": {
-            "command": "npx",
-            "args": ["-y", "@wonderwhy-er/desktop-commander@latest"],
-            "description": "Full terminal + process control with live output"
-        },
-        "filesystem": {
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem@latest", "C:\\vazus"],
-            "description": "Safe filesystem operations"
-        },
+
         "playwright": {
-            "command": "npx",
+            "command": "npx.cmd",
             "args": ["-y", "@playwright/mcp@latest"],
             "description": "Browser automation"
+        },
+        "colab-mcp": {
+            "command": "C:\\vazus\\.venv\\Scripts\\python.exe",
+            "args": ["-m", "colab_mcp"],
+            "description": "Google Colab Cloud GPU & Notebook execution"
+        },
+        "ckb": {
+            "command": "ckb.cmd",
+            "args": ["mcp"],
+            "description": "Code Knowledge Backend (SCIP + LSP + Blast Radius + Semantic Impact Analysis)"
         }
     }
 }

@@ -10,7 +10,6 @@ import os
 import json
 import logging
 import asyncio
-import inspect
 from dataclasses import dataclass, field
 from typing import Any, Optional, Dict, List
 
@@ -39,7 +38,10 @@ def _get_persona_prompts() -> dict[str, str]:
             "Evaluation Criteria:\n"
             "1. AST & Logic validity: Valid Python syntax, correct function signatures, proper control flow.\n"
             "2. Execution efficiency & safety: High computational efficiency, robust error handling, no resource leaks.\n"
-            "3. Functional correctness: Logic fulfills the intended requirement without unintended side effects.\n\n"
+            "3. CONTRACT correctness (CRITICAL): If the function has :requires: and :ensures: docstring annotations, "
+            "verify that the function body MATHEMATICALLY satisfies those postconditions for all valid inputs. "
+            "A function that violates its own :ensures: contracts MUST receive verdict FAIL — regardless of what the docstring *describes* or *intends*. "
+            "The contract is the ground truth, not the prose description.\n\n"
             "Respond ONLY with a valid JSON object matching this schema:\n"
             "{\"agent\": \"RLM_Coder\", \"approved\": true, \"verdict\": \"PASS\", \"reason\": \"<summary>\"}\n"
         ),
@@ -541,10 +543,15 @@ class ConcordiaJury:
                     "verdict": "PASS" if smt_satisfied else "FAIL",
                     "reason": "SMT contract check (Fallback)"
                 }
-            except Exception:
-                return {"agent": agent_name, "approved": True, "verdict": "PASS", "reason": "Fallback default pass"}
+            except Exception as smt_exc:
+                return {"agent": agent_name, "approved": False, "verdict": "FAIL",
+                        "reason": f"SMT check exception — abstaining (Fallback: {smt_exc})"}
 
-        return {"agent": agent_name, "approved": True, "verdict": "PASS", "reason": f"AST valid pass (Fallback: {error_msg})"}
+        # CVE-V3: LLM call failure is not a vote of confidence. Returning PASS on error would
+        # allow 2 failed agents to push 66% consensus on broken code. FAIL = safe default.
+        return {"agent": agent_name, "approved": False, "verdict": "FAIL",
+                "reason": f"LLM call failed — abstaining to preserve rejection safety (Fallback: {error_msg})"}
+
 
 
 # Alias for backward compatibility and spec alignment

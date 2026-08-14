@@ -33,22 +33,22 @@ from vazus_core.supergraph_linker import (
 )
 
 
-def run_verification():
+def run_verification(db_path=None):
     print("=" * 60)
     print("🧪 UNIFIED SUPERGRAPH & 768D EMBEDDINGS INTEGRATION TEST")
     print("=" * 60)
+
+    db_file = db_path or r"C:\vazus\services\memory\vazus.db"
 
     # Step 1: Verify 768D Embeddings
     print("\n1. Testing Google Gemini 768D Embedder...")
     embedder = UnifiedGoogleEmbedder()
     test_text = "def supergraph_linking_kernel(): return '768D Vector Space Alignment'"
-    vec = embedder.embed_query(test_text)
-    
+    vec = embedder.embed_query(test_text, db_path=db_file)
     print(f"   - Generated vector length: {len(vec)}")
     assert len(vec) == 768, f"Error: Vector dimension must be 768, got {len(vec)}"
     assert isinstance(vec[0], float), "Error: Vector elements must be floats"
     print("   ✅ 768D Vector Dimension Verified.")
-
     # Step 2: Verify 4-Component Hybrid Metric Functions
     print("\n2. Testing 4-Component Hybrid Metric Functions...")
     sample_ast = {
@@ -87,7 +87,7 @@ def run_verification():
     s_structural = calculate_structural_similarity(sample_ast, sample_wiki)
     s_provenance = calculate_provenance_similarity(sample_ast, sample_wiki)
 
-    linker = SuperGraphLinker()
+    linker = SuperGraphLinker(db_path=db_file)
     metrics = linker.compute_hybrid_metric(sample_ast, sample_wiki, emb_ast, emb_wiki)
 
     expected_score = (
@@ -157,10 +157,9 @@ def run_verification():
     print("=" * 60)
 
 
-def test_supergraph_integration():
-    run_verification()
+def test_supergraph_integration(tmp_path):
+    run_verification(db_path=str(tmp_path / "test_vazus.db"))
 
 
 if __name__ == "__main__":
     run_verification()
-

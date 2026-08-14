@@ -1,16 +1,20 @@
 """
-vazus_core.reasoning_effort_controller — Dynamic Test-Time Compute Scaling & Effort Slider Engine.
+vazus_core.reasoning_effort_controller — Execution & Orchestration Policy Controller.
 
-Maps Effort score [0.0, 1.0] or level ('low', 'medium', 'high', 'xhigh', 'ultra') to concrete execution budgets:
-- thinking_budget (tokens, dynamically clamped to model max_output_tokens envelope)
-- mcts_simulations
-- repl_steps
-- subagent_depth
-- smt_z3_depth
+Maps Effort score [0.0, 1.0] or level ('low', 'medium', 'high', 'xhigh', 'ultra') to concrete
+subsystem execution budgets:
+- subagent_model: Recommended model tier for invoke_subagent ("flash", "inherit", "pro")
+- smt_z3_depth: Formal logic contract proof depth (5 to 30)
+- repl_max_iterations: Maximum LocalREPL code trial iterations (3 to 25)
+- repl_timeout_seconds: REPL execution timeout in sandbox (5s to 60s)
+- verification_tier: Verification gate intensity ("fast", "standard", "strict")
+- thinking_budget: Advisory token budget for external blueprints (Note: host agent thinking is controlled by Antigravity UI)
 """
 
-import math
-from typing import Dict, Any, Union, Optional
+import logging
+from typing import Dict, Any, Union
+
+logger = logging.getLogger(__name__)
 
 LEVEL_PRESETS = {
     "low": 0.1,
@@ -20,7 +24,7 @@ LEVEL_PRESETS = {
     "ultra": 1.0
 }
 
-# 2026 Model Context & Max Output Token Limits
+# 2026 Model Context & Max Output Token Limits (advisory for external API wrappers)
 MODEL_LIMITS = {
     "gemini-3.6-flash": {"max_output": 65536, "context_window": 1048576},
     "gemini-3.1-pro": {"max_output": 65536, "context_window": 2097152},
@@ -30,8 +34,11 @@ MODEL_LIMITS = {
 }
 
 
-class ReasoningEffortController:
-    """Controller for dynamic Test-Time Compute (TTC) scaling and provider budget clamping."""
+class ExecutionPolicyController:
+    """
+    Controller for local execution policies, verification depths, sandbox budgets,
+    and subagent model dispatching.
+    """
 
     @staticmethod
     def get_config(
@@ -41,8 +48,8 @@ class ReasoningEffortController:
         safety_headroom: int = 4096
     ) -> Dict[str, Any]:
         """
-        Calculates execution parameters and dynamically clamps thinking_budget to prevent
-        FINISH_REASON: MAX_TOKENS truncation or provider context limit overflow.
+        Calculates concrete execution parameters for local workers, Z3 verification,
+        and subagent delegation.
         """
         if isinstance(effort, str):
             score = LEVEL_PRESETS.get(effort.lower(), 0.65)
@@ -60,41 +67,67 @@ class ReasoningEffortController:
             else:
                 level_name = "ultra"
 
-        # Logarithmic scaling laws formula for base tokens
+        # Advisory token budget calculation for external blueprint callers
         raw_tokens = int(1024 * ((65536 / 1024) ** (score ** 1.2)))
-        
-        # Model-aware Context Clamping
         limits = MODEL_LIMITS.get(model_key.lower(), MODEL_LIMITS["default"])
         max_output = limits["max_output"]
         context_window = limits["context_window"]
-
-        # Dynamic Safety Envelope: ensure prompt + thinking + headroom <= context_window
         available_headroom = max(1024, context_window - prompt_tokens - safety_headroom)
         clamped_thinking_budget = min(raw_tokens, max_output - safety_headroom, available_headroom)
         clamped_thinking_budget = max(0, clamped_thinking_budget)
 
-        # Compute scaling parameters
-        mcts_sims = int(10 * ((2000 / 10) ** score))
-        repl_steps = int(5 * (2 ** (4 * score)))
+        # Concrete local execution parameters
+        if score <= 0.2:
+            subagent_model = "flash"
+            repl_steps = 3
+            repl_timeout = 5.0
+            smt_z3_depth = 5
+            verification_tier = "fast"
+        elif score <= 0.5:
+            subagent_model = "flash"
+            repl_steps = 5
+            repl_timeout = 10.0
+            smt_z3_depth = 10
+            verification_tier = "standard"
+        elif score <= 0.75:
+            subagent_model = "inherit"
+            repl_steps = 10
+            repl_timeout = 20.0
+            smt_z3_depth = 15
+            verification_tier = "strict"
+        elif score <= 0.9:
+            subagent_model = "pro"
+            repl_steps = 15
+            repl_timeout = 30.0
+            smt_z3_depth = 20
+            verification_tier = "strict"
+        else:
+            subagent_model = "pro"
+            repl_steps = 25
+            repl_timeout = 60.0
+            smt_z3_depth = 30
+            verification_tier = "strict"
+
         subagent_depth = int(1 + 5 * score)
-        smt_z3_depth = int(score * 20)
 
         return {
             "level": level_name,
             "effort_score": round(score, 3),
-            "thinking_budget": clamped_thinking_budget,
-            "raw_thinking_budget": raw_tokens,
-            "max_output_tokens": max_output,
-            "prompt_tokens": prompt_tokens,
-            "mcts_simulations": mcts_sims,
-            "repl_steps": repl_steps,
+            "subagent_model": subagent_model,
             "subagent_depth": subagent_depth,
             "smt_z3_depth": smt_z3_depth,
+            "mcts_simulations": 0,
+            "repl_steps": repl_steps,
+            "repl_max_iterations": repl_steps,
+            "repl_timeout_seconds": repl_timeout,
+            "verification_tier": verification_tier,
+            # Advisory token envelope (host LLM thinking is configured via Antigravity UI)
+            "thinking_budget": clamped_thinking_budget,
+            "max_output_tokens": max_output,
+            "prompt_tokens": prompt_tokens,
             "model_key": model_key,
         }
 
 
-if __name__ == "__main__":
-    for lvl in ["low", "medium", "high", "xhigh", "ultra"]:
-        cfg = ReasoningEffortController.get_config(lvl, model_key="gemini-3.6-flash", prompt_tokens=10000)
-        print(f"Level: {lvl.upper():<7} -> ThinkingBudget: {cfg['thinking_budget']:<6} | MCTS: {cfg['mcts_simulations']:<4} | REPL: {cfg['repl_steps']:<3}")
+# Backwards compatibility alias
+ReasoningEffortController = ExecutionPolicyController

@@ -59,14 +59,14 @@ class SubagentVerifierBridge:
 
         return (len(errors) == 0), errors
 
-    def verify_smt_contracts(self, code_snippet: str, depth: int = 10) -> Dict[str, Any]:
+    def verify_smt_contracts(self, code_snippet: str) -> Dict[str, Any]:
         """
         Runs SMT Z3 formal verification if available.
         """
         try:
             from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
             verifier = SMTZ3Verifier()
-            return verifier.verify_code_contract(code_snippet, max_depth=depth)
+            return verifier.verify_code_contracts(code_snippet).to_dict()
         except Exception as e:
             return {
                 "status": "SKIPPED",

@@ -23,15 +23,9 @@ WORKSPACE_ROOT = str(Path(__file__).resolve().parent.parent.parent)
 if WORKSPACE_ROOT not in sys.path:
     sys.path.insert(0, WORKSPACE_ROOT)
 
-from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
-from vazus_core.memory.db import get_db_connection
+from vazus_core.engine.utils import fast_json_dumps
 from vazus_core.engine.reasoning_effort_controller import ReasoningEffortController
-from vazus_core.engine.subagent_framework import (
-    SubagentContext,
-    DeclarativeSubagentEngine,
-    subagent_registry,
-    global_hook_registry
-)
+from vazus_core.engine.subagent_framework import DeclarativeSubagentEngine
 from vazus_core.memory.dialogue_persister import SubagentDialoguePersister
 
 logger = logging.getLogger("SubagentAutoTrigger")

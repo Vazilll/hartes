@@ -2,7 +2,7 @@
 title: "Research_SuperGraph Memory Wiki and AST"
 agent: "open_deep_researcher"
 trace_kind: "RESEARCH_DRY_RUN"
-created_at: "2026-07-22 23:56:45"
+created_at: "2026-08-07 00:50:24"
 tags:
   - subagent
   - memory_trace
@@ -14,7 +14,7 @@ tags:
 
 > **Agent**: [[open_deep_researcher]]  
 > **Trace Kind**: `RESEARCH_DRY_RUN`  
-> **Timestamp**: 2026-07-22 23:56:45  
+> **Timestamp**: 2026-08-07 00:50:24  
 > **Summary**: Research graph verification for: SuperGraph Memory Wiki and AST Code Topology Archi
 
 ---
@@ -22,8 +22,8 @@ tags:
 ## Memory Trace Content
 
 Query: SuperGraph Memory Wiki and AST Code Topology Architecture
-Nodes: ['__start__', 'clarify_with_user', 'write_research_brief', 'research_supervisor', 'final_report_generation']
-Config: {'thread_id': 'dcc2eb7a-59db-41c5-b005-679fbc7fab70', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'google', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
+Nodes: []
+Config: {'thread_id': '3b14f62c-dd4c-448f-a32a-445d856fd56c', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'google', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
 
 ---
 

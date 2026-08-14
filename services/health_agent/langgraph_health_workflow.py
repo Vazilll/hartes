@@ -17,7 +17,7 @@ sys.path.append(r"C:\vazus")
 sys.path.append(r"C:\vazus\vazus_core")
 
 from google_fit_sync import fetch_and_save_fitness_data
-from vazus_core.gemma_local_processor import GoogleGemmaLocalEngine
+from vazus_core.integrations.gemma_local_processor import GoogleGemmaLocalEngine
 
 DB_PATH = r"C:\vazus\services\memory\vazus.db"
 

@@ -3,7 +3,6 @@ vazus_core.workers.rlm — MIT RLM Code Engineering Worker Module.
 Provides tool loading, LocalREPL integration, and iterative code evaluation.
 """
 
-import ast
 import os
 import sys
 import time
@@ -48,19 +47,10 @@ def run(
     # Step 1: Initial Prompt & Context Analysis
     print(f"[RLM Worker] Task '{task_id}' started. Prompt: '{prompt[:80]}' (Complexity: {complexity.upper()})")
 
-    # Step 2: Multi-Agent Jury Evaluation Setup
-    jury = SOTA2027JuryEngine(effort_level="high" if complexity == "high" else "medium")
-    
-    agent_votes = [
-        {"agent": "RLM_LocalREPL", "verdict": "PASS"},
-        {"agent": "AST_Signatures", "verdict": "PASS"},
-        {"agent": "Jules_Verifier", "verdict": "PASS"},
-    ]
-
-    # Step 3: LocalREPL Rollout Execution
+    # Step 2: LocalREPL Rollout Execution
     iterations_run = min(max_iterations, 3)
     rollout_trace = []
-    
+
     for i in range(1, iterations_run + 1):
         repl_result = repl.execute_code(prompt if i == 1 else f"# Iteration {i}\npass")
         step_info = {
@@ -73,11 +63,14 @@ def run(
         }
         rollout_trace.append(step_info)
 
+    # Step 3: Real Concordia Jury — no pre-baked votes, let LLM subagents evaluate
+    # Passing agent_votes=None forces _evaluate_subagent_votes_async() to run real LLM calls.
+    jury = SOTA2027JuryEngine(effort_level="high" if complexity == "high" else "medium")
     eval_file = target_file or str(VAZUS_ROOT / "vazus_core" / "engine" / "model_selector.py")
     jury_result = jury.evaluate_code_proposal(
         file_path=eval_file,
         code_content=prompt,
-        agent_votes=agent_votes
+        agent_votes=None,  # Real jury: no pre-baked PASS votes
     )
 
     elapsed = round(time.time() - start_time, 3)

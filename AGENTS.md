@@ -52,3 +52,5 @@ The Pre-Commit Quality Gate enforces the following strict checks:
 2. **Phase 2 (Green)**: Implement the minimal code in `vazus_core/` to make the test pass.
 3. **Phase 3 (Verify)**: Run `post_tool_hook.py` / `precommit_gate.py` to ensure 0 test regressions.
 4. **Phase 4 (Clean)**: Delete all temporary scratch scripts and artifacts.
+
+

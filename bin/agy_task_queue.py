@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Agy ↔ Hermes Task Queue Bridge — SQLite-based cross-agent messaging.
+r"""Agy ↔ Hermes Task Queue Bridge — SQLite-based cross-agent messaging.
 Использует существующую таблицу agent_messages в C:\vazus\services\memory\vazus.db.
 
 Hermes:   INSERT tasks → Agy polls → Agy processes → UPDATE result

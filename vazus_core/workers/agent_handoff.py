@@ -29,8 +29,6 @@ class RaytSwarmHandoffManager:
 
     TARGET_DB_PATHS = [
         Path("C:/vazus/services/memory/vazus.db"),
-        Path("C:/vazus/services/memory/vazus.db"),
-        Path("C:/vazus/services/memory/vazus.db"),
     ]
 
     def __init__(self, db_path: str = "C:\\vazus\\services\\memory\\vazus.db"):
@@ -138,15 +136,12 @@ class RaytSwarmHandoffManager:
         # Step 1: Optional SOTA 2027 Jury Verification
         jury_result = None
         if require_jury:
-            votes = [
-                {"agent": source_agent, "verdict": "PASS"},
-                {"agent": target_agent, "verdict": "PASS"},
-                {"agent": "RaytPolicy", "verdict": "PASS"},
-            ]
+            # Real jury: votes=None forces LLM subagent evaluation.
+            # Payload code content is limited to 500 chars of JSON for context efficiency.
             jury_result = self.jury.evaluate_code_proposal(
                 file_path=payload.get("file_path", "system_handoff.py"),
                 code_content=payload_str[:500],
-                agent_votes=votes
+                agent_votes=None,  # Real jury — no self-approval
             )
 
         handoff_id = f"rayt_{workflow_upper.lower()}_{int(time.time()*1000)}"

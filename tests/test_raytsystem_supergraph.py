@@ -26,10 +26,12 @@ from vazus_core.supergraph_linker import SuperGraphLinker
 RAYTSYSTEM_DIR = VAZUS_DIR / "labs" / "raytsystem" / "src" / "raytsystem"
 
 
-def run_raytsystem_verification():
+def run_raytsystem_verification(db_path=None):
     print("=" * 70)
     print("🧪 SUPERGRAPH OS INTEGRATION TEST ON C:/vazus/labs/raytsystem")
     print("=" * 70)
+
+    db_file = db_path or r"C:\vazus\services\memory\vazus.db"
 
     # 1. AST Pruning & Signature Validation
     print("\n1. Testing AST Pruner on raytsystem modules...")
@@ -77,7 +79,7 @@ def run_raytsystem_verification():
 
     # 3. Hybrid Metric Linker
     print("\n3. Testing SuperGraph Hybrid Linker for raytsystem...")
-    linker = SuperGraphLinker()
+    linker = SuperGraphLinker(db_path=db_file)
 
     node_rayt_code = {
         "id": "rayt:agent_policy",
@@ -150,8 +152,8 @@ def run_raytsystem_verification():
     print("=" * 70)
 
 
-def test_raytsystem_supergraph():
-    run_raytsystem_verification()
+def test_raytsystem_supergraph(tmp_path):
+    run_raytsystem_verification(db_path=str(tmp_path / "test_rayt.db"))
 
 
 if __name__ == "__main__":
