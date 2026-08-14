@@ -68,6 +68,15 @@ def main():
                         "syntax_error": f"line {se.lineno}: {se.msg}",
                     })
                     sys.stderr.write(f"[Vazus OS AST Hook Error] Syntax error in {target_file} at line {se.lineno}: {se.msg}\n")
+                    try:
+                        from vazus_core.memory.mem0_memory_engine import Mem0Engine
+                        Mem0Engine().add_fact(
+                            fact_text=f"[syntax_error] {Path(target_file).name} line {se.lineno}: {se.msg}",
+                            category="bug_found",
+                            entity="ast_hook"
+                        )
+                    except Exception:
+                        pass
         elif target_file:
             write_hud_event("PostToolUse", {
                 "tool": tool_name,

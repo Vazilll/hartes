@@ -29,7 +29,7 @@ _SUBPKG_MAP = {
     "assembly_vector_linker": "memory", "organic_memory_bridge": "memory", "db": "memory",
     "mem0_memory_engine": "memory", "knowledge_engine": "memory", "multimodal_knowledge": "memory",
     "multimodal_resolver": "memory", "post_task_evolver": "memory", "dialogue_persister": "memory",
-    "zettelkasten_exporter": "memory",
+    "zettelkasten_exporter": "memory", "hyde_retrieval": "memory",
     # workers
     "repl_engine": "workers", "self_healing_repl": "workers", "subagent_auto_trigger": "workers",
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
