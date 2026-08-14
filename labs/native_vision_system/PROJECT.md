@@ -34,7 +34,7 @@ The Native Terminal Multimodal Vision System integrates seamlessly into `vazus_c
 | 8 | Win32 Clipboard Listener | Monitors Win+Shift+S clipboard events using Win32 HWND hook | M3 | survey |
 | 9 | Workspace File Watcher | Monitors disk drops for .png/.jpg/.jpeg/.webp via watchfiles | M3 | survey |
 | 10 | Visual Token Payload Generator | Builds payload with metadata, inlineData, rapidocr text, & TUI string | M3 | survey |
-| 11 | IPC & WebSocket Broadcast | Publishes events over WebSocket (ws://127.0.0.1:8765) and SQLite WAL | M3 | survey |
+| 11 | IPC & WebSocket Broadcast | Publishes events over WebSocket (ws://127.0.0.1:8766) and SQLite WAL | M3 | survey |
 | 12 | E2E Test Harness & Suite | Comprehensive tests (Tiers 1-4) verifying zero-bash delivery | M4 | dual-track |
 | 13 | E2E Hardening & Validation | Final 100% test validation and Tier 5 adversarial coverage hardening | M5 | dual-track |
 
@@ -64,7 +64,7 @@ The Native Terminal Multimodal Vision System integrates seamlessly into `vazus_c
 - Returns ANSI escape string ready for direct terminal print.
 
 ### Vision Daemon IPC API
-- WebSocket endpoint: `ws://127.0.0.1:8765/ws/vision`
+- WebSocket endpoint: `ws://127.0.0.1:8766/ws/vision`
 - SQLite WAL table: `vision_event_stream` in `C:\vazus\memory\vazus.db`
 - Event Payload JSON schema:
   ```json
