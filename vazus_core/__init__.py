@@ -24,6 +24,7 @@ _SUBPKG_MAP = {
     "smt_z3_verifier": "verification", "concordia_jury": "verification", "sota2027_jury": "verification",
     "ast_pruner": "verification", "git_provenance": "verification", "safety_guardrail": "verification",
     "rollback_guardrail": "verification", "empirical_benchmark": "verification", "precommit_gate": "verification",
+    "worktree_sandbox": "verification",
     # memory
     "auto_improver": "memory", "embeddings": "memory", "avx512_cosine": "memory",
     "assembly_vector_linker": "memory", "organic_memory_bridge": "memory", "db": "memory",
@@ -35,7 +36,7 @@ _SUBPKG_MAP = {
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
     "background_review_hook": "workers", "daemon_sidecar": "workers", "system_daemon": "workers",
     "jules_client": "workers", "subagent_verifier_bridge": "workers",
-    "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers",
+    "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers", "subprocess_repl": "workers",
     # evolution
     "darwinian_evolver": "evolution", "hebbian_compiler": "evolution", "prompt_optimizer": "evolution",
     # integrations
