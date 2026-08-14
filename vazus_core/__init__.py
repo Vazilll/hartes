@@ -19,11 +19,11 @@ _SUBPKG_MAP = {
     "subagent_framework": "engine", "model_selector": "engine", "reasoning_effort_controller": "engine",
     "circuit_breaker": "engine", "llm_client": "engine", "config": "engine", "exceptions": "engine",
     "utils": "engine", "supergraph_master_orchestrator": "engine", "supergraph_linker": "engine",
-    "dynamic_skill_dispatcher": "engine", "unified_reasoning_pipeline": "engine",
+    "dynamic_skill_dispatcher": "engine", "unified_reasoning_pipeline": "engine", "ast_repo_mapper": "engine",
     # verification
     "smt_z3_verifier": "verification", "concordia_jury": "verification", "sota2027_jury": "verification",
     "ast_pruner": "verification", "git_provenance": "verification", "safety_guardrail": "verification",
-    "rollback_guardrail": "verification", "empirical_benchmark": "verification",
+    "rollback_guardrail": "verification", "empirical_benchmark": "verification", "precommit_gate": "verification",
     # memory
     "auto_improver": "memory", "embeddings": "memory", "avx512_cosine": "memory",
     "assembly_vector_linker": "memory", "organic_memory_bridge": "memory", "db": "memory",
@@ -34,7 +34,7 @@ _SUBPKG_MAP = {
     "repl_engine": "workers", "self_healing_repl": "workers", "subagent_auto_trigger": "workers",
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
     "background_review_hook": "workers", "daemon_sidecar": "workers", "system_daemon": "workers",
-    "jules_client": "workers",
+    "jules_client": "workers", "subagent_verifier_bridge": "workers",
     # integrations
     "telegram_indexer": "integrations", "telegram_notifier": "integrations", "tinkoff_finance_manager": "integrations",
     "freelance_npd_engine": "integrations", "self_employed_order_hunter": "integrations",

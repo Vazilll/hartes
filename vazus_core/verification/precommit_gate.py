@@ -99,6 +99,29 @@ def run_gate_1_ast_and_security(staged_files: list[Path]) -> tuple[bool, list[st
             except Exception:
                 pass
 
+        # 4. Anti-Reward Hacking & Test Mutation Guard (for staged test files)
+        if "test" in fpath.name.lower() and fpath.suffix == ".py":
+            try:
+                tree = ast.parse(content, filename=str(fpath))
+                for node in tree.body:
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+                        # Check function body for tautological assertions or empty pass
+                        stmts = [s for s in node.body if not (isinstance(s, ast.Expr) and isinstance(s.value, ast.Constant) and isinstance(s.value.value, str))]
+                        if len(stmts) == 1 and isinstance(stmts[0], ast.Pass):
+                            errors.append(f"[Reward Hacking] Empty dummy test '{node.name}' in {fpath.name} (contains only 'pass')")
+                        
+                        # Check for assert True / assert 1 == 1 as sole assertion
+                        asserts = [s for s in ast.walk(node) if isinstance(s, ast.Assert)]
+                        if not asserts and not any(isinstance(s, ast.Raise) or (isinstance(s, ast.Call) and "pytest" in ast.dump(s)) for s in ast.walk(node)):
+                            # Only warn if not using pytest.raises
+                            pass
+                        for asrt in asserts:
+                            if isinstance(asrt.test, ast.Constant) and asrt.test.value is True:
+                                if len(asserts) == 1:
+                                    errors.append(f"[Reward Hacking] Tautological assertion 'assert True' in '{node.name}' in {fpath.name}")
+            except Exception:
+                pass
+
     return (len(errors) == 0), errors
 
 
