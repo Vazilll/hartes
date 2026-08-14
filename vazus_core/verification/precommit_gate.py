@@ -8,6 +8,7 @@ Gates Enforced:
   2. Static Security & Anti-Pattern Scan (No hardcoded API keys, no shell=True, no raw eval/exec).
   3. Module Import & Syntax Integrity.
   4. Targeted Pytest Suite (Zero test regressions).
+  5. Dead Code Detection via vulture (unused imports, unreachable modules, unused vars ≥90% confidence).
 
 Exit Codes:
   0 = ALL GATES PASSED (Commit Allowed)
@@ -260,9 +261,49 @@ def run_gate_4_concordia_jury(staged_files: list[Path]) -> tuple[bool, list[str]
     return (len(errors) == 0), errors
 
 
+def run_gate_5_dead_code(staged_files: list[Path]) -> tuple[bool, list[str]]:
+    """Gate 5: Detect dead code (unused imports/vars/unreachable modules) via vulture.
+
+    Only fails on items with ≥90% confidence to avoid false positives from
+    dynamically-used symbols (e.g. FastAPI route decorators, __all__ exports).
+    Skips files in labs/, tests/, services/inference/ (third-party code).
+    """
+    errors: list[str] = []
+
+    # Filter to only our own code — skip third-party and lab experiments
+    SKIP_PREFIXES = ("labs/", "tests/", "services/inference", "scratch/", "worktrees/")
+    own_files = [
+        f for f in staged_files
+        if not any(str(f.relative_to(VAZUS_ROOT)).replace("\\", "/").startswith(p) for p in SKIP_PREFIXES)
+    ]
+
+    if not own_files:
+        return True, []
+
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "vulture", "--min-confidence", "90"] + [str(f) for f in own_files],
+            capture_output=True, text=True, cwd=str(VAZUS_ROOT), timeout=60,
+        )
+        # vulture exits 1 when dead code found, 0 when clean
+        if result.returncode != 0:
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line:
+                    errors.append(f"[Dead Code] {line}")
+    except FileNotFoundError:
+        # vulture not installed — warn but don't block (optional gate)
+        print("  ⚠️  Gate 5: vulture not installed, skipping dead code check. Run: pip install vulture")
+        return True, []
+    except subprocess.TimeoutExpired:
+        errors.append("[Dead Code] vulture timed out after 60s")
+
+    return (len(errors) == 0), errors
+
+
 def main():
     print("=" * 70)
-    print("🛡️ VAZUS OS — AUTONOMOUS PRE-COMMIT QUALITY GATE (4-TIER PIPELINE)")
+    print("🛡️ VAZUS OS — AUTONOMOUS PRE-COMMIT QUALITY GATE (5-TIER PIPELINE)")
     print("=" * 70)
 
     staged_files = get_staged_python_files()
@@ -318,7 +359,18 @@ def main():
     else:
         print("  ✅ Gate 4 Passed: Concordia Jury 3-Agent Consensus >= 66%.")
 
-    print("\n🎉 ALL PRE-COMMIT QUALITY GATES PASSED (4/4). Commit authorized.")
+    # Stage 5: Dead Code Detection via vulture
+    ok5, errs5 = run_gate_5_dead_code(staged_files)
+    if not ok5:
+        print("\n❌ GATE 5 FAILED (Dead Code Detected):")
+        for e in errs5:
+            print(f"   - {e}")
+        print("\n🚫 COMMIT ABORTED. Remove unused imports/variables before committing.")
+        sys.exit(1)
+    else:
+        print("  ✅ Gate 5 Passed: No dead code detected (vulture clean).")
+
+    print("\n🎉 ALL PRE-COMMIT QUALITY GATES PASSED (5/5). Commit authorized.")
     print("=" * 70)
     sys.exit(0)
 
