@@ -1,61 +1,54 @@
-# vazus SuperGraph OS & Native Antigravity Subagent Architecture
+# AGENTS.md — Autonomous Coding Agent Guidelines & Environment Contract
 
-## Overview
-This document specifies the native subagent roles, responsibilities, bridge interfaces, repository locations, and tool bindings within the **vazus SuperGraph OS** running on Antigravity CLI and IDE.
-
----
-
-## System Repositories & Path Directory
-
-| Component / Subsystem | Directory Path | Description |
-|---|---|---|
-| **System Root** | `C:\vazus` | Root workspace for vazus SuperGraph OS |
-| **Python Virtual Environment** | `C:\vazus\.venv` | Python 3.11 virtualenv (PyTorch CPU/NPU, OpenVINO, Optimum, pyNeuroML) |
-| **vazus Core Module** | `C:\vazus\vazus_core` | Core engine, AST pruner, embeddings, database, model selector, verifier |
-| **MIT RLM Engine** | `C:\vazus\vazus_core\workers\rlm` | Recursive Language Modeling (RLM) engine with LocalREPL environment |
-| **Open Deep Research** | `C:\vazus\scripts\subagent_research_bridge.py` | LangGraph multi-step research workflow with Google Search Grounding |
-| **Scripts & Subagent Bridges** | `C:\vazus\scripts` | Subagent bridge scripts and memory/vector index tools |
-| **Go Core MCP Monolith** | `C:\vazus\gomcp\dnts-brain.exe` | 44 Go MCP tools for Mythos Reasoning, RAG FTS5, Graph Memory, Obsidian |
+Welcome to **Vazus SuperGraph OS**. This document serves as the formal specification and execution contract for all autonomous coding agents (Google Jules, Claude Code, OpenCode, Antigravity Subagents).
 
 ---
 
-## Native Antigravity Subagent Roles & System Prompts
+## 🏗️ 1. Active Environment & Paths
 
-Subagents are invoked natively in the Antigravity UI using `invoke_subagent` (or registered via `define_subagent`), allowing the user to observe real-time progress and subagent tool cards.
-
-### 1. `open_deep_researcher`
-* **Role**: Open Deep Researcher Subagent
-* **Description**: LangGraph Open Deep Research + Google Search Grounding for web longreads & research synthesis.
-* **Bridge Script**: `C:\vazus\scripts\subagent_research_bridge.py`
-* **Execution Command**: `C:\vazus\.venv\Scripts\python.exe C:\vazus\scripts\subagent_research_bridge.py -q "<query>"`
-* **Responsibilities**:
-  - Executes multi-step web research workflows.
-  - Integrates Google Search Grounding with fallback search providers.
-  - Synthesizes findings into structured Markdown research reports.
-
-### 2. `rlm_code_engineer`
-* **Role**: RLM Code Engineer Subagent
-* **Description**: MIT RLM for REPL-based self-healing code generation, refactoring, and execution testing.
-* **Bridge Script**: `C:\vazus\scripts\subagent_rlm_bridge.py`
-* **Execution Command**: `C:\vazus\.venv\Scripts\python.exe C:\vazus\scripts\subagent_rlm_bridge.py -p "<prompt>"`
-* **Responsibilities**:
-  - Executes recursive code rollouts in LocalREPL environment.
-  - Performs automated bug fixing and self-healing refactoring.
-  - Validates AST signatures and code compliance.
-
-### 3. `verifier_worker`
-* **Role**: Jules Verifier Worker Subagent
-* **Description**: Static AST verifier, contract testing, isolated execution, and Git provenance tracking.
-* **Bridge Script**: `C:\vazus\scripts\subagent_verifier_bridge.py`
-* **Execution Command**: `C:\vazus\.venv\Scripts\python.exe C:\vazus\scripts\subagent_verifier_bridge.py -f "<target_file>"`
-* **Responsibilities**:
-  - Performs AST syntax parsing and signature verification.
-  - Executes isolated code verification via `CodeVerifier`.
-  - Tracks Git provenance across feature branches (`vazus-main`, `vazus-dev`, `feature/subagent-bridges`).
+- **Root Directory**: `C:\vazus`
+- **Python Virtualenv**: `C:\vazus\.venv\Scripts\python.exe` (PyTorch, OpenVINO, Beautifulsoup4, sqlite-vec, cv2)
+- **Primary Package**: `vazus_core` (`C:\vazus\vazus_core`)
+- **Database / Memory**: `C:\vazus\services\memory\vazus.db`
+- **Configuration & Hooks**: `C:\Users\Vaz\.gemini\config\hooks.json`
 
 ---
 
-## Governance & Verification Protocol
-1. **Antigravity First**: All subagent actions are visible in the Antigravity UI dashboard and logs.
-2. **Absolute Path Standard**: All internal components reference `C:\vazus` and `C:\vazus\.venv`.
-3. **No Facades**: Subagent bridges invoke real execution engines and return verifiable status.
+## 🧪 2. Test Execution & Quality Gates
+
+All code modifications must satisfy the automated quality gates before committing.
+
+### Fast Test Command (Recommended for TDD Loop):
+```powershell
+C:\vazus\.venv\Scripts\python.exe -m pytest tests/ -m "not slow" -q --tb=short
+```
+
+### Single Module Test Command:
+```powershell
+C:\vazus\.venv\Scripts\python.exe -m pytest tests/test_<module_name>.py -v
+```
+
+### Pre-Commit Gate Command:
+```powershell
+C:\vazus\.venv\Scripts\python.exe C:\vazus\vazus_core\verification\precommit_gate.py
+```
+
+---
+
+## 🛡️ 3. Verification Gates & Prohibited Patterns
+
+The Pre-Commit Quality Gate enforces the following strict checks:
+1. **AST Syntax Integrity**: `ast.parse()` must succeed with 0 syntax errors on all `.py` files.
+2. **Zero Hardcoded Secrets**: Prohibited embedding of raw API keys (`AIzaSy...`, `sk-...`).
+3. **No Dangerous System Calls**: Never use `os.system()` or `subprocess.Popen(..., shell=True)`. Always use explicit list arguments.
+4. **Module Package Integrity**: Never use flat imports like `import tinkoff_finance_manager`. Always use the canonical package namespace `from vazus_core.tinkoff_finance_manager import ...` or `from vazus_core.integrations...`.
+5. **No Broken Imports or Dangling References**: All modules must be importable without collection errors.
+
+---
+
+## 🔁 4. TDD Workflow Protocol (Red-Green-Refactor)
+
+1. **Phase 1 (Red)**: Write or update the unit test in `tests/test_<feature>.py` to define the expected behavior.
+2. **Phase 2 (Green)**: Implement the minimal code in `vazus_core/` to make the test pass.
+3. **Phase 3 (Verify)**: Run `post_tool_hook.py` / `precommit_gate.py` to ensure 0 test regressions.
+4. **Phase 4 (Clean)**: Delete all temporary scratch scripts and artifacts.
