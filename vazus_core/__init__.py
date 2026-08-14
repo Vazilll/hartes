@@ -35,6 +35,9 @@ _SUBPKG_MAP = {
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
     "background_review_hook": "workers", "daemon_sidecar": "workers", "system_daemon": "workers",
     "jules_client": "workers", "subagent_verifier_bridge": "workers",
+    "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers",
+    # evolution
+    "darwinian_evolver": "evolution", "hebbian_compiler": "evolution", "prompt_optimizer": "evolution",
     # integrations
     "telegram_indexer": "integrations", "telegram_notifier": "integrations", "tinkoff_finance_manager": "integrations",
     "freelance_npd_engine": "integrations", "self_employed_order_hunter": "integrations",

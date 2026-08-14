@@ -101,11 +101,23 @@ def main():
         if model_response and len(model_response) > 80:
             category, excerpt = classify_insight(model_response)
             if category and excerpt:
+                # Add to 768D Mem0 facts
                 mem0.add_fact(
                     fact_text=f"[{category}] {excerpt[:300]}",
                     category=category,
                     entity="auto_lesson"
                 )
+                # Export to Zettelkasten Wiki
+                try:
+                    from vazus_core.memory.zettelkasten_exporter import ZettelkastenExporter
+                    exporter = ZettelkastenExporter()
+                    exporter.export_insight_note(
+                        title=f"{category}_{conversation_id[:8]}",
+                        category=category,
+                        content_text=excerpt
+                    )
+                except Exception:
+                    pass
 
         print(json.dumps({}))
 
