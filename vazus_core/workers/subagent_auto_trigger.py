@@ -19,7 +19,7 @@ import threading
 from pathlib import Path
 
 # Ensure workspace root is in sys.path
-WORKSPACE_ROOT = str(Path(__file__).resolve().parent.parent)
+WORKSPACE_ROOT = str(Path(__file__).resolve().parent.parent.parent)
 if WORKSPACE_ROOT not in sys.path:
     sys.path.insert(0, WORKSPACE_ROOT)
 
