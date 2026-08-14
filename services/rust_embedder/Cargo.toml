@@ -1,0 +1,24 @@
+[package]
+name = "vazus_embedder"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "vazus_embedder"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py310"] }
+candle-core = { git = "https://github.com/huggingface/candle", features = ["cpu-avx"] }
+candle-nn = { git = "https://github.com/huggingface/candle" }
+candle-transformers = { git = "https://github.com/huggingface/candle" }
+hf-hub = "0.3"
+safetensors = "0.4"
+tokenizers = "0.19"
+rayon = "1.10"
+bytemuck = "1.16"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

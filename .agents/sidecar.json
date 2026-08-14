@@ -1,0 +1,19 @@
+{
+  "sidecars": [
+    {
+      "name": "MIT RLM Engine (Fibonacci Test)",
+      "description": "Native execution of the MIT RLM codebase engineer without LLM proxy overhead.",
+      "command": "python",
+      "args": [
+        "scripts/subagent_rlm_bridge.py",
+        "--prompt",
+        "Write a python script in C:\\vazus\\scratch to calculate the Fibonacci sequence up to 1000",
+        "--complexity",
+        "low"
+      ],
+      "cwd": "C:\\vazus",
+      "autostart": true,
+      "restart": false
+    }
+  ]
+}

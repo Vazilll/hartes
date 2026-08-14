@@ -1,0 +1,127 @@
+Title: Live Content
+
+Description: Fetched live
+
+Source: https://antigravity.google/docs/sidecars
+
+---
+
+
+
+
+
+
+Google Antigravity Docs - Sidecars
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.code-container[data-astro-cid-4g3kud3p]{border-radius:var(--shape-corner-md);background:var(--palette-grey-10);width:100%;margin:var(--space-md) 0 var(--space-lg);padding:11px 16px;position:relative;overflow:hidden}.code-container[data-astro-cid-4g3kud3p] .header[data-astro-cid-4g3kud3p]{padding:var(--space-xs);justify-content:space-between;align-items:center;padding-inline-end:calc(var(--space-xs) + 38px);display:flex}.code-container[data-astro-cid-4g3kud3p] .header[data-astro-cid-4g3kud3p] .title[data-astro-cid-4g3kud3p]{color:var(--palette-grey-800)}.code-container[data-astro-cid-4g3kud3p] .copy-button[data-astro-cid-4g3kud3p]{top:11px;padding:var(--space-xs);cursor:pointer;z-index:1;background:0 0;border:none;outline:none;font-family:Google Symbols;font-size:22px;position:absolute;inset-inline-end:16px}.code-container[data-astro-cid-4g3kud3p] .copy-button[data-astro-cid-4g3kud3p]:hover{background-color:#f0f0f0}.code-container[data-astro-cid-4g3kud3p] .snippet-area[data-astro-cid-4g3kud3p]{margin:0;padding:0}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p]{background-color:#0000;margin:0;display:flex}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p]{color:#37474f;text-wrap:wrap;font-family:Google Sans Code,sans-serif;font-size:var(--sm-size);line-height:var(--sm-line-height);letter-spacing:var(--sm-letter-spacing);background:0 0;border:none;border-radius:0;padding:0;font-weight:370}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-keyword,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-tag{color:#1967d2}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-function,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-title,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-name{color:#80cbc4}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-string,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-number,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-literal{color:#188038}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-comment{color:#b80672}.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-punctuation,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-operator,.code-container[data-astro-cid-4g3kud3p] pre[data-astro-cid-4g3kud3p] code[data-astro-cid-4g3kud3p] .hljs-symbol{color:#dadce0}
+
+
+
+
+
+    window.dataLayer = window.dataLayer || [];
+
+    function glueCookieNotificationBarLoaded() {
+      // GTM BOOTSTRAP CODE
+      (function (w, d, s, l, i) {
+        w[l] = w[l] || []; w[l].push({
+          'gtm.start':
+            new Date().getTime(), event: 'gtm.js'
+        }); var f = d.getElementsByTagName(s)[0],
+          j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src =
+            'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f);
+      })(window, document, 'script', 'dataLayer', 'GTM-M4N2ZKXQ');
+    }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<g filt
+

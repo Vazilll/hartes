@@ -1,0 +1,17 @@
+{
+  "venvPath": "C:\\vazus",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "include": [
+    "vazus_core",
+    "services",
+    "scripts",
+    "apps"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/scratch",
+    "**/node_modules"
+  ]
+}
