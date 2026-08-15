@@ -24,6 +24,30 @@ if not AGY_PATH:
 if not AGY_PATH:
     raise RuntimeError("agy binary not found!")
 
+# Dynamic model mapping: OpenAI-style model keys -> official agy CLI models
+# (Thinking/High variants consumed on IDE session quota). Prefer the canonical
+# resolver from vazus_core; fall back to a local copy when vazus_core is not
+# importable (adapter run outside the vazus venv).
+try:
+    from vazus_core.engine.llm_client import _resolve_agy_model_name
+except ImportError:
+    def _resolve_agy_model_name(model_key: str) -> str:
+        k = model_key.lower().strip()
+        if "claude" in k and "opus" in k:
+            return "Claude Opus 4.6 (Thinking)"
+        elif "claude" in k:
+            return "Claude Sonnet 4.6 (Thinking)"
+        elif "gpt" in k or "120b" in k:
+            return "GPT-OSS 120B (Medium)"
+        elif "3.6" in k:
+            return "Gemini 3.6 Flash (High)"
+        elif "3.5" in k:
+            return "Gemini 3.5 Flash (High)"
+        elif "3.1" in k or "pro" in k:
+            return "Gemini 3.1 Pro (High)"
+        else:
+            return "Gemini 3.7 Flash (High)"
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: Request):
     data = await request.json()
@@ -66,29 +90,47 @@ async def chat_completions(request: Request):
         prompt += "\n\n[SYSTEM]: You MUST output ONLY a valid JSON object. No markdown, no backticks.\n"
 
     print(f"[Adapter] Incoming request. Extracted prompt length: {len(prompt)}")
-    # Run the agy CLI tool
+    # Dynamic model routing: map incoming OpenAI-style model key to the official
+    # agy model (Thinking/High variants) consumed on IDE session quota.
+    resolved_model = _resolve_agy_model_name(model)
+    print(f"[Adapter] model='{model}' -> agy model='{resolved_model}'")
+    # Run the agy CLI tool. NOTE: prompt is passed as a CLI ARGUMENT, not via
+    # stdin — on Windows agy v1.1.13 `-p -` does not read stdin and the model
+    # receives an empty prompt.
     cmd = [
         AGY_PATH,
-        "-p", "-",
-        "--model", "gemini-3.6-flash",
-        "--effort", "high",
+        "-p", prompt,
+        "--model", resolved_model,
+        # NOTE: no --effort here — agy rejects it for Claude (Thinking) models;
+        # the effort tier is already encoded in the resolved model name (High).
         "--print-timeout", "300s",
         "--dangerously-skip-permissions",
         "--output-format", "text"
     ]
-    
+    if len(prompt) > 28000:
+        print(f"[Adapter] WARNING: prompt length {len(prompt)} exceeds Windows cmdline safety limit (~28K); may be truncated")
+
     env = os.environ.copy()
-    
+
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
-            stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env
         )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(input=prompt.encode('utf-8')), timeout=300.0)
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300.0)
         response_text = stdout.decode('utf-8', errors='replace').strip()
+        err_text = stderr.decode('utf-8', errors='replace').strip()
+
+        if proc.returncode != 0:
+            print(f"[Adapter] agy error code {proc.returncode}: {err_text[:500]}")
+            return {
+                "error": {
+                    "message": f"Antigravity CLI error ({proc.returncode}): {err_text[:300]}",
+                    "type": "agy_error",
+                }
+            }
         
         if response_text.startswith("```json"):
             response_text = response_text[7:]

@@ -2,14 +2,28 @@ from collections import defaultdict
 import asyncio
 from typing import Any, Optional
 
-from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
 from rlm.clients.base_lm import BaseLM
 from rlm.core.types import ModelUsageSummary, UsageSummary
+
+# Primary brain: vazus_core.engine.llm_client.async_generate_llm (Tier-1 agy CLI
+# on IDE session quota, 0 external API cost). Fallback to the Google Antigravity
+# SDK only when vazus_core is not importable (standalone RLM runs).
+try:
+    from vazus_core.engine.llm_client import async_generate_llm
+
+    _VAZUS_CORE_AVAILABLE = True
+except ImportError:  # pragma: no cover - standalone environment
+    _VAZUS_CORE_AVAILABLE = False
 
 
 class AntigravityClient(BaseLM):
     """
-    LM Client for running models through the Google Antigravity SDK.
+    LM Client for running models through the Antigravity engine.
+
+    Primary path: vazus_core.engine.llm_client.async_generate_llm, which routes
+    through the official agy CLI binary on Antigravity IDE session quota
+    (Gemini 3.7 Thinking / Claude Sonnet 4.6 Thinking, no external keys).
+    Fallback (vazus_core unavailable): Google Antigravity SDK direct session.
     Supports asynchronous execution, local streaming, and capability policies.
     """
 
@@ -17,12 +31,14 @@ class AntigravityClient(BaseLM):
         self,
         model_name: str | None = "gemini-3.7-flash",
         system_instructions: str | None = None,
-        capabilities: Optional[CapabilitiesConfig] = None,
+        capabilities: Optional[Any] = None,
         **kwargs,
     ):
         super().__init__(model_name=model_name or "gemini-3.7-flash", **kwargs)
         self.system_instructions = system_instructions or "You are an expert AI agent in MIT RLM."
-        self.capabilities = capabilities or CapabilitiesConfig()
+        # Only used by the SDK fallback path (kept as Any to avoid a hard
+        # google.antigravity import at module level).
+        self.capabilities = capabilities
 
         self.model_call_counts: dict[str, int] = defaultdict(int)
         self.model_input_tokens: dict[str, int] = defaultdict(int)
@@ -37,20 +53,32 @@ class AntigravityClient(BaseLM):
 
     async def acompletion(self, prompt: str | list[dict[str, Any]], model: str | None = None) -> str:
         prompt_text = prompt if isinstance(prompt, str) else str(prompt)
-        config = LocalAgentConfig(
-            system_instructions=self.system_instructions,
-            capabilities=self.capabilities,
-        )
-        tokens = []
-        async with Agent(config) as agent:
-            response = await agent.chat(prompt_text)
-            async for token in response:
-                tokens.append(token)
+        m_name = model or self.model_name
 
-        result_text = "".join(tokens)
+        if _VAZUS_CORE_AVAILABLE:
+            # Tier-1: agy CLI on IDE quota via the canonical vazus brain.
+            result_text = await async_generate_llm(
+                prompt=prompt_text,
+                system_prompt=self.system_instructions,
+                model=m_name,
+                temperature=0.2,
+                timeout_seconds=120.0,
+            )
+        else:  # pragma: no cover - standalone fallback
+            from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+
+            config = LocalAgentConfig(
+                system_instructions=self.system_instructions,
+                capabilities=self.capabilities or CapabilitiesConfig(),
+            )
+            tokens = []
+            async with Agent(config) as agent:
+                response = await agent.chat(prompt_text)
+                async for token in response:
+                    tokens.append(token)
+            result_text = "".join(tokens)
 
         # Track usage stats
-        m_name = model or self.model_name
         self.model_call_counts[m_name] += 1
         est_in = max(1, len(prompt_text) // 4)
         est_out = max(1, len(result_text) // 4)
