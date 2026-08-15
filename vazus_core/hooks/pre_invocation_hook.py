@@ -22,29 +22,6 @@ try:
 except Exception:
     def write_hud_event(_event_type=None, _payload=None): pass
 
-MCP_INSTRUCTIONS = """## 🔧 Vazus OS MCP Tools Available (call via `call_mcp_tool`)
-
-### Server: `ckb` (Codebase Knowledge Base — AST Symbol & Reference Graph)
-- `explore` — Explore codebase topology. Args: `{"path": "vazus_core"}`
-- `searchSymbols` — Find symbol definitions across the codebase. Args: `{"query": "..."}`
-- `findReferences` — Find all usages/calls of a symbol. Args: `{"symbol": "..."}`
-- `getCallGraph` — Get hierarchical call graph for a function/class. Args: `{"symbol": "..."}`
-- `analyzeImpact` — Analyze blast radius of changes. Args: `{"symbol": "..."}`
-- `planRefactor` — Plan refactoring steps. Args: `{"target": "..."}`
-
-### Server: `vazus-organic` (Memory, AST Pruning, Z3 Proofs, Evolution)
-- `vazus_organic_recall` — Search 768D vector memory. Args: `{"query": "...", "top_k": 5}`
-- `vazus_record_insight` — Persist insight/lesson. Args: `{"category": "...", "insight": "..."}`
-- `vazus_ast_prune` — AST signature compression (>70%). Args: `{"code_or_file": "path.py"}`
-- `vazus_smt_z3_verify` — Formal Z3 contract proof. Args: `{"code": "...", "depth": 10}`
-- `vazus_darwinian_evolve` — Genetic mutation + pytest fitness (run via subagent). Args: `{"target_module": "vazus_core", "generations": 2}`
-
-### Execution Note for Subagents
-- If `call_mcp_tool` is present in your tool schema, use `call_mcp_tool` directly.
-- Python Virtualenv: `C:\\vazus\\.venv\\Scripts\\python.exe`
-- Workspace: `C:\\vazus` (must be in sys.path)
-"""
-
 # Additional skill directories to search (built-in AGY skills included)
 SKILL_SEARCH_DIRS = [
     r"C:\Users\Vaz\.gemini\config\skills",
@@ -252,8 +229,7 @@ def main():
             except Exception:
                 repo_map_block = ""
 
-        # Base message: MCP instructions on turn 0, empty string on subsequent turns
-        full_message = MCP_INSTRUCTIONS if invocation_num == 0 else ""
+        full_message = ""
         if memory_block:
             full_message += memory_block
         if skills_block:
@@ -266,7 +242,7 @@ def main():
         write_hud_event("PreInvocation", {
             "turn": invocation_num,
             "prompt_preview": user_prompt[:80] if user_prompt else "",
-            "mcp_injected": invocation_num == 0,
+            "mcp_injected": False,
             "skills_injected": injected_skills,
             "memory_injected": bool(memory_block),
             "total_chars": len(full_message),

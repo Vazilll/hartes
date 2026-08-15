@@ -979,7 +979,7 @@ def generate_failing_pytest_fixture(
     return "\n".join(lines)
 
 
-def verify_with_healing_feedback(code: str, timeout_ms: int = 2000) -> Dict[str, Any]:
+def verify_with_healing_feedback(code: str, timeout_ms: int = 2000, func_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Executes SMT Z3 verification and, if an invariant violation is detected,
     synthesizes actionable self-healing diagnostic feedback and failing pytest fixtures.
@@ -998,11 +998,11 @@ def verify_with_healing_feedback(code: str, timeout_ms: int = 2000) -> Dict[str,
     }
     
     if not res.verified and res.counterexample:
-        func_name = "verified_function"
-        if res.structured_details:
-            func_name = res.structured_details[0].get("function", func_name)
+        resolved_name = func_name or "verified_function"
+        if not func_name and res.structured_details:
+            resolved_name = res.structured_details[0].get("function", resolved_name)
             
-        fixture = generate_failing_pytest_fixture(func_name, res.counterexample)
+        fixture = generate_failing_pytest_fixture(resolved_name, res.counterexample)
         feedback["failing_pytest_fixtures"].append(fixture)
         feedback["actionable_healing_steps"].append(
             f"SMT Z3 found counterexample state: {res.counterexample}. "
