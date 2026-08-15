@@ -13,7 +13,6 @@ Usage (called by .git/hooks/post-commit):
   python C:/vazus/harness/autonomy/tars_hook_handler.py
 """
 
-import os
 import sys
 import subprocess
 import sqlite3
@@ -120,7 +119,7 @@ def save_memory_trace(commit: dict, skills: set) -> str:
                 json.dumps(vector_768d) if vector_768d else None
             ))
             conn.commit()
-    except Exception as e:
+    except Exception:
         # Fallback to direct sqlite connection if module import has issues
         conn = sqlite3.connect(str(DB_PATH))
         try:
@@ -227,6 +226,87 @@ def push_pixel_task(commit: dict, skills: set) -> bool:
         print(f"  ❌ [Tasks] Error: {e}")
         return False
 
+# ── Step 4: Sync AGY ↔ Hermes Debates to Memory & Wiki ─────────────────────────
+def sync_debates_memory(commit: dict) -> None:
+    """Detect and index any .agents/debates/ files modified in the commit."""
+    debate_files = [f for f in commit["files"] if "debates/debate_" in f.replace("\\", "/")]
+    if not debate_files:
+        return
+
+    debates_wiki_dir = WIKI_DIR / "Debates"
+    debates_wiki_dir.mkdir(parents=True, exist_ok=True)
+
+    for df_rel in debate_files:
+        df_path = VAZUS_ROOT / df_rel
+        if not df_path.exists():
+            continue
+
+        try:
+            content = df_path.read_text(encoding="utf-8")
+            topic = "General Debate"
+            round_num = "1"
+            status = "open"
+
+            # Parse frontmatter
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    fm = parts[1]
+                    for line in fm.splitlines():
+                        if line.startswith("topic:"):
+                            topic = line.split(":", 1)[1].strip().strip('"\'')
+                        elif line.startswith("round:"):
+                            round_num = line.split(":", 1)[1].strip()
+                        elif line.startswith("status:"):
+                            status = line.split(":", 1)[1].strip().strip('"\'')
+
+            # Extract summary
+            summary = f"Debate [{topic}] (Round {round_num}, Status: {status})"
+            summary_match = re.search(r"## 📋 SUMMARY\s*(.*?)(?=\n##|\Z)", content, re.DOTALL)
+            if summary_match:
+                summary_snippet = summary_match.group(1).strip()
+            else:
+                summary_snippet = content[:300]
+
+            # 768-dim embedding
+            vector_768d = generate_gemini_embedding(f"{summary}\n{summary_snippet}")
+
+            # Save to sqlite
+            conn = sqlite3.connect(str(DB_PATH))
+            try:
+                conn.execute("""
+                    INSERT INTO subagent_memory_traces
+                        (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
+                    VALUES (?, ?, ?, ?, ?, datetime('now'))
+                """, ("debates-sync", "debate_round", summary, content, str(df_path)))
+
+                node_id = f"debate_{topic}_r{round_num}"
+                conn.execute("""
+                    INSERT OR REPLACE INTO kg_nodes 
+                        (id, name, domain, node_type, description, tags, properties, embedding_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    node_id,
+                    f"Debate: {topic} (R{round_num})",
+                    "agent_debates",
+                    "debate",
+                    summary_snippet,
+                    "#debate #AGY #Hermes " + f"#{status}",
+                    content,
+                    json.dumps(vector_768d) if vector_768d else None
+                ))
+                conn.commit()
+            finally:
+                conn.close()
+
+            # Sync to Wiki
+            wiki_target = debates_wiki_dir / df_path.name
+            wiki_target.write_text(content, encoding="utf-8")
+            print(f"  ✅ [Debates] Synced: {topic} (R{round_num}, Status: {status}) -> DB + Wiki")
+
+        except Exception as e:
+            print(f"  ⚠️  [Debates] Sync notice for {df_rel}: {e}")
+
 # ── Main Pipeline ─────────────────────────────────────────────────────────────
 def main():
     print()
@@ -250,6 +330,7 @@ def main():
     print("\n── Running TARS Hook Pipeline ──────────────────")
     save_memory_trace(commit, skills)
     create_obsidian_note(commit, skills)
+    sync_debates_memory(commit)
     push_pixel_task(commit, skills)
 
     print("\n✅ TARS hook pipeline complete.\n")
