@@ -11,6 +11,8 @@ import os
 import re
 import ast
 import json
+import shutil
+import asyncio
 import logging
 from typing import Dict, Any
 
@@ -29,6 +31,25 @@ def is_test_mode() -> bool:
         or os.getenv("VAZUS_TEST_MODE", "").lower() == "true"
         or "PYTEST_CURRENT_TEST" in os.environ
     )
+
+
+def _resolve_agy_model_name(model_key: str) -> str:
+    """Maps internal model keys to official Antigravity CLI models."""
+    k = model_key.lower().strip()
+    if "claude" in k and "opus" in k:
+        return "Claude Opus 4.6 (Thinking)"
+    elif "claude" in k:
+        return "Claude Sonnet 4.6 (Thinking)"
+    elif "gpt" in k or "120b" in k:
+        return "GPT-OSS 120B (Medium)"
+    elif "3.6" in k:
+        return "Gemini 3.6 Flash (High)"
+    elif "3.5" in k:
+        return "Gemini 3.5 Flash (High)"
+    elif "3.1" in k or "pro" in k:
+        return "Gemini 3.1 Pro (High)"
+    else:
+        return "Gemini 3.7 Flash (High)"
 
 
 def _generate_mock_response(prompt: str, system_prompt: str = "") -> str:
@@ -99,19 +120,57 @@ async def async_generate_llm(
     system_prompt: str = "",
     model: str = DEFAULT_MODEL,
     temperature: float = 0.2,
-    timeout_seconds: float = 45.0,
+    timeout_seconds: float = 60.0,
     **_kwargs
 ) -> str:
     """
     Asynchronously invokes LLM model generation.
-    - Tier-1 (Default): Google Antigravity SDK Agent using IDE session quota.
+    - Tier-1 (Default): Antigravity CLI binary (agy) on IDE session quota (Gemini 3.7 Thinking / Claude Sonnet 4.6 Thinking).
     - Tier-2 (Cloud Opt-in): Gemini REST API when VAZUS_LLM_ALLOW_CLOUD=1.
     - Tier-3 (Deterministic Fallback): Mock generator for offline / pytest execution.
     """
     if is_test_mode():
         return _generate_mock_response(prompt, system_prompt)
 
-    # ── Tier-1: Google Antigravity SDK ───────────────────────────────────────
+    # ── Tier-1: Official Antigravity CLI / IDE Quota Engine ─────────────────
+    agy_path = shutil.which("agy")
+    if not agy_path:
+        for candidate in [
+            r"C:\Users\Vaz\AppData\Local\agy\bin\agy.exe",
+            r"C:\Users\Vaz\AppData\Local\agy\bin\agy",
+        ]:
+            if os.path.isfile(candidate):
+                agy_path = candidate
+                break
+
+    if agy_path and os.path.isfile(agy_path):
+        resolved_model = _resolve_agy_model_name(model)
+        combined_text = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+        cmd = [
+            agy_path,
+            "-p", combined_text,
+            "--model", resolved_model,
+            "--output-format", "text",
+            "--dangerously-skip-permissions"
+        ]
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+            if proc.returncode == 0:
+                res_text = stdout.decode("utf-8", errors="replace").strip()
+                if res_text:
+                    return res_text
+            else:
+                err_msg = stderr.decode("utf-8", errors="replace")
+                logger.warning(f"[llm_client] agy returned error code {proc.returncode}: {err_msg}")
+        except Exception as e:
+            logger.warning(f"[llm_client] agy execution notice: {e}")
+
+    # ── Tier-1 Fallback: Google Antigravity Python SDK ───────────────────────
     try:
         from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
         config = LocalAgentConfig(
