@@ -28,10 +28,10 @@ _SUBPKG_MAP = {
     "worktree_sandbox": "verification",
     # memory
     "auto_improver": "memory", "embeddings": "memory", "avx512_cosine": "memory",
-    "assembly_vector_linker": "memory", "organic_memory_bridge": "memory", "db": "memory",
+    "organic_memory_bridge": "memory", "db": "memory",
     "mem0_memory_engine": "memory", "knowledge_engine": "memory", "multimodal_knowledge": "memory",
-    "multimodal_resolver": "memory", "post_task_evolver": "memory", "dialogue_persister": "memory",
-    "zettelkasten_exporter": "memory", "hyde_retrieval": "memory",
+    "multimodal_resolver": "memory", "dialogue_persister": "memory",
+    "zettelkasten_exporter": "memory",
     # workers
     "repl_engine": "workers", "self_healing_repl": "workers", "subagent_auto_trigger": "workers",
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
@@ -39,7 +39,7 @@ _SUBPKG_MAP = {
     "jules_client": "workers", "subagent_verifier_bridge": "workers",
     "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers", "subprocess_repl": "workers",
     # evolution
-    "darwinian_evolver": "evolution", "hebbian_compiler": "evolution", "prompt_optimizer": "evolution",
+    "darwinian_evolver": "evolution",
     # integrations
     "telegram_indexer": "integrations", "telegram_notifier": "integrations", "tinkoff_finance_manager": "integrations",
     "freelance_npd_engine": "integrations", "self_employed_order_hunter": "integrations",
@@ -55,11 +55,13 @@ _SUBPKG_MAP = {
     "agy_customizations_hud": "integrations", "skill_author": "integrations"
 }
 
-class _VazusCoreAliasLoader(importlib.abc.Loader):
-    def __init__(self, target_fullname):
+class _VazusCoreAliasLoader(importlib.abc.InspectLoader):
+    def __init__(self, target_fullname, target_spec=None):
         self.target_fullname = target_fullname
+        self.target_spec = target_spec
 
     def create_module(self, spec):
+        _ = spec  # importlib hook signature; kept for interface compliance
         return None
 
     def exec_module(self, module):
@@ -67,9 +69,25 @@ class _VazusCoreAliasLoader(importlib.abc.Loader):
         sys.modules[module.__name__] = target_mod
         module.__dict__.update(target_mod.__dict__)
 
+    def get_code(self, fullname):
+        if self.target_spec and hasattr(self.target_spec.loader, "get_code"):
+            return self.target_spec.loader.get_code(self.target_fullname)
+        return None
+
+    def get_source(self, fullname):
+        if self.target_spec and hasattr(self.target_spec.loader, "get_source"):
+            return self.target_spec.loader.get_source(self.target_fullname)
+        return None
+
+    def is_package(self, fullname):
+        if self.target_spec and hasattr(self.target_spec.loader, "is_package"):
+            return self.target_spec.loader.is_package(self.target_fullname)
+        return False
+
 
 class _VazusCoreSubpackageFinder(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path, target=None):
+        _ = (path, target)  # importlib hook signature; kept for interface compliance
         if fullname.startswith("vazus_core."):
             parts = fullname.split(".")
             if len(parts) == 2:
@@ -80,7 +98,7 @@ class _VazusCoreSubpackageFinder(importlib.abc.MetaPathFinder):
                     if target_spec is not None:
                         return importlib.machinery.ModuleSpec(
                             name=fullname,
-                            loader=_VazusCoreAliasLoader(target_fullname),
+                            loader=_VazusCoreAliasLoader(target_fullname, target_spec),
                             origin=target_spec.origin
                         )
         return None

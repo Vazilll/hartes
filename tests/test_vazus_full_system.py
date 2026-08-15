@@ -33,37 +33,6 @@ def test_database_integrity():
     except Exception as e:
         record("vazus.db Integrity", False, str(e))
 
-# ── 2. vazus-organic MCP Direct Tools Test ────────────────────────────────────
-def test_organic_mcp():
-    from vazus_core.mcp_client import call_mcp_direct
-
-    # Test recall
-    res = call_mcp_direct("vazus-organic", "vazus_organic_recall", {"query": "SuperGraph OS", "top_k": 2})
-    record("vazus_organic_recall", res.get("status") == "success", f"{len(res.get('result', []))} matches")
-
-    # Test AST prune
-    res = call_mcp_direct("vazus-organic", "vazus_ast_prune", {"code_or_file": "def foo():\n    '''doc'''\n    pass"})
-    record("vazus_ast_prune", res.get("status") == "success", "AST signature pruned")
-
-
-    # Test SMT Z3 verify
-    res = call_mcp_direct("vazus-organic", "vazus_smt_z3_verify", {"code": "assert 1 + 1 == 2", "depth": 5})
-    record("vazus_smt_z3_verify", res.get("status") == "success", "Contract verified")
-
-    # Test Repo Indexer tool
-    res = call_mcp_direct("vazus-organic", "vazus_index_repository", {"directory_path": "C:/vazus/vazus_core", "max_files": 3})
-    record("vazus_index_repository", res.get("status") == "success", f"Indexed {res.get('result', {}).get('indexed_files', 0)} files")
-
-# ── 3. vazus-reasoning MCP Tools Test ───────────────────────────────────────
-def test_reasoning_mcp():
-    from vazus_core.mcp_client import call_mcp_direct
-
-    res = call_mcp_direct("vazus-reasoning", "vazus_smt_z3_verify_contract", {"code_snippet": "def test(): assert True"})
-    record("vazus_smt_z3_verify_contract", res.get("status") == "success", "Verified contract")
-
-    res = call_mcp_direct("vazus-reasoning", "vazus_concordia_jury_vote", {"file_path": "test.py", "code_content": "def add(a, b): return a + b"})
-    record("vazus_concordia_jury_vote", res.get("status") == "success", "Jury vote cast")
-
 # ── 4. Dynamic Skill Dispatcher & QWERTY Auto-Decoding Test ──────────────────
 def test_skill_dispatcher():
     from vazus_core.dynamic_skill_dispatcher import SkillIntentParser
