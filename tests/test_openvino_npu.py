@@ -5,14 +5,12 @@ tests/test_openvino_npu.py — Unit Tests for OpenVINO NPU Offloading & Unified 
 import sys
 import os
 import numpy as np
-import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from vazus_core.embeddings import (
     OpenVINONPUEmbedder,
     UnifiedEmbeddingManager,
-    get_embedding,
     _compute_fallback_embedding
 )
 
