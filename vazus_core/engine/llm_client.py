@@ -111,14 +111,11 @@ async def async_generate_llm(
     if is_test_mode():
         return _generate_mock_response(prompt, system_prompt)
 
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-
     # ── Tier-1: Google Antigravity SDK ───────────────────────────────────────
     try:
         from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
         config = LocalAgentConfig(
             system_instructions=system_prompt if system_prompt else "You are an expert AI engineer in Vazus OS.",
-            api_key=api_key,
             capabilities=CapabilitiesConfig()
         )
         tokens = []
@@ -134,14 +131,9 @@ async def async_generate_llm(
 
     # ── Tier-2: Opt-In Cloud Gemini REST API ─────────────────────────────────
     allow_cloud = os.getenv("VAZUS_LLM_ALLOW_CLOUD") == "1"
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if allow_cloud and api_key:
-        resolved_model = model.lower()
-        if resolved_model in ("gemini-3.6-flash", "gemini-3.7-flash"):
-            model_api_id = "gemini-2.5-flash"
-        else:
-            model_api_id = resolved_model
-
-        url = f"{DEFAULT_GEMINI_ENDPOINT}/{model_api_id}:generateContent?key={api_key}"
+        url = f"{DEFAULT_GEMINI_ENDPOINT}/{model}:generateContent?key={api_key}"
         payload: Dict[str, Any] = {
             "contents": [
                 {
