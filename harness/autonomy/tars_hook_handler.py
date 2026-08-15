@@ -269,7 +269,13 @@ def sync_debates_memory(commit: dict) -> None:
                 summary_snippet = content[:300]
 
             # 768-dim embedding
-            vector_768d = generate_gemini_embedding(f"{summary}\n{summary_snippet}")
+            vector_768d = []
+            try:
+                sys.path.insert(0, str(VAZUS_ROOT))
+                from vazus_core.memory.embeddings import get_embedding
+                vector_768d = get_embedding(f"{summary}\n{summary_snippet}")
+            except Exception:
+                vector_768d = []
 
             # Save to sqlite
             conn = sqlite3.connect(str(DB_PATH))
