@@ -243,23 +243,26 @@ class UnifiedEmbeddingManager:
             except Exception:
                 pass
 
-        # 2. Try Google GenAI Client (Gemini Embedding 2 / 768D)
-        self._init_genai()
-        if self._genai_client:
-            try:
-                from google.genai import types
-                res = self._genai_client.models.embed_content(
-                    model="models/gemini-embedding-2",
-                    contents=text,
-                    config=types.EmbedContentConfig(output_dimensionality=self.dimension)
-                )
-                if hasattr(res, "embeddings") and res.embeddings:
-                    emb = res.embeddings[0]
-                    vec = getattr(emb, "values", None) or emb
-                    if vec:
-                        return self._sanitize_vector(vec)
-            except Exception as e:
-                sys.stderr.write(f"[GenAI Embedder Note] {e}\n")
+        # 2. Optional Google GenAI Client (Gemini Embedding 2 / 768D) — CLOUD QUOTA.
+        #    Local-first policy: disabled by default. Opt in explicitly with
+        #    VAZUS_EMBEDDING_ALLOW_CLOUD=1 (e.g. for one-off quality experiments).
+        if os.getenv("VAZUS_EMBEDDING_ALLOW_CLOUD") == "1":
+            self._init_genai()
+            if self._genai_client:
+                try:
+                    from google.genai import types
+                    res = self._genai_client.models.embed_content(
+                        model="models/gemini-embedding-2",
+                        contents=text,
+                        config=types.EmbedContentConfig(output_dimensionality=self.dimension)
+                    )
+                    if hasattr(res, "embeddings") and res.embeddings:
+                        emb = res.embeddings[0]
+                        vec = getattr(emb, "values", None) or emb
+                        if vec:
+                            return self._sanitize_vector(vec)
+                except Exception as e:
+                    sys.stderr.write(f"[GenAI Embedder Note] {e}\n")
 
         # 3. Fallback
         vec = _compute_fallback_embedding(text, dimension=self.dimension)

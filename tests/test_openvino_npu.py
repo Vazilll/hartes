@@ -104,3 +104,18 @@ def test_search_unified_vector_space_mock_db(tmp_path):
     results = manager.search_unified_vector_space("AST Call Graph", db_path=db_file, top_k=2)
     assert len(results) >= 1
     assert results[0]["id"] in ["node_1", "node_2"]
+
+
+def test_embedding_cloud_path_requires_explicit_opt_in(monkeypatch):
+    """Local-first policy: cloud Gemini embedding must NOT be used unless
+    VAZUS_EMBEDDING_ALLOW_CLOUD=1 is set explicitly."""
+    from unittest.mock import patch
+    manager = UnifiedEmbeddingManager(dimension=768)
+    monkeypatch.delenv("VAZUS_EMBEDDING_ALLOW_CLOUD", raising=False)
+    with patch.object(manager, "_get_npu_embedder", return_value=None), \
+         patch.object(manager, "_init_genai") as mock_init_genai:
+        vec = manager.get_embedding("local-first embedding check")
+        mock_init_genai.assert_not_called()
+    assert vec is not None
+    assert len(vec) == 768
+    assert vec == _compute_fallback_embedding("local-first embedding check", dimension=768)
