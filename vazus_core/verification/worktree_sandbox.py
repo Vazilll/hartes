@@ -1,24 +1,34 @@
 """
-vazus_core.verification.worktree_sandbox — Antigravity Git Worktree Sandbox.
+vazus_core.verification.worktree_sandbox — Vazus-Cordis Spatiotemporal Git Worktree Sandbox.
 Provisions isolated Git worktrees for speculative code mutations, Darwinian evolution,
-and AST refactoring, with atomic promotion gates and zero production pollution.
+and AST refactoring, with Win32 Job Object bounds (1GB RAM, KILL_ON_JOB_CLOSE), network restrictions,
+atomic promotion gates, and zero production pollution.
 """
 
 import subprocess
 import os
+import sys
 import shutil
 import uuid
 import logging
 from pathlib import Path
-from typing import Optional, Generator
+from typing import Optional, Generator, Dict, Any, List
 from contextlib import contextmanager
+
+from vazus_core.workers.subprocess_repl import (
+    create_win32_sandbox_job,
+    assign_process_to_job,
+    close_win32_sandbox_job,
+    block_network_on_job,
+)
 
 logger = logging.getLogger("WorktreeSandbox")
 
 
 class AntigravityWorktreeSandbox:
     """
-    Manages isolated Git Worktrees for safe, speculative agent code mutations.
+    Manages isolated Git Worktrees for safe, speculative agent code mutations
+    with native Win32 Job Object kernel confinement.
     Guarantees 100% isolation from production files and atomic verification gates.
     """
     def __init__(self, repo_root: str = r"C:\vazus", scratch_dir: Optional[str] = None):
@@ -78,6 +88,90 @@ class AntigravityWorktreeSandbox:
                 shutil.rmtree(worktree_path, ignore_errors=True)
             logger.info(f"[WorktreeSandbox] Cleaned up sandbox {worktree_path}")
 
+    def run_sandboxed_command(
+        self,
+        cmd: List[str],
+        worktree_path: Path,
+        timeout: int = 30,
+        memory_limit_mb: int = 1024,
+        env: Optional[Dict[str, str]] = None,
+        block_network: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Executes a command inside the worktree under a Win32 Job Object sandbox
+        with memory capping and network restriction.
+        """
+        job_handle = None
+        if sys.platform == "win32":
+            max_bytes = memory_limit_mb * 1024 * 1024
+            job_handle = create_win32_sandbox_job(max_memory_bytes=max_bytes)
+            if block_network and job_handle:
+                block_network_on_job(job_handle)
+
+        exec_env = env or os.environ.copy()
+        exec_env["PYTHONPATH"] = f"{worktree_path};{self.repo_root}"
+        exec_env["PYTHONUTF8"] = "1"
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(worktree_path),
+                env=exec_env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            if job_handle and proc.pid:
+                assign_process_to_job(job_handle, proc.pid)
+
+            stdout, stderr = proc.communicate(timeout=timeout)
+            return {
+                "returncode": proc.returncode,
+                "stdout": stdout,
+                "stderr": stderr,
+                "success": proc.returncode == 0,
+                "timed_out": False,
+            }
+        except subprocess.TimeoutExpired:
+            if proc:
+                proc.kill()
+            return {
+                "returncode": -1,
+                "stdout": "",
+                "stderr": f"Process timed out after {timeout}s",
+                "success": False,
+                "timed_out": True,
+            }
+        except Exception as e:
+            return {
+                "returncode": -1,
+                "stdout": "",
+                "stderr": str(e),
+                "success": False,
+                "timed_out": False,
+            }
+        finally:
+            if job_handle:
+                close_win32_sandbox_job(job_handle)
+
+    def run_speculative_pytest(
+        self,
+        worktree_path: Path,
+        test_path: str = "tests",
+        timeout: int = 30,
+    ) -> Dict[str, Any]:
+        """
+        Executes pytest on speculative changes within the isolated worktree sandbox.
+        """
+        python_exe = str(self.repo_root / ".venv" / "Scripts" / "python.exe")
+        if not os.path.exists(python_exe):
+            python_exe = sys.executable
+
+        cmd = [python_exe, "-m", "pytest", test_path, "-q", "--tb=short"]
+        return self.run_sandboxed_command(cmd, worktree_path=worktree_path, timeout=timeout)
+
     def promote_mutation(self, worktree_path: Path, branch_name: str, target_branch: str = "vazus-dev", message: str = "Verified mutation") -> bool:
         """Commits changes in worktree and merges into target branch."""
         try:
@@ -87,19 +181,26 @@ class AntigravityWorktreeSandbox:
 
             # Merge to target branch in main repo
             merge_res = subprocess.run(
-                ["git", "merge", "--no-ff", "-m", f"Merge {branch_name}: {message}", branch_name],
+                ["git", "merge", "--no-ff", "-m", f"Merge {branch_name} into {target_branch}: {message}", branch_name],
                 cwd=str(self.repo_root),
                 capture_output=True,
                 text=True
             )
             return merge_res.returncode == 0
         except Exception as e:
-            logger.error(f"[WorktreeSandbox] Failed to promote mutation: {e}")
+            logger.error(f"[WorktreeSandbox] Failed to promote mutation into {target_branch}: {e}")
             return False
+
+
+# Global singleton instance
+worktree_sandbox = AntigravityWorktreeSandbox()
 
 
 if __name__ == "__main__":
     sandbox = AntigravityWorktreeSandbox()
-    with sandbox.create_sandbox(prefix="test") as sb_path:
+    with sandbox.create_sandbox(prefix="cordis-test") as sb_path:
         print(f"[+] Active isolated worktree: {sb_path}, exists: {sb_path.exists()}")
+        res = sandbox.run_sandboxed_command([sys.executable, "-c", "print('Cordis Win32 Sandbox Active')"], sb_path)
+        print(f"[+] Command result: {res}")
     print("[+] Sandbox torn down successfully.")
+
