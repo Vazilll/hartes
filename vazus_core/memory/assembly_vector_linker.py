@@ -9,7 +9,6 @@ link assembly nodes with AST topology nodes in vazus.db.
 import sys
 import os
 import json
-import sqlite3
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional, Union
@@ -20,7 +19,7 @@ if str(VAZUS_DIR) not in sys.path:
     sys.path.insert(0, str(VAZUS_DIR))
 
 from vazus_core.engine.supergraph_linker import SuperGraphLinker, DEFAULT_DB_PATH, DEFAULT_GRAPH_JSON_PATH
-from vazus_core.memory.embeddings import UnifiedEmbeddingManager, get_embedding_manager
+from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 from vazus_core.memory.db import get_db_connection
 
 

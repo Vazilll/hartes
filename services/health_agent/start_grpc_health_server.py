@@ -1,5 +1,4 @@
 import sys
-import os
 import asyncio
 import grpc
 from concurrent import futures

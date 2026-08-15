@@ -6,7 +6,6 @@ import json
 import imaplib
 import email
 from email.header import decode_header
-from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, r"C:\vazus")
@@ -54,7 +53,7 @@ def get_2fa_code_by_tag(yandex_email, yandex_pass, target_tag, timeout_sec=130):
                                 except:
                                     pass
                                 return code
-        except Exception as err:
+        except Exception:
             pass
             
         print(f"   ⏳ [2FA Reader] Ожидание доставки письма РТУ МИРЭА ({elapsed}с / {timeout_sec}с)...")

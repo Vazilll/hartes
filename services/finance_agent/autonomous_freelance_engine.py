@@ -3,7 +3,6 @@ vazus_core.autonomous_freelance_engine — Backward Compatibility Re-export Alia
 Redirects to unified vazus_core.freelance_npd_engine module.
 """
 
-from pathlib import Path
 from vazus_core.integrations.freelance_npd_engine import (
     AutonomousFreelanceEngine,
     init_freelance_db,

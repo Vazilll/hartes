@@ -6,7 +6,6 @@ All storage is consolidated in the canonical vazus.db at services/memory/vazus.d
 """
 
 import os
-import sys
 from pathlib import Path
 from dataclasses import dataclass, field
 

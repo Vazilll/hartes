@@ -3,7 +3,6 @@
 import asyncio
 import json
 import sys
-import os
 
 # Force UTF-8 on Windows
 sys.stdout.reconfigure(encoding='utf-8')

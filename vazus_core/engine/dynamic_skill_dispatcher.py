@@ -9,9 +9,6 @@ import os
 import sys
 import re
 import math
-import glob
-import json
-import time
 import hashlib
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -23,7 +20,7 @@ if workspace_root not in sys.path:
     sys.path.insert(0, workspace_root)
 
 # Import vazus_core primitives
-from vazus_core.memory.embeddings import get_embedding_manager, UnifiedEmbeddingManager
+from vazus_core.memory.embeddings import get_embedding_manager
 from vazus_core.verification.ast_pruner import ASTPruner
 from vazus_core.engine.reasoning_effort_controller import ReasoningEffortController
 

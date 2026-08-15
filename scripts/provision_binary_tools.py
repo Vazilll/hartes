@@ -122,7 +122,7 @@ def provision_all_tools(bin_dir: str = DEFAULT_BIN_DIR, force: bool = False, qui
     # Provision Python packages first
     provision_python_packages(quiet=quiet)
 
-    status = check_tool_status(bin_dir)
+    _status = check_tool_status(bin_dir)
 
     for tool_info in BINARY_TOOLS:
         name = tool_info.get("name", os.path.basename(tool_info.get("path", "tool")))

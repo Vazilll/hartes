@@ -4,9 +4,7 @@ Extracts definitions and references, computes Personalized PageRank (PPR, d=0.85
 prunes bodies to signatures, and dynamically bisects the output to strictly fit < 1800 tokens.
 """
 
-import os
 import ast
-import re
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 from collections import defaultdict

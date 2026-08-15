@@ -368,7 +368,7 @@ class TextChunker:
                 ))
             else:
                 section_text = f"Section: {sec_title}\n\n{content_str}"
-                full = f"{header}{section_text}"
+                _full = f"{header}{section_text}"
                 sub_chunks = self.chunk_text(section_text, source=source)
                 for sc in sub_chunks:
                     sc.metadata.chunk_index = len(chunks)
@@ -752,7 +752,7 @@ def _grade_papers(query: str, papers: List[ArxivPaper]) -> List[Dict]:
 
 def _rewrite_query(query: str) -> str:
     """Rewrite query for better academic paper retrieval."""
-    prefixes = ["ti:", "abs:"]
+    _prefixes = ["ti:", "abs:"]
     # If query is short, add broad context
     if len(query.split()) <= 3:
         return f"all:{query}"

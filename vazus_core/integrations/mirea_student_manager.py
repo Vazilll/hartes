@@ -5,12 +5,10 @@ Supports online API fetching (with urllib.parse Cyrillic encoding), offline SQLi
 """
 
 import sys
-import os
 import json
 import urllib.request
 import urllib.parse
 import sqlite3
-from datetime import datetime
 
 if hasattr(sys.stdout, "reconfigure"):
     try:

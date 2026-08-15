@@ -3,7 +3,6 @@ import time
 import json
 import urllib.request
 import subprocess
-from pathlib import Path
 
 print("=== STEP 1: py_compile vazus_core/system_daemon.py ===", flush=True)
 comp = subprocess.run([sys.executable, "-m", "py_compile", "vazus_core/system_daemon.py"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)

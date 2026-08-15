@@ -7,10 +7,9 @@ self-healing local execution, and SMT Z3 contract validation for Vazus SuperGrap
 import sys
 import os
 import ast
-import json
 import time
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any
 
 VAZUS_ROOT = Path("C:/vazus")
 if str(VAZUS_ROOT) not in sys.path:

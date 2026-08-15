@@ -11,7 +11,6 @@ This is NOT a manual script — it is triggered by hooks.json natively.
 
 import sys
 import json
-import os
 import re
 
 from vazus_core.memory.mem0_memory_engine import Mem0Engine

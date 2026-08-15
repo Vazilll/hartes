@@ -1,5 +1,3 @@
-import os
-import sys
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 CREDENTIALS_FILE = r"C:\vazus\credentials.json"

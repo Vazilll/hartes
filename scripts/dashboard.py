@@ -16,7 +16,6 @@ Serves SPA frontend and REST APIs:
 """
 
 import sys
-import os
 import argparse
 import json
 import sqlite3

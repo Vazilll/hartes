@@ -3,9 +3,7 @@ vazus_core.smt_z3_verifier — SMT Z3 Verification Engine & Backward Compatibili
 Redirects to unified vazus_core.safety_guardrail module.
 """
 
-import sys
-import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from vazus_core.verification.safety_guardrail import (
     SMTZ3Verifier,
@@ -241,7 +239,7 @@ class Z3ContractEvaluator:
         """
         if not hints:
             return True
-        v = SMTZ3Verifier()
+        _v = SMTZ3Verifier()
         clean_hints = {k: str(v) for k, v in hints.items() if k}
         return len(clean_hints) > 0
 
@@ -294,7 +292,7 @@ class Z3ContractEvaluator:
         Formally verifies array theory store/select axioms: select(store(A, i, v), i) == v.
         """
         v = SMTZ3Verifier()
-        arr_str = str(array_name).strip()
+        _arr_str = str(array_name).strip()
         idx_val = int(index)
         val_val = int(value)
         code_snippet = (
@@ -422,8 +420,8 @@ class SMTZ3VerificationEngine:
         verifier = SMTZ3Verifier()
         node_list = list(nodes)
         edge_list = list(edges)
-        node_count = len(node_list)
-        edge_count = len(edge_list)
+        _node_count = len(node_list)
+        _edge_count = len(edge_list)
         visited = set()
         stack = []
         for n in node_list:
@@ -446,9 +444,9 @@ class SMTZ3VerificationEngine:
         lc = str(loop_code).strip()
         init_st = str(initial_state).strip()
         exit_cond = str(exit_condition).strip()
-        base_case = f"init: {init_st}"
-        ind_step = f"step: {lc}"
-        inv_cond = f"exit: {exit_cond}"
+        _base_case = f"init: {init_st}"
+        _ind_step = f"step: {lc}"
+        _inv_cond = f"exit: {exit_cond}"
         full_snippet = (
             f"def loop_func(val: int) -> int:\n"
             f"    \"\"\"\n"
@@ -560,7 +558,7 @@ class SMTZ3VerificationEngine:
         v = SMTZ3Verifier()
         clean_args = [a.strip() for a in args if a and isinstance(a, str)]
         clean_pre = [p.strip() for p in preconditions if p and isinstance(p, str)]
-        hints = type_hints or {}
+        _hints = type_hints or {}
         checked_count = len(clean_pre)
         arg_count = len(clean_args)
         if checked_count > 0 and arg_count > 0:
@@ -645,7 +643,7 @@ class SMTZ3VerificationEngine:
         Formally verifies 32-bit big-endian to little-endian byte swap equivalence.
         """
         v = SMTZ3Verifier()
-        v32 = int(val32)
+        _v32 = int(val32)
         code_snippet = (
             f"def check_byteswap(x: int) -> int:\n"
             f"    \"\"\"\n"
@@ -792,7 +790,7 @@ class SMTZ3VerificationEngine:
         v = SMTZ3Verifier()
         clean_args = [a.strip() for a in args if a and isinstance(a, str)]
         clean_pre = [p.strip() for p in preconditions if p and isinstance(p, str)]
-        hints = type_hints or {}
+        _hints = type_hints or {}
         checked_count = len(clean_pre)
         arg_count = len(clean_args)
         if checked_count == 0 or arg_count == 0:
@@ -812,7 +810,7 @@ class SMTZ3VerificationEngine:
         v = SMTZ3Verifier()
         clean_args = [a.strip() for a in args if a and isinstance(a, str)]
         clean_post = [p.strip() for p in postconditions if p and isinstance(p, str)]
-        hints = type_hints or {}
+        _hints = type_hints or {}
         checked_count = len(clean_post)
         arg_count = len(clean_args)
         if checked_count == 0 or arg_count == 0:
@@ -853,7 +851,7 @@ class SMTZ3VerificationEngine:
         """
         v = SMTZ3Verifier()
         sz = int(arr_size)
-        idx_str = str(index_expr).strip()
+        _idx_str = str(index_expr).strip()
         code_snippet = (
             f"def check_index(idx: int) -> int:\n"
             f"    \"\"\"\n"
@@ -876,8 +874,8 @@ class SMTZ3VerificationEngine:
         Formally verifies pointer memory non-overlap (aliasing protection).
         """
         v = SMTZ3Verifier()
-        p1 = int(ptr1_addr)
-        p2 = int(ptr2_addr)
+        _p1 = int(ptr1_addr)
+        _p2 = int(ptr2_addr)
         s1 = int(size1)
         s2 = int(size2)
         code_snippet = (
@@ -901,7 +899,7 @@ class SMTZ3VerificationEngine:
         Formally verifies pointer non-null assertion: ptr != 0.
         """
         v = SMTZ3Verifier()
-        pval = int(ptr_value)
+        _pval = int(ptr_value)
         code_snippet = (
             f"def check_null(ptr: int) -> int:\n"
             f"    \"\"\"\n"

@@ -1,7 +1,6 @@
 import sys
 import os
 import json
-from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, r"C:\vazus")

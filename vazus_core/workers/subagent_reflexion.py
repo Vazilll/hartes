@@ -6,7 +6,7 @@ Implements autonomous self-correction loops driven by 3-agent jury consensus and
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Callable
 
 from vazus_core.memory.db import get_db_connection
 from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine

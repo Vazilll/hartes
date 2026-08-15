@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 from pathlib import Path
 import time
@@ -46,7 +45,7 @@ def build_index():
                         header = f"Repo: {repo_name} | File: {path.name} | Part: {i+1}\n"
                         passages.append(header + chunk)
                     total_files += 1
-                except Exception as e:
+                except Exception:
                     pass
 
     print(f"Read {total_files} files into {len(passages)} passages.", flush=True)

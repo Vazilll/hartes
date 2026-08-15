@@ -4,9 +4,7 @@ Allows AI subagents to automatically convert successful problem-solving workflow
 into permanent SKILL.md skills in ~/.gemini/config/skills/.
 """
 
-import os
 import re
-from pathlib import Path
 from vazus_core.engine.config import settings
 from vazus_core.memory.db import get_db_connection
 

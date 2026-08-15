@@ -7,8 +7,6 @@ real SMT Z3 solver, real AVX512 SIMD vector search, and real Win32 Job Object sa
 import os
 import sys
 import time
-import json
-import sqlite3
 from pathlib import Path
 
 # Ensure Windows terminal outputs UTF-8 cleanly
@@ -36,7 +34,7 @@ def step_header(step_num: int, title: str):
 # STEP 1: Database & Connection Layer Health
 # ==============================================================================
 step_header(1, "Database & Connection Layer (WAL Mode & Schema Check)")
-from vazus_core.memory.db import get_db_connection, DEFAULT_VAZUS_DB
+from vazus_core.memory.db import get_db_connection
 from vazus_core.engine.config import settings
 
 t0 = time.perf_counter()

@@ -10,7 +10,7 @@ JULES_API_KEY is missing, rate-limited (HTTP 429), or unavailable.
 import os
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import httpx
 
 logger = logging.getLogger(__name__)

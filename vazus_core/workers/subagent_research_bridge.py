@@ -5,9 +5,6 @@ into Mem0 768D memory and Obsidian Zettelkasten Knowledge Base.
 """
 
 import sys
-import os
-import json
-import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 

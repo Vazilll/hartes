@@ -9,12 +9,10 @@ Features:
 vazus SuperGraph OS Ecosystem
 """
 
-import os
 import sys
-import json
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:

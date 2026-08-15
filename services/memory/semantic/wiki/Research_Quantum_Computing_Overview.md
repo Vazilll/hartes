@@ -2,7 +2,7 @@
 title: "Research_Quantum Computing Overview"
 agent: "open_deep_researcher"
 trace_kind: "RESEARCH_DRY_RUN"
-created_at: "2026-08-15 02:27:38"
+created_at: "2026-08-15 02:50:51"
 tags:
   - subagent
   - memory_trace
@@ -14,7 +14,7 @@ tags:
 
 > **Agent**: [[open_deep_researcher]]  
 > **Trace Kind**: `RESEARCH_DRY_RUN`  
-> **Timestamp**: 2026-08-15 02:27:38  
+> **Timestamp**: 2026-08-15 02:50:51  
 > **Summary**: Research graph verification for: Quantum Computing Overview
 
 ---
@@ -23,7 +23,7 @@ tags:
 
 Query: Quantum Computing Overview
 Nodes: ['__start__', 'clarify_with_user', 'write_research_brief', 'research_supervisor', 'final_report_generation']
-Config: {'thread_id': '8cc503c9-ddd3-4f48-aea3-d6e172710a46', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'google', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
+Config: {'thread_id': '15bba37c-b8f7-4d7d-a410-a87e760607c7', 'max_structured_output_retries': 3, 'allow_clarification': False, 'max_concurrent_research_units': 3, 'search_api': 'google', 'max_researcher_iterations': 3, 'max_react_tool_calls': 5}
 
 ---
 

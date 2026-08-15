@@ -1,6 +1,4 @@
-import os
 import sys
-import json
 import urllib.parse
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from google_auth_oauthlib.flow import InstalledAppFlow

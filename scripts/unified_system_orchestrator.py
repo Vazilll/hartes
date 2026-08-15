@@ -11,7 +11,6 @@ vazus SuperGraph OS Ecosystem
 """
 
 import sys
-import os
 import time
 import subprocess
 import threading
@@ -36,7 +35,7 @@ def run_google_sync_loop(interval_sec: int = 30):
     engine = GoogleSyncEngine()
     while True:
         try:
-            res = engine.scan_and_sync()
+            _res = engine.scan_and_sync()
             # Silent background status
         except Exception as e:
             sys.stderr.write(f"⚠️ [Google Sync Loop Warning]: {e}\n")

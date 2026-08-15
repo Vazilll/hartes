@@ -86,7 +86,7 @@ def get_last_dialogues(n=5):
             assistant_msg = assistant_msg[:497] + "..."
 
         # Extract date from filename
-        date_part = fname.split(" - ")[0] if " - " in fname else fname
+        _date_part = fname.split(" - ")[0] if " - " in fname else fname
         title_part = fname.replace(".md", "")
         if len(title_part) > 80:
             title_part = title_part[:77] + "..."

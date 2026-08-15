@@ -3,7 +3,6 @@ scripts/full_workspace_indexer.py — Re-export Alias & CLI Runner.
 Redirects to unified vazus_core.memory.knowledge_engine module.
 """
 
-import os
 import sys
 from pathlib import Path
 

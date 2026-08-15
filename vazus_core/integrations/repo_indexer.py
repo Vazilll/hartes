@@ -10,10 +10,9 @@ import os
 import sys
 import json
 import sqlite3
-import hashlib
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
 VAZUS_DIR = Path("C:/vazus")
 if str(VAZUS_DIR) not in sys.path:

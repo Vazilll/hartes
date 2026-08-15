@@ -11,7 +11,6 @@ Features:
 vazus SuperGraph OS Ecosystem
 """
 
-import os
 import sys
 import time
 import asyncio

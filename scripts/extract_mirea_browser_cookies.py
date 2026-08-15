@@ -1,10 +1,8 @@
 import sys
 import os
-import glob
 import json
 import sqlite3
 import shutil
-from pathlib import Path
 
 sys.path.insert(0, r"C:\vazus")
 sys.stdout.reconfigure(encoding='utf-8')

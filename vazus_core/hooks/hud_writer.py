@@ -8,7 +8,6 @@ This log is consumed and displayed by the Vazus HUD monitor.
 """
 
 import json
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 

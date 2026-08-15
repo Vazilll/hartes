@@ -6,7 +6,6 @@ Provides LocalREPL execution and automated error recovery for Vazus SuperGraph O
 import ast
 import copy
 import io
-import json
 import logging
 import os
 import re
@@ -17,7 +16,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger("LocalREPL")
 

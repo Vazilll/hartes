@@ -13,7 +13,6 @@ import os
 import sys
 import argparse
 import tempfile
-import sqlite3
 import datetime
 from pathlib import Path
 
@@ -39,7 +38,6 @@ from vazus_core.integrations.cognitive_tutor_engine import (
     calculate_sm2_update,
     generate_active_recall_question,
     evaluate_answer,
-    parse_zettel_markdown,
     DEFAULT_DB_PATH
 )
 

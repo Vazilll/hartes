@@ -3,7 +3,7 @@ r"""
 langfuse_bridge.py — Forward Hermes observability traces to Langfuse V2.
 Reads credentials from C:\vazus\pyenv\langfuse.env
 """
-import sys, os, json, time
+import sys, os, time
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding='utf-8')

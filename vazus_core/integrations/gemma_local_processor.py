@@ -4,9 +4,7 @@ Uses Google Gemma architecture for fast local offline inference & 768-dim SuperG
 """
 
 import sys
-import os
 import json
-import torch
 
 sys.stdout.reconfigure(encoding='utf-8')
 sys.path.append(r"C:\vazus")

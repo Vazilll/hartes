@@ -8,8 +8,6 @@ vazus SuperGraph OS v4.0 Unified Architecture
 
 import ast
 import re
-import sys
-import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -712,7 +710,7 @@ class RollbackGuardrail:
                     return False
 
             return True
-        except Exception as e:
+        except Exception:
             if guard:
                 guard.restore_snapshot()
             return False

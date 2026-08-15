@@ -5,13 +5,12 @@ Implements verifiable workflows: INGEST, QUERY, LINT, SAVE, RESEARCH, REVIEW.
 vazus SuperGraph OS Architecture
 """
 
-import os
 import sys
 import json
 import sqlite3
 import time
 from contextlib import contextmanager
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent

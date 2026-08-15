@@ -11,7 +11,7 @@ import ctypes
 import threading
 import numpy as np
 from pathlib import Path
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional
 
 
 # Global thread lock for C OpenMP DLL entry points safety

@@ -3,7 +3,6 @@ import sys
 import time
 import json
 import sqlite3
-import urllib.parse
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timedelta

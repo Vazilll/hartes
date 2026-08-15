@@ -8,16 +8,14 @@ Vazus SuperGraph OS v4.0 Unified Architecture
 
 import ast
 import logging
-import os
 import shlex
 import subprocess
-import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Union
 
 from vazus_core.workers.repl_engine import LocalREPL
 from vazus_core.verification.concordia_jury import ConcordiaJury
-from vazus_core.verification.safety_guardrail import SMTZ3Verifier, RollbackGuardrail, VerificationResult
+from vazus_core.verification.safety_guardrail import SMTZ3Verifier, RollbackGuardrail
 from vazus_core.engine.circuit_breaker import AntiLoopCircuitBreaker
 
 logger = logging.getLogger("SelfHealingREPL")

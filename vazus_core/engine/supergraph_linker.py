@@ -4,7 +4,6 @@ Integrates Layer A (AST Code Topology) with Layer B (Karpathy Memory Wiki).
 """
 
 import sys
-import os
 import json
 import sqlite3
 import hashlib

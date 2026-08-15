@@ -4,12 +4,10 @@ Spawns a lightweight daemon thread after every turn to evaluate if a new skill o
 should be saved/updated without blocking the main conversation turn.
 """
 
-import os
 import sys
 import time
 import threading
 import logging
-from pathlib import Path
 
 sys.path.insert(0, "C:/vazus")
 

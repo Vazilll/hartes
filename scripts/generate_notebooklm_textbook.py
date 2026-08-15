@@ -1,11 +1,7 @@
-import os
 import sys
 import re
 import docx
 from docx.shared import Inches, Pt, RGBColor
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml import OxmlElement, parse_xml
-from docx.oxml.ns import nsdecls, qn
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -314,7 +310,7 @@ def generate_files():
         elif line.startswith('---'):
             doc.add_paragraph().paragraph_format.space_after = Pt(4)
         else:
-            p = doc.add_paragraph(line)
+            _p = doc.add_paragraph(line)
 
     doc.save(DOCX_PATH)
     print(f"DOCX textbook saved to: {DOCX_PATH}")

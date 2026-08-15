@@ -1,4 +1,4 @@
-import os, sys, sqlite3
+import os
 
 def search_text():
     search_terms = ["kg_nodes", "kg_edges", "llm_cache", "vazus.db"]
@@ -17,7 +17,7 @@ def search_text():
                         for term in search_terms:
                             if term in content:
                                 results.append(f"{term} found in {path}")
-                except Exception as e:
+                except Exception:
                     pass
     print("Search results:")
     for r in results:

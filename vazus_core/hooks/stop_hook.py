@@ -11,8 +11,6 @@ This is NOT a manual script — it is triggered by hooks.json natively.
 
 import sys
 import json
-import os
-import re
 import subprocess
 from datetime import datetime
 
@@ -95,8 +93,8 @@ def main():
 
         hook_data = json.loads(raw_input)
         conversation_id = hook_data.get("conversationId", "unknown")
-        termination_reason = hook_data.get("terminationReason", "unknown")
-        fully_idle = hook_data.get("fullyIdle", True)
+        _termination_reason = hook_data.get("terminationReason", "unknown")
+        _fully_idle = hook_data.get("fullyIdle", True)
         messages = hook_data.get("messages", [])
         invocation_num = hook_data.get("invocationNum", 0)
 

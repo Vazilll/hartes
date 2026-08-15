@@ -4,10 +4,9 @@ Prompt self-evolution using textual gradients and feedback scoring.
 Refines agent instructions and system prompts recursively.
 """
 
-import os
 import json
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any
 from vazus_core.memory.organic_memory_bridge import record_insight
 
 SOUL_PATH = r"C:\vazus\services\memory\SOUL.md"

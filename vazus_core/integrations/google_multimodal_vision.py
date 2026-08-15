@@ -3,9 +3,7 @@ Vazus Health OS - Google Multimodal Vision & Pix2Text OCR Analyzer
 Combines Google Gemini 3.6 Multimodal Vision API & Pix2Text OCR for lab reports, ECGs, and charts
 """
 
-import sys
 import os
-import json
 
 import threading
 

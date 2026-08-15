@@ -7,12 +7,11 @@ with horizontal Run-Length Encoding (RLE) ANSI escape sequence compression.
 
 import sys
 import io
-import os
 import re
 import ctypes
 import shutil
 from pathlib import Path
-from typing import Union, Optional, Tuple, List, Dict, Any
+from typing import Union, Optional, Tuple, List
 from PIL import Image
 
 from vazus_core.memory.multimodal_resolver import (

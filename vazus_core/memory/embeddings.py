@@ -8,7 +8,6 @@ import os
 import sys
 import types
 import hashlib
-import sqlite3
 import json
 import math
 import numpy as np

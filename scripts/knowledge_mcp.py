@@ -9,11 +9,9 @@ Exposes FastMCP tools for LLM subagents:
 """
 
 import sys
-import os
 import json
 import sqlite3
 from pathlib import Path
-from typing import Optional, Any
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")

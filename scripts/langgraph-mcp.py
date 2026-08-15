@@ -7,7 +7,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 from fastmcp import FastMCP
 from langgraph.graph import StateGraph, START, END
-from typing import TypedDict, Literal, Optional, List, Dict, Any
+from typing import TypedDict, Literal, List
 
 mcp = FastMCP("langgraph-bridge-v2")
 

@@ -6,7 +6,6 @@ into google.genai inlineData Base64 parts and ResolvedMultimodalPayload objects.
 """
 
 import os
-import sys
 import io
 import base64
 import hashlib

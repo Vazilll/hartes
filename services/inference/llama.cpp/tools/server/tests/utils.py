@@ -17,8 +17,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
     Any,
     Callable,
-    ContextManager,
-    Iterable,
     Iterator,
     List,
     Literal,
@@ -284,7 +282,7 @@ class ServerProcess:
                 if response.status_code == 200:
                     self.ready = True
                     return  # server is ready
-            except Exception as e:
+            except Exception:
                 pass
             # Check if process died
             if self.process.poll() is not None:

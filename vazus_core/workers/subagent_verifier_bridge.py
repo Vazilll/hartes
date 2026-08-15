@@ -7,11 +7,10 @@ and multi-agent consensus jury voting for Vazus SuperGraph OS v5.0.
 import sys
 import os
 import ast
-import json
 import time
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Tuple
 
 VAZUS_ROOT = Path("C:/vazus")
 if str(VAZUS_ROOT) not in sys.path:

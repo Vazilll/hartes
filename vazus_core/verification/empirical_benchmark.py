@@ -9,7 +9,6 @@ import sys
 import time
 import tracemalloc
 import gc
-import json
 import ast
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
@@ -141,7 +140,7 @@ class EmpiricalBenchmarkRunner:
                 "core_claim": "AST signature pruning reduces token footprint drastically."
             }
             evaluator = ResponseEvaluator()
-            q = generate_active_recall_question(entity)
+            _q = generate_active_recall_question(entity)
             eval_res = evaluator.evaluate_response("AST signature pruning reduces token footprint", entity["statement"])
             n, ef, interval = calculate_sm2_update(0, 2.5, 0.0, eval_res["q_rating"])
             return {"q_rating": eval_res["q_rating"], "next_interval": interval}

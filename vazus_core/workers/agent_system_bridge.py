@@ -10,11 +10,10 @@ Implements standardized agent system mechanics inspired by CrewAI, AutoGen, Meta
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable, Union
+from typing import Dict, List, Optional, Callable
 
-from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
+from vazus_core.engine.utils import fast_json_dumps
 from vazus_core.memory.db import get_db_connection
-from vazus_core.engine.subagent_framework import SubagentContext, global_hook_registry
 
 logger = logging.getLogger("AgentSystemBridge")
 

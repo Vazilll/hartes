@@ -14,7 +14,6 @@ import sys
 import time
 import requests
 from pathlib import Path
-from typing import Optional
 
 def normalize_memory_chunk(raw_text: str) -> str:
     """

@@ -7,12 +7,9 @@ import os
 import sys
 import re
 import json
-import math
 import hashlib
-import sqlite3
 import threading
 from typing import List, Dict, Any, Optional, Tuple
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -570,7 +567,7 @@ def transcribe_media_high_precision(
         raise FileNotFoundError(f"Media file not found: {file_path}")
 
     os.makedirs(output_thumbnail_dir, exist_ok=True)
-    file_ext = os.path.splitext(file_path)[1].lower()
+    _file_ext = os.path.splitext(file_path)[1].lower()
 
     # Step 1: Run Whisper ASR with fallback support
     model, loaded_model_name = get_whisper_model_with_fallback(preferred_model=model_name, device="cpu", compute_type="int8")

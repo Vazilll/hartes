@@ -1,5 +1,4 @@
 import sys
-import os
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 sys.stdout.reconfigure(encoding='utf-8')

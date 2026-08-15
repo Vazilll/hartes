@@ -10,12 +10,9 @@ Provides:
 4. SQLite persistence for tutor_cards and tutor_reviews tables in vazus.db (with kg_flashcards / kg_review_logs aliases).
 """
 
-import os
 import sys
 import re
-import json
 import uuid
-import math
 import sqlite3
 import datetime
 import difflib
@@ -444,7 +441,7 @@ def parse_zettel_markdown(file_path: Union[str, Path]) -> Dict[str, Any]:
     # Extract frontmatter if present
     yaml_match = re.search(r'^---\s*\n(.*?)\n---', text, re.DOTALL)
     z_id = f"Zettel_{p.stem}"
-    tags = []
+    _tags = []
     if yaml_match:
         yaml_text = yaml_match.group(1)
         id_match = re.search(r'^id:\s*(.+)$', yaml_text, re.MULTILINE)

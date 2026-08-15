@@ -14,7 +14,6 @@ vazus SuperGraph OS Ecosystem
 """
 
 import sys
-import os
 import time
 import argparse
 from pathlib import Path

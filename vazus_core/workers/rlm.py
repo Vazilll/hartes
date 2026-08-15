@@ -3,8 +3,6 @@ vazus_core.workers.rlm — MIT RLM Code Engineering Worker Module.
 Provides tool loading, LocalREPL integration, and iterative code evaluation.
 """
 
-import os
-import sys
 import time
 from typing import Dict, Any, Optional
 
@@ -16,21 +14,30 @@ from vazus_core.workers.repl_engine import LocalREPL
 from vazus_core.workers.subprocess_repl import ZeroTrustSubprocessREPL
 
 
+try:
+    from rlm.clients.antigravity import AntigravityClient
+except ImportError:
+    AntigravityClient = None
+
+
 def load_compiled_tools() -> Dict[str, Any]:
     """Loads compiled fast-path tools for RLM Code Engineer."""
-    return {
+    tools = {
         "ast_pruner": ASTPruner,
         "model_selector": ModelSelector,
         "sota2027_jury": SOTA2027JuryEngine,
         "repl": LocalREPL,
         "sandbox_repl": ZeroTrustSubprocessREPL,
     }
+    if AntigravityClient:
+        tools["antigravity_client"] = AntigravityClient
+    return tools
 
 
 def run(
     task_id: str,
     prompt: str,
-    context: str = "",
+    _context: str = "",
     max_iterations: int = 3,
     max_depth: int = 2,
     complexity: str = "medium",

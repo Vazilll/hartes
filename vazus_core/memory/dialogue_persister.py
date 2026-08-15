@@ -8,7 +8,6 @@ vazus SuperGraph OS Architecture
 
 import json
 from contextlib import contextmanager
-import os
 import re
 import sqlite3
 import sys
@@ -217,8 +216,8 @@ class SubagentDialoguePersister:
             clean_title = f"subagent_trace_{int(time.time())}"
 
         filename = f"{clean_title}.md"
-        primary_file = PRIMARY_WIKI_DIR / filename
-        secondary_file = SECONDARY_WIKI_DIR / filename
+        _primary_file = PRIMARY_WIKI_DIR / filename
+        _secondary_file = SECONDARY_WIKI_DIR / filename
 
         links_str = ""
         if linked_notes:

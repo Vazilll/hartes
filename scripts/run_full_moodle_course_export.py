@@ -1,10 +1,8 @@
 import sys
-import os
 import re
 import time
 import json
 import requests
-import urllib.parse
 from pathlib import Path
 from bs4 import BeautifulSoup
 

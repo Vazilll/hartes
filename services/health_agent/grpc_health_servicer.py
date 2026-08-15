@@ -1,5 +1,4 @@
 import sys
-import os
 import json
 import time
 import asyncio
@@ -181,5 +180,4 @@ async def serve_grpc_health_server(port=50051):
     await server.wait_for_termination()
 
 if __name__ == '__main__':
-    import grpc
     asyncio.run(serve_grpc_health_server())

@@ -136,7 +136,7 @@ def main():
     tool_name = sys.argv[2]
     try:
         args = json.loads(sys.argv[3])
-    except Exception as e:
+    except Exception:
         args = {}
 
     res = call_mcp_direct(server_name, tool_name, args)

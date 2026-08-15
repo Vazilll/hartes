@@ -1,5 +1,4 @@
 import sys
-import os
 import asyncio
 import sqlite3
 import json
@@ -118,12 +117,12 @@ def parse_mi_scale_v2_data(service_data):
         return None
 
     # Byte 0-1: Control flags
-    ctrl_0 = service_data[0]
+    _ctrl_0 = service_data[0]
     ctrl_1 = service_data[1]
 
     is_stabilized = bool(ctrl_1 & (1 << 5))
     has_impedance = bool(ctrl_1 & (1 << 7))
-    weight_removed = bool(ctrl_1 & (1 << 7))
+    _weight_removed = bool(ctrl_1 & (1 << 7))
 
     # Byte 9-10: Impedance in ohms (little endian)
     impedance_ohms = service_data[9] + (service_data[10] << 8)

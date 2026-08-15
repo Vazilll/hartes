@@ -4,7 +4,6 @@ Verifies git branch status, C:\\vazus\\.venv packages, and the canonical SQLite 
 Cremniy C++ Engine, and git_open layers.
 """
 
-import os
 import sys
 import json
 import sqlite3

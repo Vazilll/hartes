@@ -21,7 +21,7 @@ def test_import(module_name):
         import importlib
         importlib.import_module(module_name)
         results.append(f"{module_name}: SUCCESS")
-    except Exception as e:
+    except Exception:
         results.append(f"{module_name}: FAILED\n{traceback.format_exc()}")
 
 for mod in ["ldr_mcp", "rlm_mcp", "evolution_mcp", "hybrid_search_mcp"]:

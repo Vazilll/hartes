@@ -1,8 +1,5 @@
 import re
-import os
-from pathlib import Path
 from vazus_core.memory.db import get_db_connection
-from vazus_core.engine.config import settings
 
 conn = get_db_connection()
 cursor = conn.cursor()

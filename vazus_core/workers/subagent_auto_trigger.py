@@ -8,7 +8,6 @@ Fulfills Requirement R1 for Vazus OS Milestone M1.
 import os
 import sys
 import time
-import json
 import uuid
 import re
 import logging

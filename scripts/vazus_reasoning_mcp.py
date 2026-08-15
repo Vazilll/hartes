@@ -18,7 +18,6 @@ from fastmcp import FastMCP
 from vazus_core.engine.unified_reasoning_pipeline import UnifiedReasoningPipeline
 from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
 from vazus_core.verification.concordia_jury import ConcordiaJury
-from vazus_core.verification.ast_pruner import ASTPruner
 
 MCP = FastMCP("vazus-reasoning")
 

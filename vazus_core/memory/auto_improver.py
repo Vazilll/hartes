@@ -17,23 +17,21 @@ Terminal Output (visible in real time, no external dashboard needed):
   Uses ANSI codes printed to stdout — works in Antigravity CLI terminal.
 """
 
-import os
 import sys
 import ast
 import time
 import json
 import threading
-import sqlite3
 import logging
 import asyncio
 import inspect
 import concurrent.futures
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable, Union
+from typing import Dict, Any, List, Optional, Callable
 
 from vazus_core.memory.db import get_db_connection
-from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
+from vazus_core.engine.utils import fast_json_dumps
 from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 
 logger = logging.getLogger("VazusAutoImprover")

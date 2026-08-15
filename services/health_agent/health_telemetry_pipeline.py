@@ -7,19 +7,14 @@ Combines:
   4. SQLite SuperGraph Persistence (vazus.db)
 """
 
-import os
 import sys
 import json
-import time
-import asyncio
 import sqlite3
-from datetime import datetime, timedelta
 
 sys.path.append(r"C:\vazus")
 sys.path.append(r"C:\vazus\vazus_core")
 
-from google_fit_sync import fetch_and_save_fitness_data, get_google_fit_service
-from ble_mi_scale_scanner import calculate_bia_metrics, save_weighin_to_db
+from google_fit_sync import fetch_and_save_fitness_data
 
 DB_PATH = r"C:\vazus\services\memory\vazus.db"
 

@@ -1,4 +1,3 @@
-import os
 import sys
 import docx
 from docx.shared import Inches, Pt, RGBColor
@@ -394,7 +393,7 @@ def build_pdf():
     # Custom Palette
     COLOR_PRIMARY = colors.HexColor('#005691')
     COLOR_DARK = colors.HexColor('#111111')
-    COLOR_MUTED = colors.HexColor('#555555')
+    _COLOR_MUTED = colors.HexColor('#555555')
     COLOR_BG_CALLOUT = colors.HexColor('#EBF3FA')
     COLOR_BG_CODE = colors.HexColor('#1E1E1E')
 

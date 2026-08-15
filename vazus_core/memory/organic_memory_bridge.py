@@ -10,7 +10,6 @@ import json
 import time
 import sys
 import re
-import uuid
 import hashlib
 import numpy as np
 

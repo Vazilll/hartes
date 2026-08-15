@@ -12,9 +12,8 @@ mem0 adapter для Hermes — работает параллельно с hologr
 
 Зависимости: mem0ai, qdrant-client, ollama (nomic-embed-text + qwen3:1.7b)
 """
-import os, json
+import os
 from pathlib import Path
-from typing import Optional
 
 HERMES_HOME = Path(os.environ.get('HERMES_HOME', 
     os.path.expanduser('C:/vazus/pyenv/hermes-home')))

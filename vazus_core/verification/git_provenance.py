@@ -2,7 +2,6 @@
 vazus_core.git_provenance — Git Provenance & Branch Management for vazus SuperGraph OS v4.0.
 """
 
-import os
 import subprocess
 from typing import Optional, Union, List
 

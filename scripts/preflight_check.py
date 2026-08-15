@@ -103,7 +103,7 @@ def check_hive_running() -> tuple:
 
 def check_antigravity_bridge() -> tuple:
     """Проверить, что SQLite bridge цел."""
-    bridge_py = r'C:\vazus\pyenv\scripts\agy_bridge_mcp.py'
+    _bridge_py = r'C:\vazus\pyenv\scripts\agy_bridge_mcp.py'
     bridge_go = r'C:\vazus\pyenv\gomcp\tools\antigravity.go'
     db_path = r'C:\vazus\services\memory\vazus.db'
 

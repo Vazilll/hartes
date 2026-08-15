@@ -5,7 +5,6 @@ Bridge to import and sync NousResearch Hermes agent skills into Antigravity CLI 
 
 import os
 import shutil
-import glob
 import re
 
 HERMES_SKILLS_DIR = r"C:\Users\Vaz\AppData\Local\hermes\hermes-agent\skills"

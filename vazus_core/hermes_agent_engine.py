@@ -6,8 +6,8 @@ dynamic tool schema generation, high-speed XML parsing, and multi-turn agentic e
 
 import re
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable, Union
+from dataclasses import dataclass
+from typing import Dict, Any, List, Optional, Callable
 
 from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
 from vazus_core.engine.subagent_framework import SubagentContext
@@ -156,7 +156,7 @@ class HermesAgentEngine:
             if handler:
                 try:
                     tool_result = handler(**args)
-                    formatted_resp = self.parser.format_tool_response(tool_name, tool_result)
+                    _formatted_resp = self.parser.format_tool_response(tool_name, tool_result)
                     ctx.results[f"tool_response_{tool_name}"] = tool_result
                     ctx.logs.append(f"[Hermes Tool Response] {tool_name} returned success.")
                 except Exception as e:

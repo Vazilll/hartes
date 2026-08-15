@@ -7,7 +7,6 @@ import sys
 import json
 import os
 import logging
-from pathlib import Path
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"

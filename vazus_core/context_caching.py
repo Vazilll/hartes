@@ -5,9 +5,7 @@ Combines 768D embeddings, AST graph pruning, Mermaid visualization, and Gemini C
 vazus SuperGraph OS Architecture
 """
 
-import os
 import sys
-import json
 import sqlite3
 import hashlib
 from typing import Dict, Any, List

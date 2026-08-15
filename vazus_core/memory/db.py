@@ -13,7 +13,7 @@ try:
 except ImportError:
     sqlite_vec = None
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional
 
 logger = logging.getLogger("vazus_core.db")
 

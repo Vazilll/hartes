@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 import time
 import sys
-import os
-import json
 from pathlib import Path
 
 # Setup paths

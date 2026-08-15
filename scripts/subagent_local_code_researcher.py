@@ -7,10 +7,9 @@ vazus SuperGraph OS Architecture
 
 import argparse
 import ast
-import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, List, Set
+from typing import Dict, Any, Set
 
 # Windows UTF-8 console output fix
 if hasattr(sys.stdout, "reconfigure"):
@@ -24,7 +23,6 @@ ROOT_DIR = SCRIPT_DIR.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from vazus_core.verification.ast_pruner import ASTPruner
 from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 
 

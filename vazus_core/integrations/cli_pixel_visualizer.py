@@ -6,7 +6,6 @@ vazus SuperGraph OS Architecture
 """
 
 import sys
-import os
 
 if hasattr(sys.stdout, 'reconfigure'):
     try:
@@ -17,7 +16,6 @@ if hasattr(sys.stdout, 'reconfigure'):
 import sqlite3
 import random
 from pathlib import Path
-from typing import Dict, Any, List
 
 ROOT_DIR = Path("C:\\vazus")
 if str(ROOT_DIR) not in sys.path:

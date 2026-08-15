@@ -3,7 +3,6 @@ vazus_core.self_employed_order_hunter — Backward Compatibility Re-export Alias
 Redirects to unified vazus_core.freelance_npd_engine module.
 """
 
-from pathlib import Path
 
 from vazus_core.integrations.freelance_npd_engine import (
     SelfEmployedManager,

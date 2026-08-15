@@ -6,7 +6,7 @@ Sends structured status updates, verification cards, and alert cards via Telegra
 import os
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

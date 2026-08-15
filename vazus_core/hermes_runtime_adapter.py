@@ -4,16 +4,14 @@ Provides seamless execution against local Ollama / llama.cpp / vLLM / OpenVINO H
 with an offline simulator for dry-run testing and parameter inspection.
 """
 
-import os
-import sys
 import time
 import logging
 import urllib.request
 import urllib.error
-from typing import Dict, Any, List, Optional, Callable, Tuple
+from typing import Dict, Any, List, Callable
 
 from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
-from vazus_core.hermes_agent_engine import HermesAgentEngine, HermesToolRegistry, HermesParsedOutput
+from vazus_core.hermes_agent_engine import HermesAgentEngine, HermesToolRegistry
 
 logger = logging.getLogger("HermesRuntimeAdapter")
 

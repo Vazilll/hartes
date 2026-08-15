@@ -7,10 +7,9 @@ vazus SuperGraph OS Architecture Integration
 
 import argparse
 import ast
-import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 # Fix Windows console UTF-8 output
 if hasattr(sys.stdout, "reconfigure"):

@@ -12,8 +12,7 @@ import glob
 import json
 import re
 import sqlite3
-from typing import List, Dict, Any, Optional, Set, Tuple
-from pathlib import Path
+from typing import List, Dict, Any, Optional, Tuple
 
 
 import threading

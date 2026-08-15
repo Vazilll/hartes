@@ -7,7 +7,6 @@ Outputs structured information for MediaScene and TelegramMessage nodes.
 """
 
 import sys
-import os
 import argparse
 import json
 from pathlib import Path

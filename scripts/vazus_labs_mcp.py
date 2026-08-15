@@ -4,7 +4,6 @@ import socket
 import asyncio
 import tempfile
 import uuid
-import subprocess
 import shutil
 from mcp.server.fastmcp import FastMCP
 

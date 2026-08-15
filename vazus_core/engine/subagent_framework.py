@@ -3,18 +3,14 @@ vazus_core.subagent_framework - Declarative Subagent Lifecycle & Hook System
 Eliminates script duplication across subagents by providing a unified hook-driven execution engine.
 """
 
-import sys
 import time
-import json
 import logging
-import ast
 import inspect
 import asyncio
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Callable, Optional, Union
-from pathlib import Path
+from typing import Dict, Any, List, Callable, Optional
 
-from vazus_core.engine.utils import fast_json_dumps, fast_json_loads
+from vazus_core.engine.utils import fast_json_dumps
 from vazus_core.memory.db import get_db_connection
 
 logger = logging.getLogger("SubagentFramework")
