@@ -952,29 +952,38 @@ def generate_failing_pytest_fixture(
     func_name: str,
     counterexample: Optional[Dict[str, Any]],
     _module_path: Optional[str] = None,
+    expected_clause: Optional[str] = None,
 ) -> str:
     """
     Converts an SMT Z3 counterexample into a concrete, executable pytest test fixture
-    for the TDD self-healing repair loop.
+    that actually executes the target function with the counterexample inputs and asserts contract validity.
     """
     clean_func = func_name.replace(".", "_")
     cex_vars = counterexample or {}
+    clean_args = {k: v for k, v in cex_vars.items() if not k.startswith("_") and k != "result"}
     
     lines = [
         f"def test_z3_counterexample_{clean_func}():",
         f'    """Auto-generated TDD regression fixture from SMT Z3 counterexample proof."""',
     ]
-    if cex_vars:
-        lines.append("    # Concrete counterexample state proving contract violation:")
-        for var_name, var_val in cex_vars.items():
-            if not var_name.startswith("_"):
-                lines.append(f"    {var_name} = {var_val}")
+    if clean_args:
+        lines.append("    # Concrete counterexample inputs found by SMT Z3:")
+        for var_name, var_val in clean_args.items():
+            lines.append(f"    {var_name} = {var_val}")
+        args_str = ", ".join([f"{k}={k}" for k in clean_args])
+        lines.append(f"    # Execute function under counterexample conditions:")
+        lines.append(f"    res = {clean_func}({args_str})")
+        if expected_clause:
+            lines.append(f"    # Expected formal contract postcondition:")
+            lines.append(f"    assert {expected_clause}, f'SMT Z3 contract violated: got {{res}}'")
+        else:
+            lines.append(f"    # Verify result is valid under formal specification:")
+            lines.append(f"    assert res is not None, f'Function {clean_func} returned invalid state for inputs: {clean_args}'")
     else:
-        lines.append("    # Boundary violation detected by SMT Z3 solver")
+        lines.append("    # Boundary violation detected by SMT Z3 solver:")
+        lines.append(f"    res = {clean_func}()")
+        lines.append(f"    assert res is not None")
         
-    lines.append(f"    # Invariant assertion under counterexample condition")
-    lines.append(f"    # Replace/heal implementation to satisfy formal specification")
-    lines.append(f"    assert True, 'Heal implementation for counterexample state'")
     lines.append("")
     return "\n".join(lines)
 

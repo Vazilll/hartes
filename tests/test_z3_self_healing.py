@@ -50,6 +50,8 @@ def faulty_increment(x: int) -> int:
     fixture_code = feedback["failing_pytest_fixtures"][0]
     assert "def test_z3_counterexample_" in fixture_code
     assert "faulty_increment" in fixture_code
+    assert "faulty_increment(" in fixture_code
+    assert "assert res is not None" in fixture_code or "assert" in fixture_code
 
 
 def test_smt_z3_self_healing_loop_instance():

@@ -316,6 +316,7 @@ class SMTZ3Verifier:
             except Exception:
                 pass
 
+        contracts_checked = 0
         # Extract functions and inspect contracts
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -324,6 +325,7 @@ class SMTZ3Verifier:
                 ensures = re.findall(r":ensures:\s*(.+)", docstring)
 
                 if requires or ensures:
+                    contracts_checked += 1
                     try:
                         z3_vars: Dict[str, Any] = {}
                         for arg in node.args.args:
@@ -347,10 +349,7 @@ class SMTZ3Verifier:
                                 solver.add(req_z3)
 
                             # Hoare triple: find counterexample where ALL preconditions hold
-                            # but SOME postcondition fails. This means: NOT(ens1 AND ens2 AND ...)
-                            # = NOT_ens1 OR NOT_ens2 OR ... (De Morgan)
-                            # Correct: negate the CONJUNCTION of all ensures, not each one individually.
-                            # (Adding NOT(ens1) AND NOT(ens2) separately would require ALL to fail simultaneously — a much stricter and incorrect check.)
+                            # but SOME postcondition fails: NOT(ens1 AND ens2 AND ...)
                             ensures_z3_list = []
                             for ens in ensures:
                                 ens_ast = ast.parse(ens.strip(), mode="eval").body
@@ -364,7 +363,6 @@ class SMTZ3Verifier:
                             if check_res == z3.sat:
                                 model = solver.model()
                                 cex = {str(k): str(model[v]) for k, v in z3_vars.items() if k != "result" and v in model}
-                                # Ensure counterexample is never empty dict — use None sentinel to distinguish
                                 cex_val = cex if cex else {"_note": "counterexample exists but no model vars captured"}
                                 structured = [{
                                     "function": node.name,
@@ -391,16 +389,39 @@ class SMTZ3Verifier:
                                     proof_details=f"Solver returned UNKNOWN (timeout or undecidable) for function '{node.name}'.",
                                     proof_type="SMT_Z3_CONTRACT"
                                 )
-                    except Exception:
-                        pass
+                        else:
+                            return VerificationResult(
+                                verified=False,
+                                smt_solver_status="ERROR",
+                                contract_satisfied=False,
+                                proof_details=f"Could not extract symbolic return expression for contracted function '{node.name}'.",
+                                proof_type="SMT_Z3_CONTRACT"
+                            )
+                    except Exception as e:
+                        return VerificationResult(
+                            verified=False,
+                            smt_solver_status="ERROR",
+                            contract_satisfied=False,
+                            proof_details=f"SMT Z3 translation error in '{node.name}': {e}",
+                            proof_type="SMT_Z3_CONTRACT"
+                        )
 
-        return VerificationResult(
-            verified=True,
-            smt_solver_status="UNSAT",
-            contract_satisfied=True,
-            proof_details="SMT Z3 contract satisfied (UNSAT).",
-            proof_type="SMT_Z3_CONTRACT"
-        )
+        if contracts_checked > 0:
+            return VerificationResult(
+                verified=True,
+                smt_solver_status="UNSAT",
+                contract_satisfied=True,
+                proof_details=f"All {contracts_checked} formal contract(s) proved mathematically sound (UNSAT).",
+                proof_type="SMT_Z3_CONTRACT"
+            )
+        else:
+            return VerificationResult(
+                verified=True,
+                smt_solver_status="NO_CONTRACTS",
+                contract_satisfied=True,
+                proof_details="No formal :requires:/:ensures: docstring contracts found in AST.",
+                proof_type="SMT_Z3_CONTRACT"
+            )
 
     def _check_smt_z3(
         self,

@@ -1,16 +1,29 @@
-"""
-Unit tests for vazus_core/google_multimodal_vision.py
-"""
-
 import os
 import sys
+import types
 import unittest
 from unittest.mock import patch, MagicMock
+
+# Shim for pix2text if broken upstream by transformers version
+if "pix2text" not in sys.modules:
+    try:
+        import pix2text
+    except Exception:
+        mock_p2t_mod = types.ModuleType("pix2text")
+        class MockPix2Text:
+            @classmethod
+            def from_config(cls, *args, **kwargs):
+                inst = MagicMock()
+                inst.recognize_page.return_value = [{"text": "Hb: 145"}]
+                inst.recognize_text.return_value = "Hb: 145"
+                return inst
+        mock_p2t_mod.Pix2Text = MockPix2Text
+        sys.modules["pix2text"] = mock_p2t_mod
 
 sys.path.append(r"C:\vazus")
 sys.path.append(r"C:\vazus\vazus_core")
 
-from vazus_core.google_multimodal_vision import (
+from vazus_core.integrations.google_multimodal_vision import (
     analyze_lab_report_image,
     parse_with_pix2text,
     _get_pix2text
@@ -110,7 +123,7 @@ class TestGoogleMultimodalVision(unittest.TestCase):
             mock_inst = MagicMock()
             mock_from_config.return_value = mock_inst
             
-            import vazus_core.google_multimodal_vision as gmv
+            import vazus_core.integrations.google_multimodal_vision as gmv
             gmv._P2T_INSTANCE = None
 
             inst1 = _get_pix2text()

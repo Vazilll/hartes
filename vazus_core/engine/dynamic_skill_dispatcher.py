@@ -233,11 +233,30 @@ class SkillIntentParser:
         prompt_vec = self._compute_vector_768d(full_search_prompt)
 
         scored_skills: List[Tuple[float, SkillMetadata]] = []
+        skills_list = list(self.skill_index.values())
 
-        for skill_id, skill in self.skill_index.items():
+        # Pre-compute/ensure all embeddings are present
+        candidate_vecs = []
+        for skill in skills_list:
+            if skill.embedding_768d is None:
+                skill_text = f"{skill.name}: {skill.description} {' '.join(skill.keywords[:20])}"
+                skill.embedding_768d = self._compute_vector_768d(skill_text)
+            candidate_vecs.append(skill.embedding_768d)
+
+        # High-speed SIMD batch cosine similarity across all indexed skills at once
+        if candidate_vecs and prompt_vec:
+            batch_similarities = self.embedding_manager.compute_batch_similarity(prompt_vec, candidate_vecs)
+        else:
+            batch_similarities = [0.0] * len(skills_list)
+
+        for idx, skill in enumerate(skills_list):
             # --- Tier 1: Keyword & Regex Matching (45% weight) ---
             t1_score = 0.0
             
+            # Direct skill_id match
+            if skill.skill_id in prompt_lower or skill.skill_id.replace("-", " ") in prompt_lower:
+                t1_score += 0.7
+
             # Name match
             name_words = set(re.split(r"[-_\s]+", skill.name.lower()))
             name_overlap = len(prompt_words.intersection(name_words))
@@ -278,15 +297,9 @@ class SkillIntentParser:
 
             t1_score = max(0.0, min(1.0, t1_score))
 
-            # --- Tier 2: 768D Vector Cosine Similarity (40% weight) ---
-            t2_score = 0.0
-            if skill.embedding_768d is None:
-                skill_text = f"{skill.name}: {skill.description} {' '.join(skill.keywords[:20])}"
-                skill.embedding_768d = self._compute_vector_768d(skill_text)
-            
-            if skill.embedding_768d:
-                sim = self.embedding_manager.compute_similarity(prompt_vec, skill.embedding_768d)
-                t2_score = max(0.0, min(1.0, float(sim)))
+            # --- Tier 2: 768D Vector Cosine Similarity (40% weight) from SIMD batch ---
+            raw_sim = batch_similarities[idx] if idx < len(batch_similarities) else 0.0
+            t2_score = max(0.0, min(1.0, float(raw_sim)))
 
             # --- Tier 3: Reasoning Effort Budget Scaling (15% weight) ---
             # Prefer core high-impact skills matching current effort depth

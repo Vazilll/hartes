@@ -13,10 +13,11 @@ def test_hermes_skill_syncer():
     assert count > 0, "Should sync at least 1 Hermes skill into Antigravity skills directory"
 
 def test_organic_memory_bridge():
-    record_insight("test_category", "Unit test organic memory insight for vazus.db")
-    results = search_memory("vazus.db")
+    unique_tag = "unit_test_unique_organic_insight_9876"
+    record_insight("test_category", f"Insight for {unique_tag}")
+    results = search_memory(unique_tag)
     assert len(results) > 0, "Should retrieve recorded memory insight from vazus.db"
-    assert results[0]["category"] == "test_category"
+    assert any(r.get("category") == "test_category" for r in results)
 
     summary = get_organic_summary()
     assert summary["node_count"] > 0, "vazus.db should have non-zero node_count"
