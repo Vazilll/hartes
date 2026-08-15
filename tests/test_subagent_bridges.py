@@ -58,3 +58,17 @@ def test_darwinian_evolver_fitness(tmp_path):
 
     fitness = evaluate_fitness(str(valid_file))
     assert fitness == 1.0
+
+
+def test_rlm_subagent_bridge_antigravity_default():
+    from scripts.subagent_rlm_bridge import RLMSubagentBridge
+    bridge = RLMSubagentBridge()
+    assert bridge.backend == "antigravity"
+    res = bridge.run_subagent_task(
+        prompt="Verify prime numbers under 20",
+        dry_run=True
+    )
+    assert res["status"] == "SUCCESS"
+    assert res["subagent"] == "rlm_code_engineer"
+    assert res["mode"] == "dry_run_verification"
+

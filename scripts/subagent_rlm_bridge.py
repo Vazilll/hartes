@@ -135,7 +135,7 @@ class RLMSubagentBridge:
     with LocalREPL environment and vazus_core RLM worker routines.
     """
 
-    def __init__(self, backend: str = "openai", environment: str = "local"):
+    def __init__(self, backend: str = "antigravity", environment: str = "local"):
         self.backend = backend
         self.environment = environment
         self.rlm_mit_path = RLM_MIT_DIR
@@ -157,21 +157,29 @@ class RLMSubagentBridge:
         if not self.is_rlm_available:
             raise RuntimeError("MIT RLM module not available in python path.")
 
-        key_path = PYENV_DIR / ".adapter_key"
-        adapter_key = "any_key_for_adapter"
-        if key_path.exists():
-            adapter_key = key_path.read_text(encoding="utf-8").strip()
+        logger = RLMLogger(log_dir=str(PYENV_DIR / "logs"), file_name="subagent_rlm") if RLMLogger else None
 
-        logger = RLMLogger(log_dir=str(PYENV_DIR / "logs"), file_name="subagent_rlm")
-
-        port = int(os.environ.get("AGY_ADAPTER_PORT", 5001))
-        rlm_instance = RLM(
-            backend=self.backend,
-            backend_kwargs={
+        if self.backend == "antigravity":
+            api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            backend_kwargs = {
+                "model_name": "gemini-3.7-flash",
+                "api_key": api_key,
+            }
+        else:
+            key_path = PYENV_DIR / ".adapter_key"
+            adapter_key = "any_key_for_adapter"
+            if key_path.exists():
+                adapter_key = key_path.read_text(encoding="utf-8").strip()
+            port = int(os.environ.get("AGY_ADAPTER_PORT", 5001))
+            backend_kwargs = {
                 "model_name": "openai:gemini-3.5-flash",
                 "api_key": adapter_key,
                 "base_url": f"http://127.0.0.1:{port}/v1",
-            },
+            }
+
+        rlm_instance = RLM(
+            backend=self.backend,
+            backend_kwargs=backend_kwargs,
             environment=self.environment,
             max_depth=max_depth,
             max_iterations=max_iterations,
@@ -320,13 +328,14 @@ def main():
     parser = argparse.ArgumentParser(description="Bridge for rlm_code_engineer subagent & MIT RLM")
     parser.add_argument("--prompt", "-p", default="Write and execute python function to verify prime numbers under 20.", help="Task prompt")
     parser.add_argument("--context", "-c", default="", help="Context for prompt")
+    parser.add_argument("--backend", "-b", default="antigravity", choices=["antigravity", "openai"], help="LLM backend")
     parser.add_argument("--max-iterations", type=int, default=3, help="Max iterations")
     parser.add_argument("--max-depth", type=int, default=2, help="Max depth")
     parser.add_argument("--complexity", default="medium", choices=["low", "medium", "high"], help="Complexity level")
     parser.add_argument("--dry-run", action="store_true", help="Run structural verification only")
     args = parser.parse_args()
 
-    bridge = RLMSubagentBridge()
+    bridge = RLMSubagentBridge(backend=args.backend)
     result = bridge.run_subagent_task(
         prompt=args.prompt,
         context=args.context,
