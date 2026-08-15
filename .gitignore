@@ -16,6 +16,7 @@ logs/
 scratch/
 *.log
 *.tmp
+.ruff_cache/
 labs/git_open/
 bin/*
 !bin/*.py
@@ -27,3 +28,8 @@ knowledge/
 apps/**/.gradle/
 apps/**/build/
 services/memory/_archive/qdrant_db-old/
+.adapter_key
+token*.json
+credentials*.json
+*.token
+tokens/
