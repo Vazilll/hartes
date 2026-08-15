@@ -5,8 +5,6 @@ Verifies contract solving, counterexample extraction, and automated pytest fixtu
 
 import pytest
 from vazus_core.verification.smt_z3_verifier import (
-    SMTZ3Verifier,
-    generate_failing_pytest_fixture,
     verify_with_healing_feedback,
     SMTZ3SelfHealingLoop,
 )
@@ -49,9 +47,23 @@ def faulty_increment(x: int) -> int:
     
     fixture_code = feedback["failing_pytest_fixtures"][0]
     assert "def test_z3_counterexample_" in fixture_code
-    assert "faulty_increment" in fixture_code
     assert "faulty_increment(" in fixture_code
-    assert "assert res is not None" in fixture_code or "assert" in fixture_code
+    # Fixture must carry the formal postcondition (result -> res) as a real assertion
+    assert "res > x + 5" in fixture_code
+
+    import re
+    fixture_fn = re.search(r"def (test_z3_counterexample_\w+)\(\)", fixture_code).group(1)
+
+    # Honest RED: executing the fixture against the faulty implementation must fail
+    faulty_ns = {"faulty_increment": lambda x: x + 1}
+    exec(fixture_code, faulty_ns)
+    with pytest.raises(AssertionError):
+        faulty_ns[fixture_fn]()
+
+    # Honest GREEN: a healed implementation must satisfy the same fixture
+    healed_ns = {"faulty_increment": lambda x: x + 100}
+    exec(fixture_code, healed_ns)
+    healed_ns[fixture_fn]()
 
 
 def test_smt_z3_self_healing_loop_instance():

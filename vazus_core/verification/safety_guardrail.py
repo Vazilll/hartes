@@ -362,7 +362,14 @@ class SMTZ3Verifier:
                             check_res = solver.check()
                             if check_res == z3.sat:
                                 model = solver.model()
-                                cex = {str(k): str(model[v]) for k, v in z3_vars.items() if k != "result" and v in model}
+                                cex = {}
+                                for var_name, z3_var in z3_vars.items():
+                                    if var_name == "result":
+                                        continue
+                                    try:
+                                        cex[var_name] = str(model.eval(z3_var, model_completion=True))
+                                    except Exception:
+                                        continue
                                 cex_val = cex if cex else {"_note": "counterexample exists but no model vars captured"}
                                 structured = [{
                                     "function": node.name,
@@ -441,44 +448,64 @@ class SMTZ3Verifier:
         pre = preconditions or reqs or []
         post = postconditions or enss or []
 
-        if self.z3_available and pre and post and p_list:
-            try:
-                solver = z3.Solver()
-                solver.set("timeout", self.timeout_ms)
-                z3_vars = {p: z3.Int(p) for p in p_list if isinstance(p, str)}
-                for req in pre:
-                    req_ast = ast.parse(req.strip(), mode="eval").body
-                    solver.add(_parse_expr_to_z3(req_ast, z3_vars))
-                for ens in post:
-                    ens_ast = ast.parse(ens.strip(), mode="eval").body
-                    solver.add(z3.Not(_parse_expr_to_z3(ens_ast, z3_vars)))
-                res = solver.check()
-                if res == z3.sat:
-                    return VerificationResult(
-                        verified=False,
-                        smt_solver_status="SAT",
-                        contract_satisfied=False,
-                        proof_details="Contract violation detected",
-                        proof_type="SMT_Z3_CONTRACT"
-                    )
-                elif res == z3.unknown:
-                    return VerificationResult(
-                        verified=False,
-                        smt_solver_status="UNKNOWN",
-                        contract_satisfied=False,
-                        proof_details="Solver returned UNKNOWN",
-                        proof_type="SMT_Z3_CONTRACT"
-                    )
-            except Exception:
-                pass
-
-        return VerificationResult(
-            verified=True,
-            smt_solver_status="UNSAT",
-            contract_satisfied=True,
-            proof_details="Contract satisfied",
-            proof_type="SMT_Z3_CONTRACT"
-        )
+        if not (pre and post and p_list):
+            return VerificationResult(
+                verified=True,
+                smt_solver_status="NO_CONTRACTS",
+                contract_satisfied=True,
+                proof_details="Contract check requires :requires:, :ensures: and params; solver not invoked.",
+                proof_type="SMT_Z3_CONTRACT"
+            )
+        if not self.z3_available:
+            return VerificationResult(
+                verified=False,
+                smt_solver_status="SKIPPED",
+                contract_satisfied=False,
+                proof_details="Z3 solver unavailable; formal proof cannot be established.",
+                proof_type="SMT_Z3_CONTRACT"
+            )
+        try:
+            solver = z3.Solver()
+            solver.set("timeout", self.timeout_ms)
+            z3_vars = {p: z3.Int(p) for p in p_list if isinstance(p, str)}
+            for req in pre:
+                req_ast = ast.parse(req.strip(), mode="eval").body
+                solver.add(_parse_expr_to_z3(req_ast, z3_vars))
+            for ens in post:
+                ens_ast = ast.parse(ens.strip(), mode="eval").body
+                solver.add(z3.Not(_parse_expr_to_z3(ens_ast, z3_vars)))
+            res = solver.check()
+            if res == z3.sat:
+                return VerificationResult(
+                    verified=False,
+                    smt_solver_status="SAT",
+                    contract_satisfied=False,
+                    proof_details="Contract violation detected",
+                    proof_type="SMT_Z3_CONTRACT"
+                )
+            elif res == z3.unknown:
+                return VerificationResult(
+                    verified=False,
+                    smt_solver_status="UNKNOWN",
+                    contract_satisfied=False,
+                    proof_details="Solver returned UNKNOWN",
+                    proof_type="SMT_Z3_CONTRACT"
+                )
+            return VerificationResult(
+                verified=True,
+                smt_solver_status="UNSAT",
+                contract_satisfied=True,
+                proof_details="Contract satisfied (UNSAT): pre ∧ ¬post unsatisfiable.",
+                proof_type="SMT_Z3_CONTRACT"
+            )
+        except Exception as e:
+            return VerificationResult(
+                verified=False,
+                smt_solver_status="ERROR",
+                contract_satisfied=False,
+                proof_details=f"SMT Z3 evaluation failed: {e}",
+                proof_type="SMT_Z3_CONTRACT"
+            )
 
     def verify_contract(self, code_str: str) -> VerificationResult:
         """Alias method for verify_code_contracts."""
@@ -780,7 +807,7 @@ def verify_no_external_api_quota(code_str: str) -> VerificationResult:
     such as google.genai.Client() or hardcoded GEMINI_API_KEY instantiations without agy CLI wrapper.
     """
     if not code_str:
-        return VerificationResult(verified=True, smt_solver_status="UNSAT")
+        return VerificationResult(verified=True, smt_solver_status="EMPTY_CODE")
     
     try:
         tree = ast.parse(code_str)

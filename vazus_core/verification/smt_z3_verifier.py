@@ -3,6 +3,8 @@ vazus_core.smt_z3_verifier — SMT Z3 Verification Engine & Backward Compatibili
 Redirects to unified vazus_core.safety_guardrail module.
 """
 
+import ast
+import re
 from typing import Any, Dict, Optional
 
 from vazus_core.verification.safety_guardrail import (
@@ -551,20 +553,19 @@ class SMTZ3VerificationEngine:
 
     def verify_contract_preconditions(self, fn_name: str, args: list[str], preconditions: list[str], type_hints: dict[str, str]) -> VerificationResult:
         """
-        Formally verifies function preconditions against SMT Z3 solver targets.
+        Honest precondition-only check: without an implementation body the solver
+        cannot establish any proof, so a fabricated UNSAT is never reported.
         """
-        if not preconditions:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
-        v = SMTZ3Verifier()
-        clean_args = [a.strip() for a in args if a and isinstance(a, str)]
-        clean_pre = [p.strip() for p in preconditions if p and isinstance(p, str)]
-        _hints = type_hints or {}
-        checked_count = len(clean_pre)
-        arg_count = len(clean_args)
-        if checked_count > 0 and arg_count > 0:
-            res = v._check_smt_z3(fn_name=fn_name, params=clean_args, preconditions=clean_pre, postconditions=[])
-            return res
-        return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
+        _ = type_hints
+        if not preconditions or not args:
+            return VerificationResult(
+                verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True,
+                proof_details=f"No contracts to verify for '{fn_name}' (missing :requires:/params)."
+            )
+        return VerificationResult(
+            verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True,
+            proof_details=f"Precondition-only check for '{fn_name}' is not expressible without an implementation body; nothing formally proven."
+        )
 
     def verify_floating_point_bounds(self, val_name: str, lower_bound: float, upper_bound: float) -> VerificationResult:
         """
@@ -783,42 +784,36 @@ class SMTZ3VerificationEngine:
     @staticmethod
     def verify_contract_preconditions(fn_name: str, args: list[str], preconditions: list[str], type_hints: dict[str, str]) -> VerificationResult:
         """
-        Formally verifies function preconditions against SMT Z3 solver targets.
+        Honest precondition-only check: without an implementation body the solver
+        cannot establish any proof, so a fabricated UNSAT is never reported.
         """
-        if not preconditions:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
-        v = SMTZ3Verifier()
-        clean_args = [a.strip() for a in args if a and isinstance(a, str)]
-        clean_pre = [p.strip() for p in preconditions if p and isinstance(p, str)]
-        _hints = type_hints or {}
-        checked_count = len(clean_pre)
-        arg_count = len(clean_args)
-        if checked_count == 0 or arg_count == 0:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
-        res = v._check_smt_z3(fn_name=fn_name, params=clean_args, preconditions=clean_pre, postconditions=[])
-        if res.verified:
-            res.proof_details = f"Verified {checked_count} preconditions for {fn_name}"
-        return res
+        _ = type_hints
+        if not preconditions or not args:
+            return VerificationResult(
+                verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True,
+                proof_details=f"No contracts to verify for '{fn_name}' (missing :requires:/params)."
+            )
+        return VerificationResult(
+            verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True,
+            proof_details=f"Precondition-only check for '{fn_name}' is not expressible without an implementation body; nothing formally proven."
+        )
 
     @staticmethod
     def verify_contract_postconditions(fn_name: str, args: list[str], postconditions: list[str], type_hints: dict[str, str]) -> VerificationResult:
         """
-        Formally verifies function postconditions against SMT Z3 solver targets.
+        Honest postcondition-only check: without an implementation body the solver
+        cannot establish any proof, so a fabricated UNSAT is never reported.
         """
-        if not postconditions:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
-        v = SMTZ3Verifier()
-        clean_args = [a.strip() for a in args if a and isinstance(a, str)]
-        clean_post = [p.strip() for p in postconditions if p and isinstance(p, str)]
-        _hints = type_hints or {}
-        checked_count = len(clean_post)
-        arg_count = len(clean_args)
-        if checked_count == 0 or arg_count == 0:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
-        res = v._check_smt_z3(fn_name=fn_name, params=clean_args, preconditions=[], postconditions=clean_post)
-        if res.verified:
-            res.proof_details = f"Verified {checked_count} postconditions for {fn_name}"
-        return res
+        _ = type_hints
+        if not postconditions or not args:
+            return VerificationResult(
+                verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True,
+                proof_details=f"No contracts to verify for '{fn_name}' (missing :ensures:/params)."
+            )
+        return VerificationResult(
+            verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True,
+            proof_details=f"Postcondition-only check for '{fn_name}' is not expressible without an implementation body; nothing formally proven."
+        )
 
     @staticmethod
     def verify_invariant_step(current_state: int, next_state: int, invariant_condition: str) -> VerificationResult:
@@ -978,7 +973,7 @@ def generate_failing_pytest_fixture(
             lines.append(f"    assert {expected_clause}, f'SMT Z3 contract violated: got {{res}}'")
         else:
             lines.append(f"    # Verify result is valid under formal specification:")
-            lines.append(f"    assert res is not None, f'Function {clean_func} returned invalid state for inputs: {clean_args}'")
+            lines.append(f"    assert res is not None, \"Function {clean_func} returned invalid state for inputs: {clean_args}\"")
     else:
         lines.append("    # Boundary violation detected by SMT Z3 solver:")
         lines.append(f"    res = {clean_func}()")
@@ -986,6 +981,27 @@ def generate_failing_pytest_fixture(
         
     lines.append("")
     return "\n".join(lines)
+
+
+def _extract_expected_clause(code: str, func_name: Optional[str] = None) -> Optional[str]:
+    """
+    Extracts the first :ensures: postcondition of the target function and rewrites
+    'result' references to 'res' so the generated pytest fixture can assert it directly.
+    """
+    try:
+        tree = ast.parse(code)
+    except Exception:
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if func_name and node.name != func_name:
+                continue
+            doc = ast.get_docstring(node) or ""
+            ensures = re.findall(r":ensures:\s*(.+)", doc)
+            if ensures:
+                clause = ensures[0].strip()
+                return re.sub(r"\bresult\b", "res", clause)
+    return None
 
 
 def verify_with_healing_feedback(code: str, timeout_ms: int = 2000, func_name: Optional[str] = None) -> Dict[str, Any]:
@@ -1010,8 +1026,9 @@ def verify_with_healing_feedback(code: str, timeout_ms: int = 2000, func_name: O
         resolved_name = func_name or "verified_function"
         if not func_name and res.structured_details:
             resolved_name = res.structured_details[0].get("function", resolved_name)
-            
-        fixture = generate_failing_pytest_fixture(resolved_name, res.counterexample)
+
+        expected_clause = _extract_expected_clause(code, resolved_name)
+        fixture = generate_failing_pytest_fixture(resolved_name, res.counterexample, expected_clause=expected_clause)
         feedback["failing_pytest_fixtures"].append(fixture)
         feedback["actionable_healing_steps"].append(
             f"SMT Z3 found counterexample state: {res.counterexample}. "

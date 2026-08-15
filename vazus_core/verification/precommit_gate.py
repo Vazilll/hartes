@@ -230,10 +230,12 @@ def run_gate_3_smt_z3_contracts(staged_files: list[Path]) -> tuple[bool, list[st
         try:
             content = fpath.read_text(encoding="utf-8", errors="replace")
             res = verifier.verify_code_contracts(content, depth=10)
-            if res.get("status") == "CONTRACT_VIOLATION":
-                errors.append(f"[SMT Z3 Violation] in {fpath.name}: {res.get('error', 'Invariants violated')}")
-        except Exception:
-            pass
+            status = res.get("status")
+            if status in ("SAT", "UNKNOWN", "ERROR", "SYNTAX_ERROR"):
+                detail = res.get("proof_details") or res.get("error_message") or "Invariants violated"
+                errors.append(f"[SMT Z3 Violation] in {fpath.name}: status={status}; {detail}")
+        except Exception as e:
+            errors.append(f"[SMT Z3 Gate Error] in {fpath.name}: verification crashed ({e}) — fail-closed")
 
     return (len(errors) == 0), errors
 
