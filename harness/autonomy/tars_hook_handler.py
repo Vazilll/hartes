@@ -278,32 +278,42 @@ def sync_debates_memory(commit: dict) -> None:
                 vector_768d = []
 
             # Save to sqlite
-            conn = sqlite3.connect(str(DB_PATH))
             try:
-                conn.execute("""
-                    INSERT INTO subagent_memory_traces
-                        (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
-                    VALUES (?, ?, ?, ?, ?, datetime('now'))
-                """, ("debates-sync", "debate_round", summary, content, str(df_path)))
+                from vazus_core.memory.db import get_db_connection
+                with get_db_connection() as conn:
+                    conn.execute("""
+                        INSERT INTO subagent_memory_traces
+                            (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
+                        VALUES (?, ?, ?, ?, ?, datetime('now'))
+                    """, ("debates-sync", "debate_round", summary, content, str(df_path)))
 
-                node_id = f"debate_{topic}_r{round_num}"
-                conn.execute("""
-                    INSERT OR REPLACE INTO kg_nodes 
-                        (id, name, domain, node_type, description, tags, properties, embedding_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    node_id,
-                    f"Debate: {topic} (R{round_num})",
-                    "agent_debates",
-                    "debate",
-                    summary_snippet,
-                    "#debate #AGY #Hermes " + f"#{status}",
-                    content,
-                    json.dumps(vector_768d) if vector_768d else None
-                ))
-                conn.commit()
-            finally:
-                conn.close()
+                    node_id = f"debate_{topic}_r{round_num}"
+                    conn.execute("""
+                        INSERT OR REPLACE INTO kg_nodes 
+                            (id, name, domain, node_type, description, tags, properties, embedding_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        node_id,
+                        f"Debate: {topic} (R{round_num})",
+                        "agent_debates",
+                        "debate",
+                        summary_snippet,
+                        "#debate #AGY #Hermes " + f"#{status}",
+                        content,
+                        json.dumps(vector_768d) if vector_768d else None
+                    ))
+                    conn.commit()
+            except Exception:
+                conn = sqlite3.connect(str(DB_PATH))
+                try:
+                    conn.execute("""
+                        INSERT INTO subagent_memory_traces
+                            (agent_name, trace_kind, summary, content, obsidian_note_path, created_at)
+                        VALUES (?, ?, ?, ?, ?, datetime('now'))
+                    """, ("debates-sync", "debate_round", summary, content, str(df_path)))
+                    conn.commit()
+                finally:
+                    conn.close()
 
             # Sync to Wiki
             wiki_target = debates_wiki_dir / df_path.name
