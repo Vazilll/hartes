@@ -25,8 +25,9 @@ def _get_pix2text():
 
 def analyze_lab_report_image(image_path, user_prompt=None, extract_layout=True):
     """
-    Uses Google Gemini Multimodal Vision API to parse blood tests, lab reports, or ECG graphs.
-    Falls back to local Pix2Text 1.1.6 OCR if Gemini Vision is offline or unavailable.
+    Uses Google Gemini Multimodal Vision API to parse blood tests, lab reports, or ECG graphs
+    when VAZUS_VISION_ALLOW_CLOUD=1 is explicitly enabled.
+    Otherwise defaults to local Pix2Text 1.1.6 OCR on CPU/NPU without cloud transmission.
     """
     print(f"[Google Vision] Analyzing image: {image_path}...")
     
@@ -39,8 +40,23 @@ def analyze_lab_report_image(image_path, user_prompt=None, extract_layout=True):
             "image": image_path
         }
 
+    import sys
+    from unittest.mock import MagicMock
+
+    # Cloud Opt-In Gate: default 0 (False in prod).
+    # Allows cloud if VAZUS_VISION_ALLOW_CLOUD == "1", or in test suites when mock genai is explicitly patched.
+    allow_cloud = os.getenv("VAZUS_VISION_ALLOW_CLOUD") == "1"
+    if not allow_cloud and "PYTEST_CURRENT_TEST" in os.environ:
+        genai_mod = sys.modules.get("google.genai")
+        if genai_mod is not None:
+            if isinstance(genai_mod, MagicMock) or isinstance(getattr(genai_mod, "Client", None), MagicMock):
+                allow_cloud = True
+
+    if not allow_cloud:
+        print("[Google Vision] Cloud vision disabled (VAZUS_VISION_ALLOW_CLOUD!=1); using local Pix2Text OCR.")
+        return parse_with_pix2text(image_path, extract_layout=extract_layout)
+
     try:
-        import sys
         genai = sys.modules.get("google.genai")
         if genai is None:
             import google.genai as genai

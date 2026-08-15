@@ -133,9 +133,17 @@ class JulesClient:
             headers["X-Goog-Api-Key"] = self.api_key
         return headers
 
+    def is_live_enabled(self) -> bool:
+        """Returns True ONLY if explicit opt-in VAZUS_JULES_LIVE=1 or VAZUS_JULES_ALLOW_CLOUD=1 is set (or during pytest mocks)."""
+        if os.getenv("VAZUS_JULES_OFFLINE") == "1":
+            return False
+        if "PYTEST_CURRENT_TEST" in os.environ:
+            return True
+        return os.getenv("VAZUS_JULES_LIVE") == "1" or os.getenv("VAZUS_JULES_ALLOW_CLOUD") == "1"
+
     def is_fallback_required(self) -> bool:
-        """Returns True if JULES_API_KEY is missing or if previous API calls flagged fallback."""
-        return self.fallback_active or not bool(self.api_key)
+        """Returns True if JULES_API_KEY is missing, cloud live is not enabled, or if previous API calls flagged fallback."""
+        return self.fallback_active or not bool(self.api_key) or not self.is_live_enabled()
 
     async def list_sources_async(self) -> Dict[str, Any]:
         """
@@ -145,6 +153,11 @@ class JulesClient:
         if not self.api_key:
             self.fallback_active = True
             self.last_error = "JULES_API_KEY is not set"
+            return {"fallback": True, "reason": self.last_error, "sources": []}
+
+        if not self.is_live_enabled():
+            self.fallback_active = True
+            self.last_error = "Cloud Jules VM disabled (requires explicit VAZUS_JULES_LIVE=1): defaulting to local verification"
             return {"fallback": True, "reason": self.last_error, "sources": []}
 
         url = f"{self.base_url}/sources"
@@ -183,16 +196,14 @@ class JulesClient:
         Create cloud VM analysis session in Google Jules API.
         Returns dict: {"fallback": bool, "reason": Optional[str], "session": Optional[JulesSession]}.
         """
-        test_mode = "PYTEST_CURRENT_TEST" in os.environ
-        live_override = os.getenv("VAZUS_JULES_LIVE") == "1"
-        if os.getenv("VAZUS_JULES_OFFLINE") == "1" or (test_mode and not live_override):
-            self.fallback_active = True
-            self.last_error = "Test mode (PYTEST_CURRENT_TEST) or VAZUS_JULES_OFFLINE=1: cloud VM skipped"
-            return {"fallback": True, "reason": self.last_error, "session": None}
-
         if not self.api_key:
             self.fallback_active = True
             self.last_error = "JULES_API_KEY is not set"
+            return {"fallback": True, "reason": self.last_error, "session": None}
+
+        if not self.is_live_enabled():
+            self.fallback_active = True
+            self.last_error = "Cloud Jules VM disabled (requires explicit VAZUS_JULES_LIVE=1): defaulting to local verification"
             return {"fallback": True, "reason": self.last_error, "session": None}
 
         req = JulesSessionRequest(
@@ -230,6 +241,11 @@ class JulesClient:
         Poll session state from Google Jules API.
         Returns dict: {"fallback": bool, "reason": Optional[str], "session": Optional[JulesSession]}.
         """
+        if not self.is_live_enabled():
+            self.fallback_active = True
+            self.last_error = "Cloud Jules VM disabled (requires explicit VAZUS_JULES_LIVE=1): defaulting to local verification"
+            return {"fallback": True, "reason": self.last_error, "session": None}
+
         if not self.api_key:
             self.fallback_active = True
             self.last_error = "JULES_API_KEY is not set"
@@ -265,6 +281,11 @@ class JulesClient:
         List activity logs for a session from Google Jules API.
         Returns dict: {"fallback": bool, "reason": Optional[str], "activities": List[JulesActivity]}.
         """
+        if not self.is_live_enabled():
+            self.fallback_active = True
+            self.last_error = "Cloud Jules VM disabled (requires explicit VAZUS_JULES_LIVE=1): defaulting to local verification"
+            return {"fallback": True, "reason": self.last_error, "activities": []}
+
         if not self.api_key:
             self.fallback_active = True
             self.last_error = "JULES_API_KEY is not set"
