@@ -124,39 +124,44 @@ def test_list_sources_success_and_rate_limit():
 
 
 def test_session_lifecycle_management():
-    """Verify session creation, polling, and activities listing."""
+    """Verify session creation, polling, and activities listing (httpx fully mocked).
+
+    VAZUS_JULES_LIVE=1 opts out of the pytest offline guard so the mocked
+    request path itself is exercised without any real network traffic.
+    """
     async def _test():
         client = JulesClient(api_key="test-api-key")
 
-        mock_post_resp = MagicMock()
-        mock_post_resp.status_code = 201
-        mock_post_resp.json.return_value = {
-            "name": "sessions/sess-100",
-            "state": "PENDING",
-            "source": "sources/vazus-main",
-            "title": "Cloud VM Verification"
-        }
+        with patch.dict(os.environ, {"VAZUS_JULES_LIVE": "1"}):
+            mock_post_resp = MagicMock()
+            mock_post_resp.status_code = 201
+            mock_post_resp.json.return_value = {
+                "name": "sessions/sess-100",
+                "state": "PENDING",
+                "source": "sources/vazus-main",
+                "title": "Cloud VM Verification"
+            }
 
-        mock_get_resp = MagicMock()
-        mock_get_resp.status_code = 200
-        mock_get_resp.json.return_value = {
-            "name": "sessions/sess-100",
-            "state": "SUCCEEDED",
-            "source": "sources/vazus-main"
-        }
+            mock_get_resp = MagicMock()
+            mock_get_resp.status_code = 200
+            mock_get_resp.json.return_value = {
+                "name": "sessions/sess-100",
+                "state": "SUCCEEDED",
+                "source": "sources/vazus-main"
+            }
 
-        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
-            mock_post.return_value = mock_post_resp
-            create_res = await client.create_session_async("vazus-main", "Verify patch")
-            assert create_res["fallback"] is False
-            assert create_res["session"].id == "sess-100"
-            assert create_res["session"].state == "PENDING"
+            with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+                mock_post.return_value = mock_post_resp
+                create_res = await client.create_session_async("vazus-main", "Verify patch")
+                assert create_res["fallback"] is False
+                assert create_res["session"].id == "sess-100"
+                assert create_res["session"].state == "PENDING"
 
-        with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = mock_get_resp
-            get_res = await client.get_session_async("sess-100")
-            assert get_res["fallback"] is False
-            assert get_res["session"].state == "SUCCEEDED"
+            with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = mock_get_resp
+                get_res = await client.get_session_async("sess-100")
+                assert get_res["fallback"] is False
+                assert get_res["session"].state == "SUCCEEDED"
 
     asyncio.run(_test())
 

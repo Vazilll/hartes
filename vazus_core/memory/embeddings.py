@@ -489,9 +489,20 @@ def _compute_fallback_embedding(text: str, dimension: int = 768) -> list[float]:
     return (vec / norm).tolist()
 
 
+_MANAGER_CACHE: Dict[int, UnifiedEmbeddingManager] = {}
+
+
 def get_embedding_manager(dimension: int = 768) -> UnifiedEmbeddingManager:
-    """Helper factory function to retrieve UnifiedEmbeddingManager instance."""
-    return UnifiedEmbeddingManager(dimension=dimension)
+    """Factory returning a cached per-dimension UnifiedEmbeddingManager singleton.
+
+    Caching avoids repeated OpenVINO Core() device probes and backend init
+    (each probe costs 0.5-2s) when many call sites construct managers.
+    """
+    manager = _MANAGER_CACHE.get(dimension)
+    if manager is None:
+        manager = UnifiedEmbeddingManager(dimension=dimension)
+        _MANAGER_CACHE[dimension] = manager
+    return manager
 
 
 if __name__ == "__main__":

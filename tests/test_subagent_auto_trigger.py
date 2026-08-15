@@ -5,7 +5,6 @@ tests/test_subagent_auto_trigger.py — Unit tests for M1 Auto-Triggering Subsys
 import os
 import sys
 import time
-import pytest
 from pathlib import Path
 
 # Add project root to sys.path
@@ -26,9 +25,23 @@ from vazus_core.subagent_auto_trigger import (
     dispatch_background_subagent
 )
 
+# HermesTaskIntentEvaluator() builds a full SkillIntentParser index (~3-4s:
+# 209+ SKILL.md scan + 768D embeddings). Cache a single instance and adjust
+# threshold per test so the suite pays that cost once instead of per test.
+_evaluator_cache: dict = {}
+
+
+def _get_evaluator(threshold: float = 0.6) -> HermesTaskIntentEvaluator:
+    key = "__default__"
+    if key not in _evaluator_cache:
+        _evaluator_cache[key] = HermesTaskIntentEvaluator(threshold=threshold)
+    evaluator = _evaluator_cache[key]
+    evaluator.threshold = threshold
+    return evaluator
+
 
 def test_intent_evaluator_simple_task():
-    evaluator = HermesTaskIntentEvaluator()
+    evaluator = _get_evaluator()
     res = evaluator.evaluate("What is 2 + 2?")
     assert isinstance(res, IntentEvaluationResult)
     assert res.requires_multi_agent is False
@@ -38,7 +51,7 @@ def test_intent_evaluator_simple_task():
 
 
 def test_intent_evaluator_complex_multi_agent():
-    evaluator = HermesTaskIntentEvaluator()
+    evaluator = _get_evaluator()
     prompt = "Execute deep research and SMT Z3 contract verification for refactoring whole project codebase."
     res = evaluator.evaluate(prompt)
     assert res.requires_multi_agent is True
@@ -49,7 +62,7 @@ def test_intent_evaluator_complex_multi_agent():
 
 
 def test_intent_evaluator_keyword_scoring():
-    evaluator = HermesTaskIntentEvaluator(threshold=0.5)
+    evaluator = _get_evaluator(threshold=0.5)
     res = evaluator.evaluate("Run SMT Z3 formal verification on concordia jury")
     assert res.intent_score >= 0.5
     assert "smt z3" in res.metadata["matched_keywords"]
@@ -57,14 +70,14 @@ def test_intent_evaluator_keyword_scoring():
 
 
 def test_intent_evaluator_suggested_subagents():
-    evaluator = HermesTaskIntentEvaluator()
+    evaluator = _get_evaluator()
     res = evaluator.evaluate("Deep research on neural architecture search and verify code")
     assert "open_deep_researcher" in res.suggested_subagents
     assert "verifier_worker" in res.suggested_subagents
 
 
 def test_intent_evaluator_empty_prompt():
-    evaluator = HermesTaskIntentEvaluator()
+    evaluator = _get_evaluator()
     res = evaluator.evaluate("")
     assert res.intent_score == 0.0
     assert res.requires_multi_agent is False
@@ -230,7 +243,7 @@ def test_background_dispatcher_db_persistence(tmp_path):
 
 def test_keyword_overlap_scoring_no_double_count():
     """Verify keyword overlap scoring sorts keywords by length descending to avoid double-counting sub-phrases."""
-    evaluator = HermesTaskIntentEvaluator()
+    evaluator = _get_evaluator()
     res = evaluator.evaluate("Perform deep research on memory architecture")
     matched = res.metadata["matched_keywords"]
     assert "deep research" in matched

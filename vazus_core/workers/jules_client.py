@@ -183,6 +183,13 @@ class JulesClient:
         Create cloud VM analysis session in Google Jules API.
         Returns dict: {"fallback": bool, "reason": Optional[str], "session": Optional[JulesSession]}.
         """
+        test_mode = "PYTEST_CURRENT_TEST" in os.environ
+        live_override = os.getenv("VAZUS_JULES_LIVE") == "1"
+        if os.getenv("VAZUS_JULES_OFFLINE") == "1" or (test_mode and not live_override):
+            self.fallback_active = True
+            self.last_error = "Test mode (PYTEST_CURRENT_TEST) or VAZUS_JULES_OFFLINE=1: cloud VM skipped"
+            return {"fallback": True, "reason": self.last_error, "session": None}
+
         if not self.api_key:
             self.fallback_active = True
             self.last_error = "JULES_API_KEY is not set"
