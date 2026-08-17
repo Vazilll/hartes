@@ -243,7 +243,7 @@ class GoogleSuperSyncEngine:
             return {
                 "status": "success",
                 "drive_notes_found": len(files),
-                "notes": synced
+                "notes": [{"id": f.get("id"), "name": f.get("name")} for f in files]
             }
         except Exception as e:
             return {"status": "error", "error": str(e)}

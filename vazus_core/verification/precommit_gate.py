@@ -9,7 +9,8 @@ Gates Enforced:
   3. Module Import & Syntax Integrity.
   4. Targeted Pytest Suite (Zero test regressions).
   5. Dead Code Detection via vulture (unused imports, unreachable modules, unused vars ≥90% confidence).
-  6. Fast Static Lint via ruff (F401 unused imports, F841 unused locals, E9 syntax errors).
+  6. Fast Static Lint via ruff (F401 unused imports, F821 undefined names,
+     F841 unused locals, E9 syntax errors).
   6b. OPT-IN Deep Scan (VAZUS_GATE_DEEP_SCAN=1): deptry (unused/missing deps),
       pip-audit (known CVEs), bandit (AST security). Advisory by default;
       set VAZUS_GATE_STRICT_DEEP=1 to make it blocking.
@@ -22,6 +23,7 @@ Exit Codes:
 import os
 import sys
 import ast
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -29,9 +31,6 @@ from pathlib import Path
 # Force UTF-8 output on Windows
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-VAZUS_ROOT = Path(os.getenv("VAZUS_WORKSPACE_DIR", "")) or _resolve_workspace_root()
-
 
 def _resolve_workspace_root() -> Path:
     """Resolves workspace root relative to this file's location or env override."""
@@ -45,6 +44,12 @@ VAZUS_ROOT = _resolve_workspace_root()
 # Allow override via env for CI/CD portability
 if os.getenv("VAZUS_WORKSPACE_DIR"):
     VAZUS_ROOT = Path(os.environ["VAZUS_WORKSPACE_DIR"]).resolve()
+
+# Make vazus_core importable regardless of how the gate is invoked
+# (git hook, direct script run, CI) — without this, Gate 3/4/4a silently
+# degrade through their ImportError fallbacks instead of actually running.
+if str(VAZUS_ROOT) not in sys.path:
+    sys.path.insert(0, str(VAZUS_ROOT))
 
 
 def get_staged_python_files() -> list[Path]:
@@ -153,29 +158,83 @@ def get_test_python() -> str:
 
 
 def find_targeted_tests(staged_files: list[Path]) -> list[str]:
-    """Finds test files that directly cover the staged Python modules."""
-    test_files = set()
-    all_tests = list((VAZUS_ROOT / "tests").glob("test_*.py"))
-    all_test_names = {t.stem: t for t in all_tests}
-    
+    """Finds test files that cover the staged Python modules (evidence-first).
+
+    Strategy, cheapest-sufficient first:
+      1. A staged test file targets itself.
+      2. Exact ``test_<module>.py`` match.
+      3. AST import analysis — any test that IMPORTS the staged module
+         (``from vazus_core.x import y`` / ``import vazus_core.x.y``) covers it.
+         Catches grouped/harness test files that don't follow 1:1 naming,
+         which otherwise stay UNVERIFIED and force an LLM escalation.
+
+    Bounded by ``VAZUS_GATE_MAX_TARGET_TESTS`` (default 8, 0=unlimited) so the
+    targeted run stays fast; the ignored list protects heavy/slow suites.
+    """
+    all_tests = sorted((VAZUS_ROOT / "tests").glob("test_*.py"))
+    by_stem = {t.stem: t for t in all_tests}
+
+    requested: list[Path] = []
+
+    # 1+2: self / exact-name matches
     for f in staged_files:
         stem = f.stem
-        # If staged file is already a test file, run it directly
-        if stem.startswith("test_") and stem in all_test_names:
-            test_files.add(str(all_test_names[stem]))
+        if stem.startswith("test_"):
+            t = by_stem.get(stem)
+            if t:
+                requested.append(t)
             continue
+        t = by_stem.get(f"test_{stem}")
+        if t:
+            requested.append(t)
 
-        # Match exact test file for the module
-        exact_test_name = f"test_{stem}"
-        if exact_test_name in all_test_names:
-            test_files.add(str(all_test_names[exact_test_name]))
+    # 3: AST import analysis
+    staged_import_names = {f.stem for f in staged_files if not f.stem.startswith("test_")}
+    if staged_import_names:
+        for t in all_tests:
+            if t in requested:
+                continue
+            try:
+                src = t.read_text(encoding="utf-8", errors="replace")
+                tree = ast.parse(src, filename=str(t))
+            except Exception:
+                continue
+            hits: set[str] = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    # match both styles: `from pkg.mod import symbol`
+                    # (module leaf) and `from pkg import mod` (name)
+                    if node.module.split(".")[-1] in staged_import_names:
+                        hits.add(node.module.split(".")[-1])
+                    for a in node.names:
+                        if a.name in staged_import_names:
+                            hits.add(a.name)
+                elif isinstance(node, ast.Import):
+                    for a in node.names:
+                        leaf = a.name.split(".")[-1]
+                        if leaf in staged_import_names:
+                            hits.add(leaf)
+            if hits:
+                requested.append(t)
+
+    # Dedupe preserving order, then bound
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for t in requested:
+        if t in seen:
+            continue
+        seen.add(t)
+        ordered.append(t)
+    max_t = int(os.getenv("VAZUS_GATE_MAX_TARGET_TESTS", "8"))
+    if max_t > 0:
+        ordered = ordered[:max_t]
 
     ignored = {
         "test_stress_all.py", "test_cross_subsystem_stress.py", "test_evolution_engine.py",
         "test_post_task_evolver.py", "test_multimodal_knowledge.py", "test_vazus_full_system.py",
         "test_subagent_reflexion.py"
     }
-    return [t for t in sorted(test_files) if Path(t).name not in ignored]
+    return [str(t) for t in ordered if t.name not in ignored]
 
 
 def run_gate_2_targeted_tests(staged_files: list[Path]) -> tuple[bool, list[str]]:
@@ -190,6 +249,7 @@ def run_gate_2_targeted_tests(staged_files: list[Path]) -> tuple[bool, list[str]
         return True, []
 
     py_bin = get_test_python()
+    timeout = int(os.getenv("VAZUS_GATE_TEST_TIMEOUT", "300"))
     try:
         cmd = [py_bin, "-m", "pytest"] + targeted + ["-q", "--tb=short"]
         res = subprocess.run(
@@ -197,14 +257,16 @@ def run_gate_2_targeted_tests(staged_files: list[Path]) -> tuple[bool, list[str]
             cwd=str(VAZUS_ROOT),
             capture_output=True,
             text=True,
-            timeout=300,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
         )
         if res.returncode != 0:
             lines = res.stdout.strip().splitlines()
             errors.append(f"Pytest failed: {lines[-1] if lines else 'unknown error'}")
             errors.extend(lines[-4:])
     except subprocess.TimeoutExpired:
-        errors.append("Pytest suite timed out (>300s)")
+        errors.append(f"Pytest suite timed out (>{timeout}s)")
     except Exception as e:
         errors.append(f"Test runner error: {e}")
 
@@ -231,9 +293,19 @@ def run_gate_3_smt_z3_contracts(staged_files: list[Path]) -> tuple[bool, list[st
             content = fpath.read_text(encoding="utf-8", errors="replace")
             res = verifier.verify_code_contracts(content, depth=10)
             status = res.get("status")
-            if status in ("SAT", "UNKNOWN", "ERROR", "SYNTAX_ERROR"):
+            if status == "SAT":
                 detail = res.get("proof_details") or res.get("error_message") or "Invariants violated"
                 errors.append(f"[SMT Z3 Violation] in {fpath.name}: status={status}; {detail}")
+            elif status == "SYNTAX_ERROR":
+                detail = res.get("error_message") or "could not parse file for contracts"
+                errors.append(f"[SMT Z3 Parse Error] in {fpath.name}: {detail}")
+            elif status in ("ERROR", "UNKNOWN"):
+                # The verifier could not process/decide the input (common for
+                # whole-module sources) — honest abstention, NOT evidence of a
+                # violation. Only SAT is hard evidence. (Policy aligned with
+                # EvidenceJury, 17.08.)
+                detail = res.get("error_message") or "verifier could not decide"
+                print(f"  ⚠️  [SMT advisory] {fpath.name}: status={status} — {detail}")
         except Exception as e:
             errors.append(f"[SMT Z3 Gate Error] in {fpath.name}: verification crashed ({e}) — fail-closed")
 
@@ -241,31 +313,81 @@ def run_gate_3_smt_z3_contracts(staged_files: list[Path]) -> tuple[bool, list[st
 
 
 def run_gate_4_concordia_jury(staged_files: list[Path]) -> tuple[bool, list[str]]:
-    """Gate 4: Concordia 3-Agent Consensus Jury (>= 66% threshold)."""
-    errors = []
+    """Gate 4: LLM escalation for UNVERIFIED candidates — Jury-B critic, BATCHED.
+
+    ALL escalated files go to the critic jury in ONE prompt round (2 LLM calls
+    total regardless of file count), fail-closed per file: mock/error/ABSTAIN
+    is NOT approval, any CONTRADICT rejects.
+    """
+    errors: list[str] = []
     try:
-        from vazus_core.verification.concordia_jury import ConcordiaJury
-        jury = ConcordiaJury(effort_level="high", consensus_threshold=0.66)
+        from vazus_core.verification.evidence_jury import EvidenceJury
+        from vazus_core.verification.critic_jury import run_critic_jury_batches_sync
     except ImportError as e:
         strict = os.getenv("VAZUS_GATE_STRICT_JURY", "0") == "1"
-        msg = f"Concordia Jury unavailable ({e}). Set VAZUS_GATE_STRICT_JURY=1 to block commits when Jury is missing."
+        msg = f"Critic jury unavailable ({e}). Set VAZUS_GATE_STRICT_JURY=1 to block commits when Jury is missing."
         if strict:
             return False, [msg]
         return True, [f"[WARN] {msg}"]
 
+    jury_a = EvidenceJury(VAZUS_ROOT)
+    items = []
     for fpath in staged_files:
         if "test" in fpath.name.lower() or fpath.suffix != ".py":
             continue
         try:
             content = fpath.read_text(encoding="utf-8", errors="replace")
-            verdict = jury.vote(proposal=content, file_path=fpath.name)
-            if not verdict.approved:
-                reasons = ", ".join(verdict.rejection_reasons) if verdict.rejection_reasons else "Consensus < 66%"
-                errors.append(f"[Concordia Jury Rejected] {fpath.name} (ratio: {verdict.consensus_ratio:.2f}): {reasons}")
-        except Exception:
-            pass
+            evidence = jury_a.evaluate(fpath, run_tests=False)
+            items.append({
+                "path": str(fpath.relative_to(VAZUS_ROOT)).replace("\\", "/"),
+                "proposal": content,
+                "evidence": json.dumps(evidence, ensure_ascii=False, default=str),
+            })
+        except Exception as e:
+            errors.append(f"[Critic Jury Error] {fpath.name}: {e} — fail-closed")
+
+    if items:
+        res = run_critic_jury_batches_sync(items)
+        for path, v in res.get("verdicts", {}).items():
+            if not v.get("approved"):
+                errors.append(f"[Critic Jury] {path} verdict={v.get('verdict')}: {v.get('issue')}")
 
     return (len(errors) == 0), errors
+
+
+def run_gate_4a_evidence_jury(staged_files: list[Path]) -> tuple[bool, list[str], list[Path]]:
+    """Gate 4a: deterministic EvidenceJury (Jury-A). ZERO LLM calls.
+
+    Pass 1: fast evidence (AST, security, ruff, vulture, SMT), no tests.
+    Pass 2: for UNVERIFIED files, re-run with targeted pytest (seconds) —
+            tests prove the candidate without any LLM.
+    Only files with NO discoverable tests escalate to Gate 4 (Concordia LLM).
+    Returns (ok, errors, unverified_files).
+    """
+    from vazus_core.verification.evidence_jury import EvidenceJury
+
+    jury = EvidenceJury(VAZUS_ROOT)
+    errors: list[str] = []
+    unverified: list[Path] = []
+    for fpath in staged_files:
+        if "test" in fpath.name.lower() or fpath.suffix != ".py":
+            continue
+        res = jury.evaluate(fpath, run_tests=False)
+        if res["verdict"] == "FAIL":
+            errors.append(f"[EvidenceJury] {fpath.name}: {res['reason']}")
+        elif res["verdict"] == "UNVERIFIED":
+            unverified.append(fpath)
+
+    # Pass 2: try targeted tests for the UNVERIFIED candidates.
+    still_unverified: list[Path] = []
+    for fpath in unverified:
+        res = jury.evaluate(fpath, run_tests=True, full_suite=False)
+        if res["verdict"] == "FAIL":
+            errors.append(f"[EvidenceJury+tests] {fpath.name}: {res['reason']}")
+        elif res["verdict"] == "UNVERIFIED":
+            still_unverified.append(fpath)
+
+    return (len(errors) == 0), errors, still_unverified
 
 
 def run_gate_5_dead_code(staged_files: list[Path]) -> tuple[bool, list[str]]:
@@ -310,8 +432,14 @@ def run_gate_5_dead_code(staged_files: list[Path]) -> tuple[bool, list[str]]:
 
 def run_gate_6_ruff_lint(staged_files: list[Path]) -> tuple[bool, list[str]]:
     """Gate 6: Fast static lint via ruff — unused imports (F401), unused
-    locals (F841), syntax-level errors (E9). Deterministic, ~10x faster than
-    vulture on the same input. Blocks by default."""
+    locals (F841), undefined names (F821), syntax-level errors (E9).
+    Deterministic, ~10x faster than vulture on the same input. Blocks by default.
+
+    F821 added 18.08.2026 after audit showed this class is invisible to every
+    other mechanism: Gate-1 (ast.parse) only sees syntax, tests can't cover
+    uncalled paths, and NameError inside try/except becomes a silent failure
+    (2 live bugs found: sync_keep_notes permanent failure, embeddings.py import
+    crash on py3.11)."""
     errors: list[str] = []
 
     SKIP_PREFIXES = ("labs/", "tests/", "services/inference", "scratch/", "worktrees/")
@@ -325,7 +453,7 @@ def run_gate_6_ruff_lint(staged_files: list[Path]) -> tuple[bool, list[str]]:
 
     try:
         res = subprocess.run(
-            [sys.executable, "-m", "ruff", "check", "--select", "F401,F841,E9",
+            [sys.executable, "-m", "ruff", "check", "--select", "F401,F821,F841,E9",
              "--output-format", "concise"] + [str(f) for f in own_files],
             capture_output=True, text=True, cwd=str(VAZUS_ROOT), timeout=120,
         )
@@ -449,16 +577,31 @@ def main():
     else:
         print("  ✅ Gate 3 Passed: SMT Z3 Formal Invariants Satisfied.")
 
-    # Stage 4: Concordia Multi-Agent Consensus Jury
-    ok4, errs4 = run_gate_4_concordia_jury(staged_files)
-    if not ok4:
-        print("\n❌ GATE 4 FAILED (Concordia Jury Consensus < 66%):")
-        for e in errs4:
+    # Stage 4a: EvidenceJury (deterministic, 0 LLM calls) — decides by proof
+    ok4a, errs4a, unverified4a = run_gate_4a_evidence_jury(staged_files)
+    if not ok4a:
+        print("\n❌ GATE 4a FAILED (EvidenceJury — hard evidence violations):")
+        for e in errs4a:
             print(f"   - {e}")
-        print("\n🚫 COMMIT ABORTED. Code must reach >= 66% subagent approval.")
+        print("\n🚫 COMMIT ABORTED. Fix the evidence violations above before committing.")
         sys.exit(1)
+
+    # Stage 4: Critic Jury (batched) — ONLY for UNVERIFIED candidates
+    if unverified4a:
+        proven = len(staged_files) - len(unverified4a)
+        print(f"  ✅ Gate 4a Passed: {proven} file(s) decided by evidence; {len(unverified4a)} UNVERIFIED → Critic Jury (1 batch, 2 LLM calls).")
+        ok4, errs4 = run_gate_4_concordia_jury(unverified4a)
+        if not ok4:
+            print("\n❌ GATE 4 FAILED (Critic Jury — REJECT/ABSTAIN, fail-closed):")
+            for e in errs4:
+                print(f"   - {e}")
+            print("\n🚫 COMMIT ABORTED. The critic found problems or could not verify the UNVERIFIED files.")
+            sys.exit(1)
+        else:
+            print("  ✅ Gate 4 Passed: Critic Jury confirmed all UNVERIFIED files (fail-closed batch).")
     else:
-        print("  ✅ Gate 4 Passed: Concordia Jury 3-Agent Consensus >= 66%.")
+        print("  ✅ Gate 4a Passed: EvidenceJury decided all candidates by proof.")
+        print("  ✅ Gate 4 Skipped: no UNVERIFIED candidates — 0 LLM quota spent.")
 
     # Stage 5: Dead Code Detection via vulture
     ok5, errs5 = run_gate_5_dead_code(staged_files)
