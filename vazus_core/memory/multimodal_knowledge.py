@@ -689,29 +689,8 @@ def index_scenes_to_supergraph(
         conn = get_db_connection(target_db)
         cursor = conn.cursor()
 
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS kg_nodes (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            domain TEXT,
-            node_type TEXT,
-            description TEXT,
-            tags TEXT,
-            properties TEXT,
-            embedding_json TEXT
-        );
-        """)
-
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS kg_edges (
-            source_id TEXT,
-            target_id TEXT,
-            relation TEXT,
-            strength REAL,
-            properties TEXT,
-            PRIMARY KEY (source_id, target_id, relation)
-        );
-        """)
+        from vazus_core.analysis.kg_schema import ensure_kg_schema
+        ensure_kg_schema(cursor)
 
         for sc, emb in zip(scenes, embeddings):
             file_name = os.path.basename(sc["source_file"])

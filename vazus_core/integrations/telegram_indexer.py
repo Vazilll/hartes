@@ -464,29 +464,9 @@ def index_telegram_messages(
         conn = sqlite3.connect(db_target)
         cur = conn.cursor()
 
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS kg_nodes (
-            id TEXT PRIMARY KEY,
-            name TEXT,
-            domain TEXT,
-            node_type TEXT,
-            description TEXT,
-            tags TEXT,
-            properties TEXT,
-            embedding_json TEXT
-        );
-        """)
+        from vazus_core.analysis.kg_schema import ensure_kg_schema
+        ensure_kg_schema(cur)
 
-        cur.execute("""
-        CREATE TABLE IF NOT EXISTS kg_edges (
-            source_id TEXT,
-            target_id TEXT,
-            relation TEXT,
-            strength REAL,
-            properties TEXT,
-            PRIMARY KEY (source_id, target_id, relation)
-        );
-        """)
 
         # Execute batch inserts
         cur.executemany("""

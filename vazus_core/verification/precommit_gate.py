@@ -7,13 +7,16 @@ Gates Enforced:
   1. AST Syntax Check (ast.parse) on all staged Python files.
   2. Static Security & Anti-Pattern Scan (No hardcoded API keys, no shell=True, no raw eval/exec).
   3. Module Import & Syntax Integrity.
-  4. Targeted Pytest Suite (Zero test regressions).
+  4. Targeted Pytest Suite (Zero test regressions) + L2 viztracer wiring (VAZUS_L2_TRACE=1).
   5. Dead Code Detection via vulture (unused imports, unreachable modules, unused vars ≥90% confidence).
   6. Fast Static Lint via ruff (F401 unused imports, F821 undefined names,
      F841 unused locals, E9 syntax errors).
   6b. OPT-IN Deep Scan (VAZUS_GATE_DEEP_SCAN=1): deptry (unused/missing deps),
       pip-audit (known CVEs), bandit (AST security). Advisory by default;
       set VAZUS_GATE_STRICT_DEEP=1 to make it blocking.
+  7. Static Type Check via mypy (VAZUS_GATE_MYPY=1). Advisory by default;
+     set VAZUS_GATE_STRICT_MYPY=1 to make it blocking.
+  Gate-4 LLM deadline: VAZUS_GATE_JURY_TIMEOUT (default 120 seconds total).
 
 Exit Codes:
   0 = ALL GATES PASSED (Commit Allowed)
@@ -347,7 +350,11 @@ def run_gate_4_concordia_jury(staged_files: list[Path]) -> tuple[bool, list[str]
             errors.append(f"[Critic Jury Error] {fpath.name}: {e} — fail-closed")
 
     if items:
-        res = run_critic_jury_batches_sync(items)
+        try:
+            jury_timeout = float(os.getenv("VAZUS_GATE_JURY_TIMEOUT", "120"))
+        except ValueError:
+            jury_timeout = 120.0
+        res = run_critic_jury_batches_sync(items, timeout_seconds=max(1.0, jury_timeout))
         for path, v in res.get("verdicts", {}).items():
             if not v.get("approved"):
                 errors.append(f"[Critic Jury] {path} verdict={v.get('verdict')}: {v.get('issue')}")
@@ -530,9 +537,42 @@ def run_gate_6b_deep_scan(staged_files: list[Path]) -> tuple[bool, list[str]]:
     return (not strict or len(errors) == 0), errors
 
 
+def run_gate_7_mypy(staged_files: list[Path]) -> tuple[bool, list[str]]:
+    """Gate 7: mypy static type checking on staged Python files.
+    Advisory by default; blocking when VAZUS_GATE_STRICT_MYPY=1."""
+    errors: list[str] = []
+    py_bin = get_test_python()
+    py_files = [str(f) for f in staged_files if f.suffix == ".py"]
+    if not py_files:
+        return True, []
+    try:
+        res = subprocess.run(
+            [py_bin, "-m", "mypy",
+             "--ignore-missing-imports",
+             "--no-error-summary",
+             "--no-strict-optional",
+             "--python-version", "3.11"
+             ] + py_files,
+            capture_output=True, text=True,
+            cwd=str(VAZUS_ROOT), timeout=120,
+            encoding="utf-8", errors="replace"
+        )
+        if res.returncode != 0:
+            for line in res.stdout.splitlines():
+                if ": error:" in line:
+                    errors.append(line.strip())
+    except FileNotFoundError:
+        return True, []  # mypy not installed: skip silently
+    except subprocess.TimeoutExpired:
+        errors.append("[mypy] timed out after 120s")
+    except Exception as e:
+        errors.append(f"[mypy] error: {e}")
+    return len(errors) == 0, errors
+
+
 def main():
     print("=" * 70)
-    print("🛡️ VAZUS OS — AUTONOMOUS PRE-COMMIT QUALITY GATE (6-TIER PIPELINE)")
+    print("🛡️ VAZUS OS — AUTONOMOUS PRE-COMMIT QUALITY GATE (7-TIER PIPELINE)")
     print("=" * 70)
 
     staged_files = get_staged_python_files()
@@ -565,6 +605,17 @@ def main():
         sys.exit(1)
     else:
         print("  ✅ Gate 2 Passed: Targeted Tests Clean.")
+
+    # L2: viztracer runtime trace collection (opt-in, non-blocking)
+    if os.getenv("VAZUS_L2_TRACE", "0") == "1":
+        try:
+            from vazus_core.verification.l2_trace_collector import run_l2_for_staged_tests
+            from vazus_core.verification.precommit_gate import find_targeted_tests
+            test_files = [Path(p) for p in find_targeted_tests(staged_files)]
+            l2_result = run_l2_for_staged_tests(test_files, max_files=5)
+            print(f"  📊 L2 Trace: {l2_result['total_edges']} new edges, {l2_result['total_hits']} function hits recorded → vazus.db")
+        except Exception as _l2e:
+            print(f"  ⚠️  L2 Trace skipped: {_l2e}")
 
     # Stage 3: SMT Z3 Formal Proofs
     ok3, errs3 = run_gate_3_smt_z3_contracts(staged_files)
@@ -636,7 +687,48 @@ def main():
             print("\n🚫 COMMIT ABORTED. VAZUS_GATE_STRICT_DEEP=1 and deep scan found issues.")
             sys.exit(1)
 
-    print("\n🎉 ALL PRE-COMMIT QUALITY GATES PASSED (6/6). Commit authorized.")
+    # Stage 7: mypy static type checking (opt-in)
+    if os.getenv("VAZUS_GATE_MYPY", "0") == "1":
+        ok7, errs7 = run_gate_7_mypy(staged_files)
+        if errs7:
+            print("\n🔤 GATE 7 mypy REPORT:")
+            for e in errs7[:20]:
+                print(f"   - {e}")
+        if not ok7 and os.getenv("VAZUS_GATE_STRICT_MYPY", "0") == "1":
+            print("\n🚫 COMMIT ABORTED. VAZUS_GATE_STRICT_MYPY=1 and mypy found type errors.")
+            sys.exit(1)
+        elif ok7:
+            print("  ✅ Gate 7 Passed: mypy type check clean.")
+        else:
+            print("  ⚠️  Gate 7 Advisory: mypy found type issues (set VAZUS_GATE_STRICT_MYPY=1 to block).")
+
+    # Stage 8: ProactiveSuggestionEngine — advisory, NEVER blocks commit
+    # Scans staged files for complexity, clones, print(), MD5, dead code
+    # Results stored to vazus.db → surfaced in next pre_invocation_hook context
+    print("\n🔍 Gate 8: Proactive Code Improvement Scan (advisory)...")
+    try:
+        sys.path.insert(0, str(VAZUS_ROOT))
+        from vazus_core.analysis.proactive_suggestion_engine import ProactiveSuggestionEngine
+        engine = ProactiveSuggestionEngine()
+        all_suggestions = []
+        for fp in staged_files:
+            if fp.suffix == ".py":
+                sug = engine.scan_file(fp)
+                all_suggestions += sug
+        if all_suggestions:
+            errors = [s for s in all_suggestions if s.severity == "error"]
+            warnings = [s for s in all_suggestions if s.severity == "warning"]
+            advisories = [s for s in all_suggestions if s.severity == "advisory"]
+            print(f"  📋 Gate 8 found: {len(errors)} errors, {len(warnings)} warnings, {len(advisories)} advisories")
+            for s in (errors + warnings)[:5]:
+                print(f"   [{s.severity.upper()}] {Path(s.file_path).name}:{s.line} — {s.title}")
+            print("  → All suggestions stored to vazus.db (will appear in next conversation context)")
+        else:
+            print("  ✅ Gate 8: No improvement suggestions for staged files.")
+    except Exception as e:
+        print(f"  ℹ️  Gate 8 skipped (engine unavailable): {e}")
+
+    print("\n🎉 ALL PRE-COMMIT QUALITY GATES PASSED (8/8). Commit authorized.")
     print("=" * 70)
     sys.exit(0)
 

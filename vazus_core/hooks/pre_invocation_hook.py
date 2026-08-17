@@ -7,6 +7,11 @@ On turn 0: injects MCP tool instructions AND auto-selects up to 3 relevant SKILL
            files based on the user's prompt using DynamicSkillDispatcher (768D vectors).
 On turn N: injects nothing (to avoid context bloat).
 
+Auto-triggers (background, non-blocking):
+  every 20th turn-0:  candidate_harvester (dead code scan → vazus.db)
+  every 50th turn-0:  dream_consolidator (memory dedup)
+  on 'refactor' prompt: radon complexity hotspot hint
+
 Triggered by hooks.json — NOT a manual script.
 """
 
@@ -162,6 +167,21 @@ def auto_retrieve_memory(user_prompt: str, invocation_num: int) -> str:
         except Exception:
             pass
 
+    # 2b. Proactive Code Improvement Suggestions (from ProactiveSuggestionEngine → vazus.db)
+    #     Injected only on turn 0 to avoid context bloat.
+    if invocation_num == 0:
+        try:
+            from vazus_core.analysis.proactive_suggestion_engine import ProactiveSuggestionEngine
+            pending = ProactiveSuggestionEngine.get_pending(limit=3)
+            if pending:
+                lines.append("\n## 🔧 Накопленные улучшения кода (ProactiveSuggestionEngine)")
+                lines.append("*Авто-обнаружены анализаторами. Можете исправить прямо сейчас:*")
+                for s in pending:
+                    lines.append(f"- {s}")
+                lines.append("")
+        except Exception:
+            pass
+
     # 3. Recent Git / Subagent Traces
     if invocation_num == 0:
         try:
@@ -199,6 +219,73 @@ def build_skills_injection(skills: list) -> str:
     return "\n".join(lines)
 
 
+_REFACTOR_KEYWORDS = (
+    "refactor", "рефактор", "улучш", "сложн", "complexity",
+    "dead code", "мёртвый", "упрост", "simplif", "clean up"
+)
+
+
+def _bg_run(cmd: list, cwd: str = "C:/vazus") -> None:
+    """Fire-and-forget subprocess — hooks must never block."""
+    try:
+        import subprocess as _sp
+        _sp.Popen(
+            cmd, cwd=cwd,
+            stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
+            creationflags=0x00000008  # DETACHED_PROCESS on Windows
+        )
+    except Exception:
+        pass
+
+
+def _auto_candidate_harvest() -> None:
+    """Background: runs candidate_harvester every 20th turn-0 invocation."""
+    try:
+        _bg_run([
+            r"C:\vazus\.venv\Scripts\python.exe", "-c",
+            "import sys; sys.path.insert(0,'C:/vazus'); "
+            "from vazus_core.verification.candidate_harvester import CandidateHarvester; "
+            "from pathlib import Path; "
+            "h = CandidateHarvester(); h.harvest(Path('C:/vazus/vazus_core'))"
+        ])
+    except Exception:
+        pass
+
+
+def _auto_dream_consolidate() -> None:
+    """Background: runs dream_consolidator every 50th turn-0 to dedup memory."""
+    try:
+        _bg_run([
+            r"C:\vazus\.venv\Scripts\python.exe", "-m",
+            "vazus_core.memory.dream_consolidator"
+        ])
+    except Exception:
+        pass
+
+
+def _radon_complexity_hint(user_prompt: str) -> str:
+    """If prompt is about refactoring, inject top-5 complex functions as context."""
+    if not any(kw in user_prompt.lower() for kw in _REFACTOR_KEYWORDS):
+        return ""
+    try:
+        import subprocess as _sp
+        res = _sp.run(
+            [r"C:\vazus\.venv\Scripts\python.exe", "-m", "radon", "cc",
+             r"C:\vazus\vazus_core", "--min", "C", "--show-complexity"],
+            capture_output=True, text=True, timeout=20, encoding="utf-8", errors="replace"
+        )
+        if res.stdout.strip():
+            lines = [l for l in res.stdout.splitlines() if l.strip()][:15]
+            return (
+                "\n## 🔥 radon: High-Complexity Functions (auto-detected, CC ≥ C)\n"
+                + "\n".join(lines)
+                + "\n"
+            )
+    except Exception:
+        pass
+    return ""
+
+
 def main():
     try:
         raw = sys.stdin.read()
@@ -220,6 +307,29 @@ def main():
         skills_block = build_skills_injection(matched_skills)
         memory_block = auto_retrieve_memory(user_prompt, invocation_num)
 
+        # ── Auto-triggers (background, non-blocking) ─────────────────────
+        if invocation_num == 0:
+            # Persist a rolling invocation counter in a lightweight file
+            _counter_path = "C:/vazus/logs/.hook_invocation_count"
+            try:
+                count = int(open(_counter_path).read().strip())
+            except Exception:
+                count = 0
+            count += 1
+            try:
+                os.makedirs("C:/vazus/logs", exist_ok=True)
+                open(_counter_path, "w").write(str(count))
+            except Exception:
+                pass
+
+            if count % 20 == 0:
+                _auto_candidate_harvest()   # dead-code scan → DB
+            if count % 50 == 0:
+                _auto_dream_consolidate()   # memory dedup
+
+        # ── Context enrichment ────────────────────────────────────────────
+        radon_hint = _radon_complexity_hint(user_prompt) if invocation_num == 0 else ""
+
         repo_map_block = ""
         if invocation_num == 0:
             try:
@@ -236,6 +346,8 @@ def main():
             full_message += skills_block
         if repo_map_block:
             full_message += f"\n{repo_map_block}\n"
+        if radon_hint:
+            full_message += radon_hint
 
         # --- HUD visibility: log what we're injecting ---
         injected_skills = [{"name": s["name"], "score_pct": int(s["score"] * 100)} for s in matched_skills]
