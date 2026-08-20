@@ -30,8 +30,6 @@ try:
 except ImportError:
     UnifiedEmbeddingManager = None
     DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
-    if not DEFAULT_DB_PATH.exists():
-        DEFAULT_DB_PATH = Path("C:/vazus/vazus.db")
     
     def calculate_cosine_similarity(vec_a, vec_b):
         if not vec_a or not vec_b or len(vec_a) != len(vec_b):

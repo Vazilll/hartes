@@ -48,18 +48,20 @@ class HardwareCapProfiler:
         self._capabilities = capabilities
         return capabilities
 
-    def save_profile_to_db(self, db_path: str = "vazus.db") -> bool:
+    def save_profile_to_db(self, db_path: Optional[str] = None) -> bool:
         """
         Persist hardware profile JSON to table `hardware_profiles` in sqlite db.
         Schema: hardware_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, profile_json TEXT, probed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)
         """
+        from vazus_core.memory.db import DEFAULT_VAZUS_DB
+        target_db = db_path or DEFAULT_VAZUS_DB
         try:
             if self._capabilities is None:
                 self.detect_capabilities()
 
             profile_json = json.dumps(self._capabilities, indent=2)
 
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(target_db)
             try:
                 cursor = conn.cursor()
                 cursor.execute(

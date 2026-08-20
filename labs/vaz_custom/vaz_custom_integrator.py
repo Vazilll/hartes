@@ -106,9 +106,7 @@ class ObsidianSkillsKnowledgeAdapter:
 
     def __init__(self, repo_dir: Optional[Path] = None):
         self.repo_dir = repo_dir or (GIT_OPEN_DIR / "obsidian-skills")
-        self.db_path = Path("C:/vazus/vazus.db")
-        if not self.db_path.exists():
-            self.db_path = Path("C:/vazus/services/memory/vazus.db")
+        self.db_path = Path("C:/vazus/services/memory/vazus.db")
 
     def query_knowledge_vault(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """Queries FTS5 full-text search and vector space in vazus.db."""

@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 from health_load_engine import MiScaleBioimpedanceDecoder
 
-DB_PATH = r"C:\vazus\vazus.db"
+DB_PATH = r"C:\vazus\services\memory\vazus.db"
 
 def init_health_db():
     conn = sqlite3.connect(DB_PATH)
