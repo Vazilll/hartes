@@ -22,6 +22,10 @@ import os
 # Add vazus to path
 sys.path.insert(0, "C:/vazus")
 
+from typing import List, Dict, Any, Optional, Tuple
+from vazus_core.hooks.mcp_gateway import DynamicMCPGateway
+from vazus_core.hooks.entropy_governor import EntropyGovernor
+
 try:
     from vazus_core.hooks.hud_writer import write_hud_event
 except Exception:
@@ -147,8 +151,13 @@ def auto_retrieve_memory(user_prompt: str, invocation_num: int) -> str:
             try:
                 with open(user_md_path, "r", encoding="utf-8", errors="ignore") as f:
                     u_content = f.read().strip()
+                    # Anthropic lean-profile rule: max 2000 chars in context
+                    # Full backlog available in BACKLOG.md or via vazus_unified_recall("backlog")
+                    MAX_USER_MD = 2000
+                    if len(u_content) > MAX_USER_MD:
+                        u_content = u_content[:MAX_USER_MD] + "\n\n... [Backlog truncated → vazus_unified_recall('backlog')]"
                     if u_content:
-                        lines.append(f"\n## 👤 User Profile & Preferences (USER.md)\n{u_content}\n")
+                        lines.append(f"\n## 👤 Vazus OS Profile\n{u_content}\n")
             except Exception:
                 pass
 
@@ -172,7 +181,10 @@ def auto_retrieve_memory(user_prompt: str, invocation_num: int) -> str:
     if invocation_num == 0:
         try:
             from vazus_core.analysis.proactive_suggestion_engine import ProactiveSuggestionEngine
-            pending = ProactiveSuggestionEngine.get_pending(limit=3)
+            pending = ProactiveSuggestionEngine.get_pending(
+                limit=3,
+                user_prompt=user_prompt,
+            )
             if pending:
                 lines.append("\n## 🔧 Накопленные улучшения кода (ProactiveSuggestionEngine)")
                 lines.append("*Авто-обнаружены анализаторами. Можете исправить прямо сейчас:*")
@@ -286,6 +298,89 @@ def _radon_complexity_hint(user_prompt: str) -> str:
     return ""
 
 
+def create_default_mcp_gateway() -> DynamicMCPGateway:
+    """Constructs and populates DynamicMCPGateway with standard Vazus OS tools."""
+    gw = DynamicMCPGateway(max_active_tools=5, base_meta_tools=["search_tools", "call_mcp_tool"])
+    
+    tools_spec = [
+        ("vazus_unified_store_fact", "Stores verified atomic facts across Mem0 and SQLite durable ledgers", "vazus-organic"),
+        ("vazus_unified_recall", "Unified recall across Mem0 episodic facts, organic ledger, and AST code topology", "vazus-organic"),
+        ("vazus_system_health", "Reports real-time health score and degradation status of all OS subsystems", "vazus-organic"),
+        ("vazus_resolve_capabilities", "Resolves JIT skills and leaf MCP tools via 4-tier Hierarchical Forest", "vazus-organic"),
+        ("vazus_graphify_code_symbol", "Extracts deterministic 1-hop AST topology and caller/callee signatures", "vazus-organic"),
+        ("vazus_smt_z3_verify", "Formally proves theorem, invariant or SMT contract using Z3 solver", "vazus-organic"),
+        ("vazus_organic_recall", "Recalls verified organic architectural facts and patterns from memory", "vazus-organic"),
+        ("vazus_record_insight", "Records structural insight or lesson into persistent memory graph", "vazus-organic"),
+        ("vazus_ast_prune", "Prunes AST signatures to eliminate token waste in context", "vazus-organic"),
+        ("vazus_darwinian_evolve", "Executes Darwinian genetic mutation and evolution of candidate code", "vazus-organic"),
+        ("vazus_mem0_add_fact", "Adds atomic semantic fact to Mem0 memory layer", "vazus-organic"),
+        ("vazus_mem0_search", "Searches 768-D semantic vector facts in Mem0", "vazus-organic"),
+        ("vazus_author_skill", "Natively authors new Antigravity SKILL.md file into workspace", "vazus-organic"),
+        ("vazus_evidence_jury", "Runs 3-agent Concordia jury consensus evaluation on proposal", "vazus-organic"),
+        ("vazus_dual_jury", "Runs dual-tier verification jury with SMT Z3 and AST checks", "vazus-organic"),
+
+        ("ckb_explore", "Explores codebase topology and high-level architectural clusters", "ckb"),
+        ("ckb_understand", "Deeply understands semantic relationships and symbol hierarchies", "ckb"),
+        ("ckb_getSymbol", "Retrieves exact definition, signature, and docstring of symbol", "ckb"),
+        ("ckb_findReferences", "Finds all inbound and outbound code references for a symbol", "ckb"),
+        ("ckb_getCallGraph", "Extracts AST call graph up to N hops from symbol", "ckb"),
+        ("ckb_getArchitecture", "Generates high-level module architecture graph", "ckb"),
+        ("ckb_analyzeImpact", "Calculates blast radius and impact analysis of modifying symbol", "ckb"),
+        ("ckb_planRefactor", "Generates safe step-by-step refactoring plan using AST topology", "ckb"),
+        ("radon_complexity", "Computes cyclomatic complexity CC for functions and methods", "code-quality"),
+        ("radon_maintainability", "Calculates Maintainability Index MI for target modules", "code-quality"),
+        ("ast_grep_search", "Performs structural AST pattern search across codebase", "code-quality"),
+        ("ast_grep_rewrite", "Executes structural AST pattern replacement and rewrites", "code-quality"),
+        ("detect_clones", "Detects duplicated code blocks and AST clone fragments", "code-quality"),
+        ("pyinstrument_profile", "Profiles execution performance and call stack bottlenecks", "code-quality"),
+        ("github_create_pull_request", "Opens pull request on GitHub repository", "github"),
+        ("github_search_code", "Searches code on GitHub repository", "github"),
+        ("github_get_issue", "Retrieves details of a GitHub issue", "github"),
+        ("supergraph_trace_path", "Traces connectivity path across 2-layer SuperGraph", "supergraph"),
+        ("supergraph_detect_blast_radius", "Computes blast radius across code and semantic wiki nodes", "supergraph"),
+        ("cbm_index_repository", "Indexes repository into graph database", "cbm"),
+        ("cbm_query_graph", "Queries code knowledge graph with Cypher-like queries", "cbm"),
+    ]
+    
+    for name, desc, server in tools_spec:
+        gw.register_tool(name, {"name": name, "description": desc}, server_name=server)
+        
+    return gw
+
+
+_DEFAULT_GATEWAY: Optional[DynamicMCPGateway] = None
+
+
+def get_default_mcp_gateway() -> DynamicMCPGateway:
+    global _DEFAULT_GATEWAY
+    if _DEFAULT_GATEWAY is None:
+        _DEFAULT_GATEWAY = create_default_mcp_gateway()
+    return _DEFAULT_GATEWAY
+
+
+def run_pre_invocation(trajectory: List[Dict[str, Any]], query: str) -> Dict[str, Any]:
+    """
+    Pre-invocation lifecycle hook execution:
+    1. Trajectory compaction via EntropyGovernor (on H_norm >= 0.78 or turns > 12).
+    2. DynamicMCPGateway resolution (Intent-Schema Overlap with >= 90% token reduction).
+    """
+    governor = EntropyGovernor(entropy_critical_threshold=0.78, unmasked_turn_lag=3)
+    compacted_trajectory, compaction_meta = governor.compact_trajectory(trajectory or [])
+
+    gateway = get_default_mcp_gateway()
+    active_tools = gateway.resolve_active_tools(query) if query else []
+    savings = gateway.get_token_savings_metric()
+
+    return {
+        "query": query,
+        "entropy_governor": compaction_meta,
+        "compacted_trajectory": compacted_trajectory,
+        "active_tools": active_tools,
+        "mcp_gateway_savings": savings,
+        "status": "ok",
+    }
+
+
 def main():
     try:
         raw = sys.stdin.read()
@@ -303,6 +398,10 @@ def main():
 
         invocation_num = hook_data.get("invocationNum", 0)
         user_prompt = extract_user_prompt(hook_data)
+        messages = hook_data.get("messages", [])
+
+        # Run unified pre-invocation gateway & entropy checks
+        hook_eval = run_pre_invocation(messages, user_prompt)
         matched_skills = auto_select_skills(user_prompt)
         skills_block = build_skills_injection(matched_skills)
         memory_block = auto_retrieve_memory(user_prompt, invocation_num)
@@ -330,14 +429,7 @@ def main():
         # ── Context enrichment ────────────────────────────────────────────
         radon_hint = _radon_complexity_hint(user_prompt) if invocation_num == 0 else ""
 
-        repo_map_block = ""
-        if invocation_num == 0:
-            try:
-                from vazus_core.engine.ast_repo_mapper import ASTRepoMapper
-                mapper = ASTRepoMapper()
-                repo_map_block = mapper.build_repo_map(max_tokens=1000)
-            except Exception:
-                repo_map_block = ""
+        repo_map_block = "" # Disabled AST Repo Map dump in favor of progressive disclosure via MCP tools
 
         full_message = ""
         if memory_block:
@@ -354,7 +446,9 @@ def main():
         write_hud_event("PreInvocation", {
             "turn": invocation_num,
             "prompt_preview": user_prompt[:80] if user_prompt else "",
-            "mcp_injected": False,
+            "mcp_active_tools": [t.get("name") for t in hook_eval.get("active_tools", [])],
+            "mcp_savings": hook_eval.get("mcp_gateway_savings", {}),
+            "entropy": hook_eval.get("entropy_governor", {}),
             "skills_injected": injected_skills,
             "memory_injected": bool(memory_block),
             "total_chars": len(full_message),
@@ -363,7 +457,7 @@ def main():
         if full_message.strip():
             result = {
                 "injectSteps": [
-                    {"ephemeralMessage": full_message}
+                    {"message": full_message}
                 ]
             }
         else:

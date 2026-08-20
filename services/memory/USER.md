@@ -1,36 +1,35 @@
-# USER — Профиль пользователя и Контекст Системы
+# Vazus OS — User Profile (Lean Briefing Document)
+# Anthropic pattern: static preferences + ADRs only. No backlogs.
+# Backlog → C:\vazus\services\memory\BACKLOG.md
 
-> Этот файл обновляется агентом по мере изучения предпочтений пользователя. Включается в system prompt.
+## Identity
+- **Name**: Жуков М. Д. (zhukov.m.d1@edu.mirea.ru)
+- **Platform**: Windows 10/11, Intel CPU + Intel Arc/iGPU (SYCL)
+- **Stack**: Go (primary), Python (ML only), Intel SYCL/OpenVINO
+- **IDE**: Opencode (terminal) + Antigravity (VS Code)
+- **Language**: Русский
 
-## Основное
-- **Имя**: Жуков М. Д. (zhukov.m.d1@edu.mirea.ru), вариант 5.
-- **Род деятельности**: Студент РТУ МИРЭА + Full-stack AI-разработчик (Python, Go, Telegram боты, Hermes/MCP). Самозанятый.
-- **AI-Бизнес**: Support Bot, Госзакупки Telegram, AI Salon Bot, AI Тендеры bot.
-- **Платформа**: Windows 10/11
-- **Язык общения**: Русский
-- **Стек**: Go (primary), Python (ML only), Intel SYCL
-- **IDE**: Opencode (terminal), Antigravity (VS Code)
-- **Железо**: Intel CPU + Intel GPU (Arc / iGPU с SYCL)
+## Core Preferences
+- Python → Go/Zig где критична скорость
+- Privacy-first: всё локально, минимум внешних вызовов
+- Obsidian для заметок
+- Предпочитает действие, а не объяснения
+- Нулевая толерантность к ошибкам, заглушкам и фасадам
+- Видимые хуки (message, не ephemeralMessage)
 
-## Предпочтения
-- Максимально убирать Python → Go или Zig
-- Privacy-first, всё локально
-- Obsidian для заметок и памяти
-- Предпочитает действие, а не длинные объяснения
-- Не любит лишние вопросы — действуй, если можешь. Нулевая толерантность к ошибкам.
+## Active Architecture Decisions (ADRs)
+- **PreInvocation Hook**: Progressive Disclosure, no blind AST dump, max USER.md 2000 chars
+- **Memory Loop**: Anthropic pattern — Curation (stop_hook) → Write (Mem0) → JIT Retrieve (pre_invocation)
+- **Skills**: DynamicSkillDispatcher 768D cosine, threshold 0.15
+- **Suggestions**: ProactiveSuggestionEngine 768D relevance scoring, threshold 0.35
+- **IPC**: SharedMemoryBus Windows Named Memory (zero-copy Go↔Python)
+- **DB**: SQLite WAL 256MB MMAP + sqlite-vec 768D vectors
+- **Code Intel**: cbm (C-based) primary; CKB deprecated (60-300s hangs)
+- **Visibility**: hook outputs visible in chat via `message` (not ephemeralMessage)
 
-## Модели
-- Gemini: через API key (AI Studio)
-- Локальные модели для мобильных устройств (телефон)
-- Интегрированные модели Antigravity (Claude, Gemini)
-
-## Активный Бэклог Задач
-1. **СДО МИРЭА (Академические долги)**:
-   - Обнаружено 267 задолженностей по 22 курсам.
-   - Материалы по 6 основным предметам выгружены в `C:\Users\Vaz\clawd-on-desk\course_materials`.
-   - Задача: Начать отправку готовых решений по Матанализу (`handwritten_solutions.pdf`/`math_analysis_solutions.docx` на диске) и выгрузить контакты преподавателей.
-2. **Модернизация Hermes**:
-   - Внедрить RLM-память и защиту от Context Rot (разбивка на под-агентов, точечный поиск по базе вместо раздувания контекста).
-   - Внедрить Диалектическое автокодирование (loop: Generator -> Linter/Tests -> Critic Reviewer -> Generator).
-   - Интегрировать Graphify (построение кодовой базы в виде Knowledge Graph на tree-sitter для сокращения расхода токенов).
-   - Реализовать Multi-Agent Missions (Factory: Orchestrator -> Workers -> Validators) с Validation Contracts и Structured Handoffs.
+## Hard Rules for Agent
+- Никогда не создавать заглушки (stubs) или фасады
+- Не отключать системы без явного согласования пользователя
+- Не делать слепые дампы данных в контекст
+- Не удалять файлы без проверки зависимостей (vulture + grep)
+- Полный бэклог → vazus_unified_recall("backlog") или C:\vazus\services\memory\BACKLOG.md

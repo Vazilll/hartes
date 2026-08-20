@@ -23,15 +23,11 @@ Usage:
 """
 from __future__ import annotations
 
-import ast
 import json
 import logging
-import re
 import sqlite3
 import subprocess
-import sys
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -135,14 +131,26 @@ class ProactiveSuggestionEngine:
         except Exception as e:
             logger.warning("Store failed: %s", e)
 
-    @classmethod
-    def get_pending(cls, db_path: Path | str | None = None, limit: int = 5) -> list[str]:
+    @staticmethod
+    def get_pending(
+        db_path: Path | str | None = None,
+        limit: int = 5,
+        user_prompt: str = "",
+    ) -> list[str]:
         """
         Called by pre_invocation_hook to inject pending suggestions into context.
-        Returns list of formatted suggestion strings.
+
+        If user_prompt is provided, scores each suggestion by 768D cosine similarity
+        and returns only those >= RELEVANCE_THRESHOLD (Anthropic Alert Fatigue prevention).
+        Falls back to unfiltered top-N if embedding unavailable.
+
+        Returns deduplicated list of formatted suggestion strings.
         """
+        RELEVANCE_THRESHOLD = 0.35  # Anthropic confidence gate
+
         db = Path(db_path or VAZUS_DB)
         try:
+            fetch_limit = limit * 3 if user_prompt else limit
             with sqlite3.connect(db, timeout=3) as conn:
                 rows = conn.execute(
                     """SELECT file_path, line, category, severity, suggestion
@@ -152,13 +160,33 @@ class ProactiveSuggestionEngine:
                          CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
                          created_at DESC
                        LIMIT ?""",
-                    (limit,)
+                    (fetch_limit,)
                 ).fetchall()
-            result = []
+
+            result_raw: list[str] = []
             for fp, line, cat, sev, sugg in rows:
                 icon = {"error": "🚨", "warning": "⚠️", "advisory": "💡"}.get(sev, "📌")
-                result.append(f"{icon} [{cat}] {Path(fp).name}:{line} — {sugg[:200]}")
-            return result
+                result_raw.append(f"{icon} [{cat}] {Path(fp).name}:{line} — {sugg[:200]}")
+
+            # 768D relevance scoring (Anthropic Alert Fatigue prevention)
+            if user_prompt and len(user_prompt.strip()) > 5:
+                try:
+                    from vazus_core.memory.embeddings import get_embedding, compute_similarity
+                    query_vec = get_embedding(user_prompt)
+                    scored: list[tuple[float, str]] = []
+                    for item in result_raw:
+                        sugg_vec = get_embedding(item)
+                        score = compute_similarity(query_vec, sugg_vec)
+                        if score >= RELEVANCE_THRESHOLD:
+                            scored.append((score, item))
+                    scored.sort(key=lambda x: x[0], reverse=True)
+                    result_raw = [item for _, item in scored]
+                except Exception:
+                    pass  # Fallback: unfiltered
+
+            # Dedup + limit
+            return list(dict.fromkeys(result_raw))[:limit]
+
         except Exception:
             return []
 
@@ -229,7 +257,6 @@ class ProactiveSuggestionEngine:
                 code = f.get("code", "")
                 line = f.get("location", {}).get("row", 0)
                 msg = f.get("message", "")
-                src_line = f.get("fix", {}).get("message", "") or ""
 
                 if code == "T201":
                     if any(s in fp.name for s in skip_names):

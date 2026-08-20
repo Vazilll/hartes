@@ -84,6 +84,175 @@ def build_session_summary(conversation_id: str, user_msgs: list, model_msgs: lis
     return summary
 
 
+def check_pending_verification() -> tuple[bool, str]:
+    """Check if any Z3 verification, Pytest suite, or Concordia Jury vote is pending.
+
+    Returns (is_pending, reason) — if is_pending is True, agent termination
+    should be blocked until verification completes.
+    """
+    import sqlite3
+    import os
+
+    db_path = os.path.join(os.path.dirname(__file__), "..", "..", "services", "memory", "vazus.db")
+    db_path = os.path.normpath(db_path)
+
+    if not os.path.isfile(db_path):
+        return False, ""
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=2)
+        cur = conn.cursor()
+
+        # Check for pending verification markers (inserted by pre-commit gate)
+        cur.execute(
+            "SELECT COUNT(*) FROM organic_insights "
+            "WHERE category = 'verification_pending' "
+            "AND created_at > datetime('now', '-10 minutes')"
+        )
+        pending_count = cur.fetchone()[0]
+        conn.close()
+
+        if pending_count > 0:
+            return True, f"Z3/Concordia verification pending ({pending_count} active markers)"
+    except Exception:
+        pass
+
+    # Check for active verifier/pytest subprocesses (best-effort)
+    try:
+        import psutil
+        for proc in psutil.process_iter(["name", "cmdline"]):
+            try:
+                cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+                if any(kw in cmdline for kw in ["pytest", "precommit_gate", "smt_z3", "concordia_jury"]):
+                    return True, f"Active verification process: {proc.info['name']} (pid {proc.pid})"
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+    except ImportError:
+        pass
+
+    return False, ""
+
+
+def _get_block_count(conversation_id: str) -> int:
+    import json
+    import os
+    state_file = "C:/vazus/.stop_hook_state.json"
+    try:
+        if os.path.exists(state_file):
+            with open(state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get(conversation_id, 0)
+    except Exception:
+        pass
+    return 0
+
+
+def _increment_block_count(conversation_id: str) -> int:
+    import json
+    import os
+    state_file = "C:/vazus/.stop_hook_state.json"
+    cnt = _get_block_count(conversation_id) + 1
+    try:
+        data = {}
+        if os.path.exists(state_file):
+            with open(state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        data[conversation_id] = cnt
+        with open(state_file, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception:
+        pass
+    return cnt
+
+
+def _clear_block_count(conversation_id: str):
+    import json
+    import os
+    state_file = "C:/vazus/.stop_hook_state.json"
+    try:
+        if os.path.exists(state_file):
+            with open(state_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            data.pop(conversation_id, None)
+            with open(state_file, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+    except Exception:
+        pass
+
+
+def auto_curate_session_memory(
+    transcript: list,
+    min_confidence: float = 0.7,
+    max_facts: int = 5,
+) -> list:
+    """
+    Anthropic Memory Loop — Curation Phase.
+
+    Analyzes session transcript and extracts high-value facts:
+    - Architectural decisions (agent changed/created/disabled something)
+    - User preferences explicitly acted upon
+    - Errors resolved this session
+
+    Writes extracted facts to Mem0 with min_confidence score.
+    Returns list of stored fact strings for logging.
+
+    Called automatically from stop_hook main() on session end.
+    """
+    if not transcript or len(transcript) < 2:
+        return []
+
+    DECISION_KEYWORDS = [
+        # Russian
+        "изменил", "добавил", "удалил", "заменил", "отключил",
+        "внедрил", "рефакторил", "создал", "исправил", "переработал",
+        # English
+        "modified", "created", "disabled", "replaced", "refactored",
+        "added", "removed", "fixed", "implemented", "deleted",
+    ]
+
+    stored = []
+    try:
+        mem0 = Mem0Engine()
+
+        for i, msg in enumerate(transcript):
+            if msg.get("role") not in ("assistant", "model"):
+                continue
+            content = str(msg.get("content", ""))
+            if not any(kw in content.lower() for kw in DECISION_KEYWORDS):
+                continue
+            # Get the preceding user message as context
+            user_msg = ""
+            if i > 0:
+                prev = transcript[i - 1]
+                raw = prev.get("content", "")
+                if isinstance(raw, list):
+                    user_msg = " ".join(
+                        b.get("text", "") for b in raw if isinstance(b, dict)
+                    )
+                elif isinstance(raw, str):
+                    user_msg = raw
+            if not user_msg:
+                continue
+
+            fact = (
+                f"[Session decision] "
+                f"User: {user_msg[:120].strip()} "
+                f"→ Agent: {content[:200].strip()}"
+            )
+            try:
+                mem0.add_fact(fact, confidence=min_confidence)
+                stored.append(fact)
+                if len(stored) >= max_facts:
+                    break
+            except Exception:
+                pass
+
+    except Exception:
+        pass
+
+    return stored
+
+
 def main():
     try:
         raw_input = sys.stdin.read()
@@ -96,6 +265,44 @@ def main():
         _termination_reason = hook_data.get("terminationReason", "unknown")
         _fully_idle = hook_data.get("fullyIdle", True)
         messages = hook_data.get("messages", [])
+
+        # ── Verification Gate: block termination if verification is pending ──
+        is_pending, pending_reason = check_pending_verification()
+        if is_pending:
+            block_count = _increment_block_count(conversation_id)
+            if block_count <= 2:
+                print(json.dumps({
+                    "decision": "continue",
+                    "reason": f"[Verification Gate (Attempt {block_count}/2)] {pending_reason}. "
+                              "Agent waiting for background verification..."
+                }))
+                return
+            else:
+                _clear_block_count(conversation_id)
+
+        # ── AFC Gate: block exit if agent made an unverified success claim ────
+        try:
+            from vazus_core.verification.anti_false_confidence import has_open_violation
+            if has_open_violation(conversation_id):
+                afc_block = _get_block_count(f"afc_{conversation_id}")
+                if afc_block < 2:
+                    _increment_block_count(f"afc_{conversation_id}")
+                    print(json.dumps({
+                        "decision": "continue",
+                        "reason": (
+                            "[AFC Gate] Agent made an unverified success claim this session "
+                            "(Coverage Theater detected). Run EvidenceJury or empirical test "
+                            "before declaring completion. Use: "
+                            "from vazus_core.verification.anti_false_confidence import resolve_afc_violation"
+                        )
+                    }))
+                    return
+                else:
+                    _clear_block_count(f"afc_{conversation_id}")
+        except Exception:
+            pass  # AFC check is non-blocking on error
+
+        _clear_block_count(conversation_id)
         invocation_num = hook_data.get("invocationNum", 0)
 
         mem0 = Mem0Engine()
@@ -165,6 +372,17 @@ def main():
                     )
             except Exception:
                 pass
+
+        # ── Anthropic Memory Loop — Curation Phase ────────────────────────
+        try:
+            curated = auto_curate_session_memory(messages)
+            if curated:
+                import logging as _log
+                _log.getLogger("stop_hook").info(
+                    "Memory Loop: curated %d facts into Mem0", len(curated)
+                )
+        except Exception:
+            pass
 
         print(json.dumps({"decision": "stop"}))
 
