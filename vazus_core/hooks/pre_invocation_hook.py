@@ -319,14 +319,15 @@ def create_default_mcp_gateway() -> DynamicMCPGateway:
         ("vazus_evidence_jury", "Runs 3-agent Concordia jury consensus evaluation on proposal", "vazus-organic"),
         ("vazus_dual_jury", "Runs dual-tier verification jury with SMT Z3 and AST checks", "vazus-organic"),
 
-        ("ckb_explore", "Explores codebase topology and high-level architectural clusters", "ckb"),
-        ("ckb_understand", "Deeply understands semantic relationships and symbol hierarchies", "ckb"),
-        ("ckb_getSymbol", "Retrieves exact definition, signature, and docstring of symbol", "ckb"),
-        ("ckb_findReferences", "Finds all inbound and outbound code references for a symbol", "ckb"),
-        ("ckb_getCallGraph", "Extracts AST call graph up to N hops from symbol", "ckb"),
-        ("ckb_getArchitecture", "Generates high-level module architecture graph", "ckb"),
-        ("ckb_analyzeImpact", "Calculates blast radius and impact analysis of modifying symbol", "ckb"),
-        ("ckb_planRefactor", "Generates safe step-by-step refactoring plan using AST topology", "ckb"),
+        ("cbm_get_architecture", "Generates high-level module architecture graph and dependencies", "cbm"),
+        ("cbm_search_graph", "Searches nodes and edges in codebase knowledge graph with BFS", "cbm"),
+        ("cbm_query_graph", "Queries code knowledge graph with openCypher queries", "cbm"),
+        ("cbm_trace_path", "Traces BFS caller/callee path across module graph up to depth 5", "cbm"),
+        ("cbm_detect_changes", "Computes blast radius and risk class of git diff changes", "cbm"),
+        ("cbm_get_code_snippet", "Retrieves precise code snippet of symbol definition", "cbm"),
+        ("cbm_search_code", "Performs semantic and structural search across indexed code", "cbm"),
+        ("cbm_manage_adr", "Manages Architecture Decision Records connected to code graph", "cbm"),
+        ("cbm_index_repository", "Indexes repository into graph database", "cbm"),
         ("radon_complexity", "Computes cyclomatic complexity CC for functions and methods", "code-quality"),
         ("radon_maintainability", "Calculates Maintainability Index MI for target modules", "code-quality"),
         ("ast_grep_search", "Performs structural AST pattern search across codebase", "code-quality"),
@@ -338,8 +339,6 @@ def create_default_mcp_gateway() -> DynamicMCPGateway:
         ("github_get_issue", "Retrieves details of a GitHub issue", "github"),
         ("supergraph_trace_path", "Traces connectivity path across 2-layer SuperGraph", "supergraph"),
         ("supergraph_detect_blast_radius", "Computes blast radius across code and semantic wiki nodes", "supergraph"),
-        ("cbm_index_repository", "Indexes repository into graph database", "cbm"),
-        ("cbm_query_graph", "Queries code knowledge graph with Cypher-like queries", "cbm"),
     ]
     
     for name, desc, server in tools_spec:

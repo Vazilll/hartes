@@ -19,28 +19,17 @@ from vazus_core.engine.system_discovery_engine import SystemDiscoveryEngine
 logger = logging.getLogger("vazus.session_start_hook")
 
 
-def check_ckb_connectivity(host: str = "127.0.0.1", port: int = 9120, timeout: float = 1.0) -> Dict[str, Any]:
-    """Checks if Sourcegraph CKB index server or local SCIP files are accessible."""
-    ckb_dir = Path("C:/vazus/.ckb")
-    has_scip = (Path("C:/vazus/index.scip").exists() or (ckb_dir / "scip_derived.gob").exists())
-    has_db = (ckb_dir / "ckb.db").exists()
+def check_code_intelligence_readiness() -> Dict[str, Any]:
+    """Checks cbm (Codebase Memory) and ast-grep readiness with zero network delay."""
+    import shutil
+    has_cbm = bool(shutil.which("cbm") or Path("C:/vazus/bin/cbm.exe").exists() or Path("C:/Users/Vaz/.gemini/antigravity/mcp/cbm").exists())
+    has_ast_grep = bool(shutil.which("ast-grep") or shutil.which("sg") or Path("C:/Users/Vaz/AppData/Roaming/npm/sg.cmd").exists())
     
-    daemon_online = False
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        result = sock.connect_ex((host, port))
-        sock.close()
-        daemon_online = (result == 0)
-    except Exception:
-        daemon_online = False
-
     return {
-        "daemon_online": daemon_online,
-        "port": port,
-        "has_scip_index": has_scip,
-        "has_ckb_db": has_db,
-        "status": "ready" if (daemon_online or has_scip) else "offline",
+        "engine": "cbm+ast-grep",
+        "has_cbm_graph": has_cbm,
+        "has_ast_grep": has_ast_grep,
+        "status": "ready" if (has_cbm and has_ast_grep) else "degraded",
     }
 
 
@@ -88,8 +77,8 @@ async def run_session_start(workspace_path: str = "C:/vazus") -> Dict[str, Any]:
     # 3. Database Pool warmup
     db_health = await warm_database_pool(async_db_pool)
 
-    # 4. CKB connectivity check
-    ckb_health = check_ckb_connectivity()
+    # 4. Code Intelligence readiness (cbm + ast-grep)
+    code_intel = check_code_intelligence_readiness()
 
     # 5. Proactive Cleanup (Purge shadow directories and dummy artifacts)
     try:
@@ -111,7 +100,7 @@ async def run_session_start(workspace_path: str = "C:/vazus") -> Dict[str, Any]:
             "status": "migrated" if schema_version > 0 else "unmigrated",
         },
         "database": db_health,
-        "ckb": ckb_health,
+        "code_intelligence": code_intel,
         "proactive_cleanup": cleanup_stats,
         "status": "healthy" if db_health.get("status") == "ok" else "degraded",
     }
