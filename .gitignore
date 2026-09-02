@@ -17,6 +17,7 @@ scratch/
 *.log
 *.tmp
 .ruff_cache/
+cache/
 labs/git_open/
 bin/*
 !bin/*.py

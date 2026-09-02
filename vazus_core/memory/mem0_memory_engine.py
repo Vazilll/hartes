@@ -11,6 +11,7 @@ import re
 import sqlite3
 import sys
 import time
+import numpy as np
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -154,35 +155,49 @@ class Mem0Engine:
         if not rows:
             return []
 
-        q_vec = self.emb_mgr.get_embedding(query)
+        q_vec = np.array(self.emb_mgr.get_embedding(query), dtype=np.float32)
+        q_norm = float(np.linalg.norm(q_vec))
         q_tokens = set(re.findall(r"\w+", query.lower()))
 
         dense_scored = []
         lexical_scored = []
-
-        import numpy as np
+        valid_rows = []
+        vectors = []
 
         for r in rows:
             fid, cat, ent, text, emb_str = r[0], r[1], r[2], r[3], r[4]
-            emb = []
+            emb = None
             if emb_str:
                 if isinstance(emb_str, (bytes, bytearray, memoryview)):
                     try:
-                        emb = np.frombuffer(bytes(emb_str), dtype=np.float32).tolist()
+                        emb = np.frombuffer(bytes(emb_str), dtype=np.float32)
                     except Exception:
-                        emb = []
+                        emb = None
                 elif isinstance(emb_str, str):
                     try:
-                        emb = json.loads(emb_str)
+                        emb = np.array(json.loads(emb_str), dtype=np.float32)
                     except Exception:
-                        emb = []
-            sim = self.emb_mgr.compute_similarity(q_vec, emb)
-            dense_scored.append((fid, cat, ent, text, sim))
+                        emb = None
+            
+            if emb is not None and len(emb) == len(q_vec):
+                vectors.append(emb)
+                valid_rows.append((fid, cat, ent, text))
+            else:
+                dense_scored.append((fid, cat, ent, text, 0.0))
 
             # Lexical overlap
             text_tokens = set(re.findall(r"\w+", text.lower()))
             overlap = len(q_tokens & text_tokens) / max(1, len(q_tokens))
             lexical_scored.append((fid, cat, ent, text, overlap))
+
+        if vectors and q_norm > 0:
+            mat = np.vstack(vectors)
+            norms = np.linalg.norm(mat, axis=1)
+            norms[norms == 0] = 1.0
+            sims = np.dot(mat, q_vec) / (norms * q_norm)
+            for i, sim_val in enumerate(sims):
+                fid, cat, ent, text = valid_rows[i]
+                dense_scored.append((fid, cat, ent, text, float(sim_val)))
 
         dense_scored.sort(key=lambda x: x[4], reverse=True)
         lexical_scored.sort(key=lambda x: x[4], reverse=True)

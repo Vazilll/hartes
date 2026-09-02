@@ -79,14 +79,18 @@ class OpenVINONPUEmbedder:
                     break
         self.model_path = str(model_path or "C:/vazus/models/openvino_npu/embedder_768d.xml")
 
-        # Load local tokenizer if present
-        tok_dir = Path(self.model_path).parent / "tokenizer"
-        if tok_dir.exists():
+        # Fast local Rust tokenizer (loads in 12ms instead of 8s transformers overhead)
+        self._fast_tokenizer = None
+        self._tok_dir = Path(self.model_path).parent / "tokenizer"
+        tok_json = self._tok_dir / "tokenizer.json"
+        if tok_json.exists():
             try:
-                from transformers import AutoTokenizer
-                self._tokenizer = AutoTokenizer.from_pretrained(str(tok_dir))
+                from tokenizers import Tokenizer
+                self._fast_tokenizer = Tokenizer.from_file(str(tok_json))
+                self._fast_tokenizer.enable_padding(length=128)
+                self._fast_tokenizer.enable_truncation(max_length=128)
             except Exception as e:
-                logger.debug("Local tokenizer load note: %s", e)
+                logger.debug("Fast Rust tokenizer load note: %s", e)
 
         self.max_seq_len = 128
         if ov is None:
@@ -94,6 +98,13 @@ class OpenVINONPUEmbedder:
 
         try:
             self.core = ov.Core()
+            cache_dir = Path("C:/vazus/cache/openvino")
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                self.core.set_property({"CACHE_DIR": str(cache_dir)})
+            except Exception as cache_err:
+                logger.debug("OpenVINO global CACHE_DIR set note: %s", cache_err)
+
             available = self.core.available_devices
 
             # Device search order: requested -> NPU -> GPU -> CPU
@@ -116,15 +127,19 @@ class OpenVINONPUEmbedder:
 
                 for dev in ordered:
                     try:
+                        compile_config = {
+                            "PERFORMANCE_HINT": "THROUGHPUT",
+                            "CACHE_DIR": str(cache_dir)
+                        }
                         self._compiled_model = self.core.compile_model(
                             self.model,
                             device_name=dev,
-                            config={"PERFORMANCE_HINT": "THROUGHPUT"}
+                            config=compile_config
                         )
                         self._infer_request = self._compiled_model.create_infer_request()
                         self.device = dev
                         self._initialized = True
-                        logger.info("OpenVINO 768D Embedder initialized on device: %s", dev)
+                        logger.info("OpenVINO 768D Embedder initialized on device: %s (cached in %s)", dev, cache_dir)
                         break
                     except Exception as dev_err:
                         logger.debug("OpenVINO compile on %s failed: %s", dev, dev_err)
@@ -198,7 +213,13 @@ class OpenVINONPUEmbedder:
         if not text or not text.strip():
             return [0.0] * self.dimension
 
-        if self._tokenizer is not None:
+        if self._fast_tokenizer is not None:
+            enc = self._fast_tokenizer.encode(text)
+            ids = np.array([enc.ids], dtype=np.int64)
+            mask = np.array([enc.attention_mask], dtype=np.int64)
+            return self.embed_tokens(ids, mask)
+
+        if getattr(self, "_tokenizer", None) is not None:
             encoded = self._tokenizer(
                 text,
                 return_tensors="np",
@@ -207,6 +228,22 @@ class OpenVINONPUEmbedder:
                 truncation=True
             )
             return self.embed_tokens(encoded["input_ids"], encoded.get("attention_mask"))
+
+        tok_dir = getattr(self, "_tok_dir", None)
+        if tok_dir and tok_dir.exists():
+            try:
+                from transformers import AutoTokenizer
+                self._tokenizer = AutoTokenizer.from_pretrained(str(tok_dir))
+                encoded = self._tokenizer(
+                    text,
+                    return_tensors="np",
+                    padding="max_length",
+                    max_length=128,
+                    truncation=True
+                )
+                return self.embed_tokens(encoded["input_ids"], encoded.get("attention_mask"))
+            except Exception as e:
+                logger.debug("Lazy AutoTokenizer fallback note: %s", e)
 
         tokens = np.array([[ord(c) for c in text[:128]] + [0] * (128 - min(128, len(text)))], dtype=np.int64)
         return self.embed_tokens(tokens)
