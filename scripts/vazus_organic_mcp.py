@@ -10,13 +10,17 @@ import logging
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"
-sys.stdout.reconfigure(encoding="utf-8")
-sys.stderr = open(os.devnull, "w", encoding="utf-8")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 sys.path.insert(0, "C:/vazus")
 
-
+logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
 logging.getLogger("fastmcp").setLevel(logging.ERROR)
 logging.getLogger("mcp").setLevel(logging.ERROR)
+
 
 from fastmcp import FastMCP
 from vazus_core.memory.organic_memory_bridge import search_memory, record_insight

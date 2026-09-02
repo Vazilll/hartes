@@ -60,4 +60,9 @@ pyenv/leann-indexes/
 .pytest_cache/
 .coverage
 htmlcov/
+archive/
+*.tar.gz
+*.tar
+*.zip
+
 
