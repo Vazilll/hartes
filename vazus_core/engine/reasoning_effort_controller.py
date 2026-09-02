@@ -41,8 +41,56 @@ class ExecutionPolicyController:
     """
 
     @staticmethod
+    def _parse_effort_level(effort: Union[str, float, None]) -> tuple[float, str]:
+        """Safely normalizes optional effort level strings or floats into [0.0, 1.0] score."""
+        if effort is None:
+            return 0.65, "high"
+        if isinstance(effort, str):
+            eff_lower = effort.lower().strip()
+            score = LEVEL_PRESETS.get(eff_lower, 0.65)
+            return score, eff_lower if eff_lower in LEVEL_PRESETS else "high"
+        try:
+            score = max(0.0, min(1.0, float(effort)))
+            if score <= 0.2:
+                return score, "low"
+            if score <= 0.5:
+                return score, "medium"
+            if score <= 0.75:
+                return score, "high"
+            if score <= 0.9:
+                return score, "xhigh"
+            return score, "ultra"
+        except (ValueError, TypeError):
+            return 0.65, "high"
+
+    @staticmethod
+    def _compute_thinking_token_budget(
+        score: float, model_key: str, prompt_tokens: int, safety_headroom: int
+    ) -> tuple[int, int]:
+        raw_tokens = int(1024 * ((65536 / 1024) ** (score ** 1.2)))
+        limits = MODEL_LIMITS.get(model_key.lower(), MODEL_LIMITS["default"])
+        max_output = limits["max_output"]
+        context_window = limits["context_window"]
+        available_headroom = max(1024, context_window - prompt_tokens - safety_headroom)
+        clamped_thinking_budget = min(raw_tokens, max_output - safety_headroom, available_headroom)
+        return max(0, clamped_thinking_budget), max_output
+
+    @staticmethod
+    def _derive_subsystem_budgets(score: float) -> dict[str, Any]:
+        if score <= 0.2:
+            return {"subagent_model": "flash", "repl_steps": 3, "repl_timeout": 5.0, "smt_z3_depth": 5, "verification_tier": "fast"}
+        if score <= 0.5:
+            return {"subagent_model": "flash", "repl_steps": 5, "repl_timeout": 10.0, "smt_z3_depth": 10, "verification_tier": "standard"}
+        if score <= 0.75:
+            return {"subagent_model": "inherit", "repl_steps": 10, "repl_timeout": 20.0, "smt_z3_depth": 15, "verification_tier": "strict"}
+        if score <= 0.9:
+            return {"subagent_model": "pro", "repl_steps": 15, "repl_timeout": 30.0, "smt_z3_depth": 20, "verification_tier": "strict"}
+        return {"subagent_model": "pro", "repl_steps": 25, "repl_timeout": 60.0, "smt_z3_depth": 30, "verification_tier": "strict"}
+
+    @classmethod
     def get_config(
-        effort: Union[str, float],
+        cls,
+        effort: Union[str, float, None] = "high",
         model_key: str = "gemini-3.6-flash",
         prompt_tokens: int = 0,
         safety_headroom: int = 4096
@@ -51,77 +99,24 @@ class ExecutionPolicyController:
         Calculates concrete execution parameters for local workers, Z3 verification,
         and subagent delegation.
         """
-        if isinstance(effort, str):
-            score = LEVEL_PRESETS.get(effort.lower(), 0.65)
-            level_name = effort.lower()
-        else:
-            score = max(0.0, min(1.0, float(effort)))
-            if score <= 0.2:
-                level_name = "low"
-            elif score <= 0.5:
-                level_name = "medium"
-            elif score <= 0.75:
-                level_name = "high"
-            elif score <= 0.9:
-                level_name = "xhigh"
-            else:
-                level_name = "ultra"
-
-        # Advisory token budget calculation for external blueprint callers
-        raw_tokens = int(1024 * ((65536 / 1024) ** (score ** 1.2)))
-        limits = MODEL_LIMITS.get(model_key.lower(), MODEL_LIMITS["default"])
-        max_output = limits["max_output"]
-        context_window = limits["context_window"]
-        available_headroom = max(1024, context_window - prompt_tokens - safety_headroom)
-        clamped_thinking_budget = min(raw_tokens, max_output - safety_headroom, available_headroom)
-        clamped_thinking_budget = max(0, clamped_thinking_budget)
-
-        # Concrete local execution parameters
-        if score <= 0.2:
-            subagent_model = "flash"
-            repl_steps = 3
-            repl_timeout = 5.0
-            smt_z3_depth = 5
-            verification_tier = "fast"
-        elif score <= 0.5:
-            subagent_model = "flash"
-            repl_steps = 5
-            repl_timeout = 10.0
-            smt_z3_depth = 10
-            verification_tier = "standard"
-        elif score <= 0.75:
-            subagent_model = "inherit"
-            repl_steps = 10
-            repl_timeout = 20.0
-            smt_z3_depth = 15
-            verification_tier = "strict"
-        elif score <= 0.9:
-            subagent_model = "pro"
-            repl_steps = 15
-            repl_timeout = 30.0
-            smt_z3_depth = 20
-            verification_tier = "strict"
-        else:
-            subagent_model = "pro"
-            repl_steps = 25
-            repl_timeout = 60.0
-            smt_z3_depth = 30
-            verification_tier = "strict"
-
+        score, level_name = cls._parse_effort_level(effort)
+        clamped_thinking_budget, max_output = cls._compute_thinking_token_budget(
+            score, model_key, prompt_tokens, safety_headroom
+        )
+        budgets = cls._derive_subsystem_budgets(score)
         subagent_depth = int(1 + 5 * score)
 
         return {
             "level": level_name,
             "effort_score": round(score, 3),
-            "subagent_model": subagent_model,
+            "subagent_model": budgets["subagent_model"],
             "subagent_depth": subagent_depth,
-            "smt_z3_depth": smt_z3_depth,
+            "smt_z3_depth": budgets["smt_z3_depth"],
             "mcts_simulations": 0,
-            "repl_steps": repl_steps,
-            "repl_max_iterations": repl_steps,
-            "repl_timeout_seconds": repl_timeout,
-            "verification_tier": verification_tier,
-            # Advisory token envelope (host LLM thinking is configured via Antigravity UI)
+            "repl_steps": budgets["repl_steps"],
+            "repl_max_iterations": budgets["repl_steps"],
+            "repl_timeout_seconds": budgets["repl_timeout"],
+            "verification_tier": budgets["verification_tier"],
             "thinking_budget": clamped_thinking_budget,
             "max_output_tokens": max_output,
             "prompt_tokens": prompt_tokens,

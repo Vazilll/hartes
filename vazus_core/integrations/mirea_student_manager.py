@@ -4,21 +4,25 @@ Fetches schedule, classroom assignments, teacher names, homework, and exam dates
 Supports online API fetching (with urllib.parse Cyrillic encoding), offline SQLite caching, and academic milestone tracking.
 """
 
-import sys
 import json
-import urllib.request
-import urllib.parse
+import logging
+import os
 import sqlite3
+import sys
+import urllib.parse
+import urllib.request
+
+logger = logging.getLogger(__name__)
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding='utf-8')
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed stdout reconfigure: %s", exc)
 
 sys.path.append(r"C:\vazus")
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
 
 # Default seed schedule for RTU MIREA group ИКБО-01-23 when offline and cache empty
 DEFAULT_SEED_SCHEDULE = [
@@ -47,7 +51,7 @@ DEFAULT_SEED_MILESTONES = [
 
 def init_mirea_db(db_path=None):
     """Initializes mirea_schedule and mirea_milestones tables in vazus.db."""
-    target_db = db_path if db_path is not None else DB_PATH
+    target_db = db_path if db_path is not None else os.getenv("VAZUS_DB_PATH", DB_PATH)
     conn = None
     try:
         conn = sqlite3.connect(target_db)
@@ -83,14 +87,14 @@ def init_mirea_db(db_path=None):
         if conn:
             try:
                 conn.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed closing DB in init_mirea_db: %s", exc)
 
 
 class MireaStudentManager:
     def __init__(self, group_name="ИКБО-01-23", db_path=None):
         self.group_name = group_name
-        self.db_path = db_path if db_path is not None else DB_PATH
+        self.db_path = db_path if db_path is not None else os.getenv("VAZUS_DB_PATH", DB_PATH)
         init_mirea_db(self.db_path)
         self._ensure_seed_data()
 
@@ -126,8 +130,8 @@ class MireaStudentManager:
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed closing DB in _ensure_seed_data: %s", exc)
 
     def fetch_mirea_schedule_online(self):
         """
@@ -188,8 +192,8 @@ class MireaStudentManager:
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed closing DB in save_schedule_to_cache: %s", exc)
 
     def get_cached_schedule(self):
         """Returns schedule cached in SQLite as list of dicts. Falls back to memory seed schedule if DB error occurs."""
@@ -230,8 +234,8 @@ class MireaStudentManager:
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed closing DB in get_cached_schedule: %s", exc)
 
     def get_schedule(self, group_name=None):
         """
@@ -306,10 +310,10 @@ class MireaStudentManager:
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed closing DB in get_academic_milestones: %s", exc)
 
-    def add_academic_milestone(self, subject, milestone_name, milestone_type, due_date, group_name=None, status="PENDING", description=""):
+    def add_academic_milestone(self, subject, milestone_name, milestone_type, due_date, *, group_name=None, status="PENDING", description=""):
         """Adds a new academic milestone."""
         target_group = group_name or self.group_name
         conn = None
@@ -329,8 +333,8 @@ class MireaStudentManager:
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed closing DB in add_academic_milestone: %s", exc)
 
     def update_milestone_status(self, milestone_id, status):
         """Updates milestone status ('PENDING', 'COMPLETED', 'OVERDUE')."""
@@ -348,8 +352,8 @@ class MireaStudentManager:
             if conn:
                 try:
                     conn.close()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed closing DB in update_milestone_status: %s", exc)
 
     def generate_study_recommendation(self, readiness_score=75.0):
         """

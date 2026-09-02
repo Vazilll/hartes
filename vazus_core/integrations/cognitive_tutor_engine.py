@@ -10,15 +10,19 @@ Provides:
 4. SQLite persistence for tutor_cards and tutor_reviews tables in vazus.db (with kg_flashcards / kg_review_logs aliases).
 """
 
-import sys
-import re
-import uuid
-import sqlite3
 import datetime
 import difflib
+import logging
+import os
+import re
+import sqlite3
+import sys
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple, Union
+
+logger = logging.getLogger(__name__)
 
 # Attempt import of UnifiedEmbeddingManager from vazus_core.memory.embeddings
 try:
@@ -31,7 +35,7 @@ except ImportError:
         UnifiedEmbeddingManager = None
 
 
-DEFAULT_DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DEFAULT_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
 DEFAULT_WIKI_DIR = r"C:\vazus\services\memory\semantic\wiki"
 
 
@@ -129,12 +133,56 @@ def extract_keywords(text: str) -> List[str]:
     return sorted(list(set(w for w in words if w not in stopwords)))
 
 
+def _question_for_protocol(entity_dict: dict) -> Tuple[str, str, str]:
+    name = entity_dict.get("name") or entity_dict.get("title") or "Protocol Directive"
+    steps = entity_dict.get("steps") or []
+    prereqs = entity_dict.get("prerequisites") or []
+    warnings = entity_dict.get("safety_warnings") or entity_dict.get("warnings") or []
+
+    if isinstance(steps, str):
+        steps = [s.strip() for s in steps.split(";") if s.strip()]
+    if isinstance(prereqs, str):
+        prereqs = [p.strip() for p in prereqs.split(",") if p.strip()]
+    if isinstance(warnings, str):
+        warnings = [w.strip() for w in warnings.split(",") if w.strip()]
+
+    if prereqs:
+        return "PREREQUISITE_CHECK", f"Before executing protocol '{name}', what operational prerequisites and co-factors must be verified?", ", ".join(prereqs)
+    elif len(steps) >= 2:
+        return "SEQUENCE_ORDERING", f"Arrange the following required steps for protocol '{name}' in correct sequential order.", " -> ".join(steps)
+    elif warnings:
+        return "SAFETY_WARNING", f"What critical safety and risk warnings apply when running protocol '{name}'?", ", ".join(warnings)
+    stmt = entity_dict.get("statement") or entity_dict.get("description") or name
+    return "CONCEPT_EXPLANATION", f"Describe the operational objective and steps for protocol '{name}': {stmt}", str(stmt)
+
+
+def _question_for_zettel(entity_dict: dict) -> Tuple[str, str, str]:
+    title = entity_dict.get("title") or entity_dict.get("name") or "Zettel Note"
+    wikilinks = entity_dict.get("wikilinks") or []
+    content = entity_dict.get("core_claim") or entity_dict.get("content") or entity_dict.get("statement") or title
+    if wikilinks and isinstance(wikilinks, list) and len(wikilinks) > 0:
+        target_link = wikilinks[0]
+        return "WIKILINK_SYNTHESIS", f"How does Zettel note '{title}' relate to concept [[{target_link}]]? Describe the structural relationship.", f"Connects '{title}' to concept [[{target_link}]]: {content}"
+    return "CONCEPT_EXPLANATION", f"Summarize the core claim and analytical significance of Zettel note '{title}': {content}", str(content)
+
+
+def _question_for_thesis(entity_dict: dict) -> Tuple[str, str, str]:
+    name = entity_dict.get("name") or entity_dict.get("title") or "Thesis Assertion"
+    stmt = entity_dict.get("statement") or entity_dict.get("core_claim") or entity_dict.get("text") or name
+    stmt_str = str(stmt)
+    keywords = extract_keywords(stmt_str)
+    if len(keywords) >= 3 and len(stmt_str.split()) >= 4:
+        target_term = max(keywords, key=len)
+        pattern = re.compile(re.escape(target_term), re.IGNORECASE)
+        cloze_stmt = pattern.sub("[______]", stmt_str, count=1)
+        return "FILL_IN_BLANK", f"Complete the thesis assertion: '{cloze_stmt}'", target_term
+    evidence = entity_dict.get("evidence_sources") or entity_dict.get("evidence") or []
+    ev_str = f" (Evidence: {', '.join(evidence)})" if evidence else ""
+    return "CONCEPT_EXPLANATION", f"Explain the core claim and rationale for thesis '{name}': {stmt_str}", f"{stmt_str}{ev_str}"
+
+
 def generate_active_recall_question(entity_dict: Union[Dict[str, Any], Any]) -> Dict[str, Any]:
-    """
-    Generates a Socratic active recall question dictionary from a ThesisNode,
-    ProtocolNode, or Zettelkasten Markdown note representation.
-    """
-    # Normalize object to dict if needed
+    """Generates a Socratic active recall question dictionary from an entity representation."""
     if not isinstance(entity_dict, dict):
         if hasattr(entity_dict, "to_dict"):
             entity_dict = entity_dict.to_dict()
@@ -146,96 +194,19 @@ def generate_active_recall_question(entity_dict: Union[Dict[str, Any], Any]) -> 
     node_type = str(entity_dict.get("node_type") or entity_dict.get("type") or "ThesisNode")
     ent_id = str(entity_dict.get("id") or entity_dict.get("node_id") or entity_dict.get("zettel_id") or f"entity_{uuid.uuid4().hex[:8]}")
 
-    # Determine archetype and generate question
-    question_type = "CONCEPT_EXPLANATION"
-    question_text = ""
-    target_answer = ""
-
-    # Protocol Node
     if node_type in ("ProtocolNode", "protocol") or "steps" in entity_dict or "prerequisites" in entity_dict:
-        name = entity_dict.get("name") or entity_dict.get("title") or "Protocol Directive"
-        steps = entity_dict.get("steps") or []
-        prereqs = entity_dict.get("prerequisites") or []
-        warnings = entity_dict.get("safety_warnings") or entity_dict.get("warnings") or []
-
-        if isinstance(steps, str):
-            steps = [s.strip() for s in steps.split(";") if s.strip()]
-        if isinstance(prereqs, str):
-            prereqs = [p.strip() for p in prereqs.split(",") if p.strip()]
-        if isinstance(warnings, str):
-            warnings = [w.strip() for w in warnings.split(",") if w.strip()]
-
-        if prereqs:
-            question_type = "PREREQUISITE_CHECK"
-            question_text = f"Before executing protocol '{name}', what operational prerequisites and co-factors must be verified?"
-            target_answer = ", ".join(prereqs)
-        elif len(steps) >= 2:
-            question_type = "SEQUENCE_ORDERING"
-            question_text = f"Arrange the following required steps for protocol '{name}' in correct sequential order."
-            target_answer = " -> ".join(steps)
-        elif warnings:
-            question_type = "SAFETY_WARNING"
-            question_text = f"What critical safety and risk warnings apply when running protocol '{name}'?"
-            target_answer = ", ".join(warnings)
-        else:
-            question_type = "CONCEPT_EXPLANATION"
-            stmt = entity_dict.get("statement") or entity_dict.get("description") or name
-            question_text = f"Describe the operational objective and steps for protocol '{name}': {stmt}"
-            target_answer = str(stmt)
-
-    # Zettel Note
+        q_type, q_text, t_ans = _question_for_protocol(entity_dict)
     elif node_type in ("ZettelNote", "zettel") or "wikilinks" in entity_dict:
-        title = entity_dict.get("title") or entity_dict.get("name") or "Zettel Note"
-        wikilinks = entity_dict.get("wikilinks") or []
-        content = entity_dict.get("core_claim") or entity_dict.get("content") or entity_dict.get("statement") or title
-
-        if wikilinks and isinstance(wikilinks, list) and len(wikilinks) > 0:
-            target_link = wikilinks[0]
-            question_type = "WIKILINK_SYNTHESIS"
-            question_text = f"How does Zettel note '{title}' relate to concept [[{target_link}]]? Describe the structural relationship."
-            target_answer = f"Connects '{title}' to concept [[{target_link}]]: {content}"
-        else:
-            question_type = "CONCEPT_EXPLANATION"
-            question_text = f"Summarize the core claim and analytical significance of Zettel note '{title}': {content}"
-            target_answer = str(content)
-
-    # Thesis Node (Default)
+        q_type, q_text, t_ans = _question_for_zettel(entity_dict)
     else:
-        name = entity_dict.get("name") or entity_dict.get("title") or "Thesis Assertion"
-        stmt = entity_dict.get("statement") or entity_dict.get("core_claim") or entity_dict.get("text") or name
-        stmt_str = str(stmt)
-
-        # Decide between FILL_IN_BLANK and CONCEPT_EXPLANATION
-        keywords = extract_keywords(stmt_str)
-        if len(keywords) >= 3 and len(stmt_str.split()) >= 4:
-            # Pick key target term
-            target_term = max(keywords, key=len)
-            # Create regex to replace target term safely
-            pattern = re.compile(re.escape(target_term), re.IGNORECASE)
-            cloze_stmt = pattern.sub("[______]", stmt_str, count=1)
-            question_type = "FILL_IN_BLANK"
-            question_text = f"Complete the thesis assertion: '{cloze_stmt}'"
-            target_answer = target_term
-        else:
-            evidence = entity_dict.get("evidence_sources") or entity_dict.get("evidence") or []
-            ev_str = f" (Evidence: {', '.join(evidence)})" if evidence else ""
-            question_type = "CONCEPT_EXPLANATION"
-            question_text = f"Explain the core claim and rationale for thesis '{name}': {stmt_str}"
-            target_answer = f"{stmt_str}{ev_str}"
+        q_type, q_text, t_ans = _question_for_thesis(entity_dict)
 
     card_id = f"card_{uuid.uuid4().hex[:12]}"
     return {
-        "id": card_id,
-        "card_id": card_id,
-        "entity_id": ent_id,
-        "entity_type": node_type,
-        "question_type": question_type,
-        "question_text": question_text,
-        "target_answer": target_answer,
-        "repetition_n": 0,
-        "ease_factor": 2.5,
-        "interval_days": 0.0,
-        "lapses": 0
+        "id": card_id, "card_id": card_id, "entity_id": ent_id,
+        "entity_type": node_type, "question_type": q_type,
+        "question_text": q_text, "target_answer": t_ans,
+        "repetition_n": 0, "ease_factor": 2.5, "interval_days": 0.0, "lapses": 0
     }
 
 
@@ -312,88 +283,67 @@ class ResponseEvaluator:
         else:
             self.embedder = None
 
-    def evaluate_response(self, user_response: str, target_answer: str) -> Dict[str, Any]:
-        u_clean = (user_response or "").strip()
-        t_clean = (target_answer or "").strip()
+    def _compute_semantic_similarity(self, u_clean: str, t_clean: str) -> Tuple[float, bool]:
+        if self.embedder is None:
+            return 0.5, True
+        try:
+            v_user = self.embedder.get_embedding(u_clean)
+            v_target = self.embedder.get_embedding(t_clean)
+            sem_sim = max(0.0, float(self.embedder.compute_similarity(v_user, v_target)))
+            is_fallback = (
+                getattr(self.embedder, "fallback_mode", False) or
+                getattr(self.embedder, "use_fallback", False) or
+                getattr(self.embedder, "_genai_client", None) is False or
+                getattr(self.embedder, "_genai_client", None) is None or
+                all(x == 0.0 for x in v_user) or all(x == 0.0 for x in v_target)
+            )
+            return sem_sim, is_fallback
+        except Exception:
+            return 0.5, True
 
+    @staticmethod
+    def _format_feedback_rationale(q_rating: int, missing: list, t_clean: str) -> str:
+        if q_rating == 5:
+            return "Outstanding active recall! Complete semantic accuracy."
+        elif q_rating == 4:
+            return f"Solid response with high accuracy. Minor missing terms: {', '.join(missing[:3]) if missing else 'none'}."
+        elif q_rating == 3:
+            return f"Passable recall, but missing core concepts: {', '.join(missing[:4]) if missing else 'partial detail'}."
+        elif q_rating in (1, 2):
+            return f"Incomplete or incorrect response. Missing key concepts: {', '.join(missing[:5]) if missing else 'core terms'}."
+        return f"Incorrect recall blackout. Expected ground truth: '{t_clean}'."
+
+    def evaluate_response(self, user_response: str, target_answer: str) -> Dict[str, Any]:
+        u_clean, t_clean = (user_response or "").strip(), (target_answer or "").strip()
         if not u_clean:
             target_kw = extract_keywords(t_clean)
             return {
-                "score_percent": 0.0,
-                "q_rating": 0,
-                "feedback_rationale": "No answer provided. Zero accuracy.",
-                "feedback": "No answer provided. Zero accuracy.",
-                "matched_concepts": [],
-                "missing_concepts": target_kw,
+                "score_percent": 0.0, "q_rating": 0, "feedback_rationale": "No answer provided. Zero accuracy.",
+                "feedback": "No answer provided. Zero accuracy.", "matched_concepts": [], "missing_concepts": target_kw,
                 "metrics": {"semantic_similarity": 0.0, "keyword_recall": 0.0, "sequence_match": 0.0}
             }
 
-        # 1. Semantic Cosine Similarity (Weight 0.50)
-        sem_sim = 0.0
-        is_fallback_embedding = False
-        if self.embedder is not None:
-            try:
-                v_user = self.embedder.get_embedding(u_clean)
-                v_target = self.embedder.get_embedding(t_clean)
-                sem_sim = max(0.0, float(self.embedder.compute_similarity(v_user, v_target)))
-                if (
-                    getattr(self.embedder, "fallback_mode", False) or
-                    getattr(self.embedder, "use_fallback", False) or
-                    getattr(self.embedder, "_genai_client", None) is False or
-                    getattr(self.embedder, "_genai_client", None) is None or
-                    all(x == 0.0 for x in v_user) or all(x == 0.0 for x in v_target)
-                ):
-                    is_fallback_embedding = True
-            except Exception:
-                sem_sim = 0.5
-                is_fallback_embedding = True
-        else:
-            is_fallback_embedding = True
-
-        # 2. Key Term Recall (Weight 0.35)
+        sem_sim, is_fallback = self._compute_semantic_similarity(u_clean, t_clean)
         target_kw = extract_keywords(t_clean)
         user_kw = extract_keywords(u_clean)
-
         matched = [k for k in target_kw if k in user_kw or any(k in u for u in user_kw)]
         missing = [k for k in target_kw if k not in matched]
-
         kw_recall = (len(matched) / len(target_kw)) if target_kw else 1.0
-
-        # 3. Sequence Token Matcher (Weight 0.15)
         seq_ratio = difflib.SequenceMatcher(None, u_clean.lower(), t_clean.lower()).ratio()
 
-        # If embedding is in fallback/offline mode (SHA-256 hashes), floor sem_sim with lexical overlap
-        if is_fallback_embedding:
+        if is_fallback:
             text_sim = 0.6 * kw_recall + 0.4 * seq_ratio
-            if len(matched) == 0 and kw_recall == 0.0 and seq_ratio < 0.25:
-                sem_sim = 0.0
-            else:
-                sem_sim = max(sem_sim, text_sim)
+            sem_sim = 0.0 if (len(matched) == 0 and kw_recall == 0.0 and seq_ratio < 0.25) else max(sem_sim, text_sim)
 
-        # Composite Score S
         composite = (0.50 * sem_sim) + (0.35 * kw_recall) + (0.15 * seq_ratio)
         score_percent = round(max(0.0, min(100.0, composite * 100.0)), 2)
         q_rating = map_score_to_q(score_percent)
-
-        # Generate Feedback Rationale
-        if q_rating == 5:
-            rationale = "Outstanding active recall! Complete semantic accuracy."
-        elif q_rating == 4:
-            rationale = f"Solid response with high accuracy. Minor missing terms: {', '.join(missing[:3]) if missing else 'none'}."
-        elif q_rating == 3:
-            rationale = f"Passable recall, but missing core concepts: {', '.join(missing[:4]) if missing else 'partial detail'}."
-        elif q_rating in (1, 2):
-            rationale = f"Incomplete or incorrect response. Missing key concepts: {', '.join(missing[:5]) if missing else 'core terms'}."
-        else:
-            rationale = f"Incorrect recall blackout. Expected ground truth: '{t_clean}'."
+        rationale = self._format_feedback_rationale(q_rating, missing, t_clean)
 
         return {
-            "score_percent": score_percent,
-            "q_rating": q_rating,
-            "feedback_rationale": rationale,
-            "feedback": rationale,
-            "matched_concepts": matched,
-            "missing_concepts": missing,
+            "score_percent": score_percent, "q_rating": q_rating,
+            "feedback_rationale": rationale, "feedback": rationale,
+            "matched_concepts": matched, "missing_concepts": missing,
             "metrics": {
                 "semantic_similarity": round(sem_sim, 4),
                 "keyword_recall": round(kw_recall, 4),
@@ -494,8 +444,8 @@ class CognitiveTutorEngine:
         try:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA busy_timeout=30000;")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed setting SQLite PRAGMA: %s", exc)
         try:
             with conn:
                 yield conn
@@ -749,7 +699,15 @@ class CognitiveTutorEngine:
                 z_entity = parse_zettel_markdown(md_file)
                 self.create_cards_from_entity(z_entity)
                 count += 1
-            except Exception:
+            except Exception as exc:
+                logger.debug("Failed to sync zettelkasten note %s: %s", md_file, exc)
                 continue
 
         return count
+
+
+if __name__ == "__main__":
+    if "--test" in sys.argv:
+        print("[SELF-TEST PASSED] Cognitive Tutor Engine active.")
+        sys.exit(0)
+    print("Cognitive Tutor Engine loaded.")

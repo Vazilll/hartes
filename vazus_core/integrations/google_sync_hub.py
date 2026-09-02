@@ -10,11 +10,14 @@ Features:
 vazus SuperGraph OS v4.0 Unified Architecture
 """
 
+import datetime
+import logging
 import re
 import sqlite3
-import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
+
+logger = logging.getLogger(__name__)
 
 # Core DB path
 DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
@@ -107,7 +110,8 @@ class GoogleSyncEngine:
                             "due_date": due_date
                         })
 
-            except Exception:
+            except Exception as exc:
+                logger.debug("Failed to read vault file %s: %s", file_path, exc)
                 continue
 
         return tasks

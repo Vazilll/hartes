@@ -7,18 +7,126 @@ Performs instant AST syntax verification via python ast.parse on modified files.
 Conforms 100% to Google Antigravity PostToolUse contract.
 """
 
-import sys
-import json
 import ast
+import datetime
+import json
+import logging
 from pathlib import Path
+import subprocess
+import sys
+from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, "C:/vazus")
 try:
     from vazus_core.hooks.hud_writer import write_hud_event
-except Exception:
-    def write_hud_event(event_type, payload): pass
+except Exception as _import_err:
+    def write_hud_event(event_type: str, payload: dict) -> None:
+        """Standalone fallback HUD event writer that persists events to disk."""
+        hud_log_path = Path("C:/vazus/logs/hud_session.jsonl")
+        try:
+            hud_log_path.parent.mkdir(parents=True, exist_ok=True)
+            event_record = {
+                "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "source": "post_tool_hook",
+                "event": event_type,
+                **payload,
+            }
+            with open(hud_log_path, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(event_record, ensure_ascii=False) + "\n")
+        except Exception as _write_err:
+            logger.warning("Failed to write fallback HUD event: %s", _write_err)
 
-import subprocess
+
+def _run_targeted_tdd_test(target_path: Path) -> Optional[str]:
+    """Runs fast targeted pytest on associated test file if present."""
+    test_file = Path("C:/vazus/tests") / f"test_{target_path.stem}.py"
+    if not test_file.exists():
+        return None
+    try:
+        py_bin = Path("C:/vazus/.venv/Scripts/python.exe")
+        p = str(py_bin) if py_bin.exists() else sys.executable
+        res = subprocess.run(
+            [p, "-m", "pytest", str(test_file), "-q", "--tb=line"],
+            capture_output=True,
+            text=True,
+            timeout=4
+        )
+        if res.returncode == 0:
+            return "PASSED"
+        last_line = res.stdout.strip().splitlines()[-1] if res.stdout.strip() else "error"
+        fail_msg = f"FAILED: {last_line}"
+        sys.stderr.write(f"[Vazus OS TDD Gate] {test_file.name} {fail_msg}\n")
+        return fail_msg
+    except Exception as exc:
+        logger.debug("Targeted test execution skipped or failed: %s", exc)
+        return "SKIPPED"
+
+
+def _handle_syntax_error(target_file: str, se: SyntaxError, tool_name: str) -> None:
+    """Logs and dispatches syntax error details to HUD and Mem0."""
+    write_hud_event("PostToolUse", {
+        "tool": tool_name,
+        "file": target_file,
+        "ast_valid": False,
+        "syntax_error": f"line {se.lineno}: {se.msg}",
+    })
+    sys.stderr.write(f"[Vazus OS AST Hook Error] Syntax error in {target_file} at line {se.lineno}: {se.msg}\n")
+    try:
+        from vazus_core.memory.mem0_memory_engine import Mem0Engine
+        Mem0Engine().add_fact(
+            fact_text=f"[syntax_error] {Path(target_file).name} line {se.lineno}: {se.msg}",
+            category="bug_found",
+            entity="ast_hook"
+        )
+    except Exception as mem_err:
+        logger.debug("Mem0 fact logging skipped: %s", mem_err)
+
+
+def _process_target_file(target_file: str, tool_name: str) -> None:
+    """Processes target file for AST validity and targeted test execution."""
+    if target_file.endswith(".py"):
+        target_path = Path(target_file)
+        if target_path.exists():
+            try:
+                code_content = target_path.read_text(encoding="utf-8", errors="ignore")
+                ast.parse(code_content)
+                test_res = _run_targeted_tdd_test(target_path)
+                write_hud_event("PostToolUse", {
+                    "tool": tool_name,
+                    "file": target_file,
+                    "ast_valid": True,
+                    "test_result": test_res
+                })
+            except SyntaxError as se:
+                _handle_syntax_error(target_file, se, tool_name)
+    else:
+        write_hud_event("PostToolUse", {
+            "tool": tool_name,
+            "file": target_file,
+            "ast_valid": None,
+        })
+
+
+def run_post_tool_hook(
+    session_id: str = "unknown",
+    tool_name: str = "",
+    tool_args: Optional[dict] = None,
+    raw_output: str = "",
+    **kwargs
+) -> dict:
+    """Captures post-tool execution telemetry and signal metrics."""
+    return {
+        "status": "CAPTURED",
+        "session_id": session_id,
+        "tool_name": tool_name,
+        "telemetry": {
+            "output_len": len(raw_output),
+            "tool_args": tool_args or {},
+        }
+    }
+
 
 def main():
     try:
@@ -26,67 +134,14 @@ def main():
         tool_call = input_data.get("toolCall", {})
         tool_name = tool_call.get("name", "")
         args = tool_call.get("args", {})
-        
         target_file = args.get("TargetFile") or args.get("AbsolutePath") or ""
-        if target_file and target_file.endswith(".py"):
-            target_path = Path(target_file)
-            if target_path.exists():
-                try:
-                    code_content = target_path.read_text(encoding="utf-8", errors="ignore")
-                    ast.parse(code_content)
-                    
-                    # Fast targeted test check (TDD Loop)
-                    test_file = Path("C:/vazus/tests") / f"test_{target_path.stem}.py"
-                    test_res = None
-                    if test_file.exists():
-                        try:
-                            py_bin = Path("C:/vazus/.venv/Scripts/python.exe")
-                            p = str(py_bin) if py_bin.exists() else sys.executable
-                            res = subprocess.run(
-                                [p, "-m", "pytest", str(test_file), "-q", "--tb=line"],
-                                capture_output=True,
-                                text=True,
-                                timeout=4
-                            )
-                            test_res = "PASSED" if res.returncode == 0 else f"FAILED: {res.stdout.strip().splitlines()[-1] if res.stdout.strip() else 'error'}"
-                            if res.returncode != 0:
-                                sys.stderr.write(f"[Vazus OS TDD Gate] {test_file.name} {test_res}\n")
-                        except Exception:
-                            test_res = "SKIPPED"
+        if target_file:
+            _process_target_file(target_file, tool_name)
+    except Exception as exc:
+        logger.debug("PostToolUse hook encountered non-fatal error: %s", exc)
+    finally:
+        print(json.dumps({}))
 
-                    write_hud_event("PostToolUse", {
-                        "tool": tool_name,
-                        "file": target_file,
-                        "ast_valid": True,
-                        "test_result": test_res
-                    })
-                except SyntaxError as se:
-                    write_hud_event("PostToolUse", {
-                        "tool": tool_name,
-                        "file": target_file,
-                        "ast_valid": False,
-                        "syntax_error": f"line {se.lineno}: {se.msg}",
-                    })
-                    sys.stderr.write(f"[Vazus OS AST Hook Error] Syntax error in {target_file} at line {se.lineno}: {se.msg}\n")
-                    try:
-                        from vazus_core.memory.mem0_memory_engine import Mem0Engine
-                        Mem0Engine().add_fact(
-                            fact_text=f"[syntax_error] {Path(target_file).name} line {se.lineno}: {se.msg}",
-                            category="bug_found",
-                            entity="ast_hook"
-                        )
-                    except Exception:
-                        pass
-        elif target_file:
-            write_hud_event("PostToolUse", {
-                "tool": tool_name,
-                "file": target_file,
-                "ast_valid": None,
-            })
-        
-        print(json.dumps({}))
-    except Exception:
-        print(json.dumps({}))
 
 if __name__ == "__main__":
     main()

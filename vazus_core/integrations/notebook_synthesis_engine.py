@@ -10,12 +10,15 @@ Features:
 vazus SuperGraph OS Ecosystem
 """
 
-import sys
 import json
-import time
+import logging
 import sqlite3
+import sys
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -89,8 +92,8 @@ class NotebookWorkspace:
                         "timestamp_range": "",
                         "transcript": text[:2000]
                     })
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed reading MIREA course markdown %s: %s", md_path, exc)
 
         return items
 

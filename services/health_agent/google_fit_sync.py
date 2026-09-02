@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 sys.stdout.reconfigure(encoding='utf-8')
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-DB_PATH = r"C:\vazus\vazus.db"
+DB_PATH = r"C:\vazus\services\memory\vazus.db"
 CREDENTIALS_FILE = r"C:\vazus\credentials.json"
 TOKEN_FILE = r"C:\vazus\token.json"
 
@@ -248,6 +248,12 @@ def fetch_and_save_fitness_data():
 
     # Save summary record to SQLite
     conn = sqlite3.connect(DB_PATH)
+    try:
+        import sqlite_vec
+        conn.enable_load_extension(True)
+        sqlite_vec.load(conn)
+    except Exception as ve:
+        pass
     now_str = datetime.now().isoformat()
     record_id = f"google_fit_sync_{int(time.time())}"
     

@@ -3,9 +3,12 @@ vazus_core.hermes_skill_syncer
 Bridge to import and sync NousResearch Hermes agent skills into Antigravity CLI skills environment.
 """
 
+import logging
 import os
-import shutil
 import re
+import shutil
+
+logger = logging.getLogger(__name__)
 
 HERMES_SKILLS_DIR = r"C:\Users\Vaz\AppData\Local\hermes\hermes-agent\skills"
 ANTIGRAVITY_SKILLS_DIR = r"C:\Users\Vaz\.gemini\config\skills"
@@ -83,7 +86,8 @@ class AutomaticSkillSelector:
                         "path": skill_md_path,
                         "folder": root
                     })
-                except Exception:
+                except Exception as exc:
+                    logger.debug("Failed to index skill at %s: %s", skill_md_path, exc)
                     continue
         AutomaticSkillSelector._SHARED_SKILLS_INDEX = index
         return index
@@ -127,8 +131,8 @@ class AutomaticSkillSelector:
                 try:
                     with open(skill["path"], "r", encoding="utf-8", errors="ignore") as f:
                         return f.read()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed reading skill file %s: %s", skill.get("path"), exc)
         return ""
 
 

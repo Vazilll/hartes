@@ -9,7 +9,7 @@ import re
 import shutil
 import logging
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional, Any
+from typing import Dict, List, Set, Optional, Any
 from dataclasses import dataclass, field
 
 logger = logging.getLogger("SystemDiscoveryEngine")
@@ -48,6 +48,73 @@ class SystemDiscoveryEngine:
         self.all_py_files: Set[str] = set()
         self.capabilities: List[SystemCapability] = []
 
+    def _process_ast_imports(self, rel_path: str, node: ast.AST) -> None:
+        """Extracts imported module names and symbols from AST node."""
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                self.file_imports[rel_path].add(alias.name)
+                self.referenced_symbols.add(alias.name.split(".")[-1])
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                self.file_imports[rel_path].add(node.module)
+            for alias in node.names:
+                self.referenced_symbols.add(alias.name)
+
+    def _process_ast_definitions(self, rel_path: str, node: ast.AST) -> None:
+        """Extracts function, async function, and class definitions."""
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return
+
+        kind = "class" if isinstance(node, ast.ClassDef) else ("async_function" if isinstance(node, ast.AsyncFunctionDef) else "function")
+        doc = ast.get_docstring(node) or ""
+        symbol_id = f"{rel_path}:{node.name}"
+
+        sym_def = SymbolDefinition(
+            name=node.name,
+            kind=kind,
+            file_path=rel_path,
+            line_number=node.lineno,
+            docstring=doc,
+            is_exported=not node.name.startswith("_"),
+        )
+        self.defined_symbols[symbol_id] = sym_def
+
+        if sym_def.is_exported and (len(doc) > 10 or kind == "class"):
+            corpus = (node.name + " " + doc).lower()
+            keywords = set(re.findall(r'\b[a-zA-Z_]{3,}\b', corpus))
+            self.capabilities.append(SystemCapability(
+                name=node.name,
+                module_path=rel_path,
+                class_or_func=node.name,
+                description=doc.strip().split("\n")[0] if doc else node.name,
+                keywords=keywords,
+            ))
+
+    def _process_ast_references(self, node: ast.AST) -> None:
+        """Extracts referenced variable names and attributes."""
+        if isinstance(node, ast.Name):
+            self.referenced_symbols.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            self.referenced_symbols.add(node.attr)
+
+    def _scan_single_py_file(self, py_path: Path) -> None:
+        """Parses and indexes a single Python file into discovery catalog."""
+        rel_path = str(py_path.relative_to(self.workspace_root)).replace("\\", "/")
+        self.all_py_files.add(rel_path)
+        self.file_imports[rel_path] = set()
+
+        try:
+            content = py_path.read_text(encoding="utf-8", errors="ignore")
+            tree = ast.parse(content, filename=str(py_path))
+        except Exception as exc:
+            logger.debug("Failed to parse AST for %s: %s", py_path, exc)
+            return
+
+        for node in ast.walk(tree):
+            self._process_ast_imports(rel_path, node)
+            self._process_ast_definitions(rel_path, node)
+            self._process_ast_references(node)
+
     def scan_codebase(self) -> Dict[str, Any]:
         """
         Performs full AST scan across workspace, extracting definitions, references, and capabilities.
@@ -58,75 +125,17 @@ class SystemDiscoveryEngine:
         self.all_py_files.clear()
         self.capabilities.clear()
 
-        # Directories to ignore
         ignore_dirs = {".venv", "venv", "__pycache__", ".git", ".idea", ".vscode", "node_modules", "dist", "build"}
 
         for py_path in self.workspace_root.glob("**/*.py"):
-            parts = py_path.parts
-            if any(ig in parts for ig in ignore_dirs):
+            if any(ig in py_path.parts for ig in ignore_dirs):
                 continue
-
-            rel_path = str(py_path.relative_to(self.workspace_root)).replace("\\", "/")
-            self.all_py_files.add(rel_path)
-            self.file_imports[rel_path] = set()
-
-            try:
-                content = py_path.read_text(encoding="utf-8", errors="ignore")
-                tree = ast.parse(content, filename=str(py_path))
-            except Exception:
-                continue
-
-            # Walk AST
-            for node in ast.walk(tree):
-                # 1. Capture Imports
-                if isinstance(node, ast.Import):
-                    for alias in node.names:
-                        self.file_imports[rel_path].add(alias.name)
-                        self.referenced_symbols.add(alias.name.split(".")[-1])
-                elif isinstance(node, ast.ImportFrom):
-                    if node.module:
-                        self.file_imports[rel_path].add(node.module)
-                    for alias in node.names:
-                        self.referenced_symbols.add(alias.name)
-
-                # 2. Capture Definitions
-                elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                    kind = "class" if isinstance(node, ast.ClassDef) else ("async_function" if isinstance(node, ast.AsyncFunctionDef) else "function")
-                    doc = ast.get_docstring(node) or ""
-                    symbol_id = f"{rel_path}:{node.name}"
-                    
-                    sym_def = SymbolDefinition(
-                        name=node.name,
-                        kind=kind,
-                        file_path=rel_path,
-                        line_number=node.lineno,
-                        docstring=doc,
-                        is_exported=not node.name.startswith("_")
-                    )
-                    self.defined_symbols[symbol_id] = sym_def
-
-                    # Register capability if it has a meaningful docstring or public name
-                    if sym_def.is_exported and (len(doc) > 10 or kind == "class"):
-                        corpus = (node.name + " " + doc).lower()
-                        keywords = set(re.findall(r'\b[a-zA-Z_]{3,}\b', corpus))
-                        self.capabilities.append(SystemCapability(
-                            name=node.name,
-                            module_path=rel_path,
-                            class_or_func=node.name,
-                            description=doc.strip().split("\n")[0] if doc else node.name,
-                            keywords=keywords
-                        ))
-
-                # 3. Capture References (Calls, Names, Attributes)
-                elif isinstance(node, ast.Name):
-                    self.referenced_symbols.add(node.id)
-                elif isinstance(node, ast.Attribute):
-                    self.referenced_symbols.add(node.attr)
+            self._scan_single_py_file(py_path)
 
         return {
             "total_files": len(self.all_py_files),
             "total_defined_symbols": len(self.defined_symbols),
-            "total_capabilities": len(self.capabilities)
+            "total_capabilities": len(self.capabilities),
         }
 
     def find_orphan_files(self) -> List[str]:
@@ -253,8 +262,8 @@ class SystemDiscoveryEngine:
                     try:
                         if p.stat().st_size == 0:
                             dummy_files.append(p)
-                    except OSError:
-                        pass
+                    except OSError as exc:
+                        logger.debug("Failed to stat file %s: %s", p, exc)
 
         return dummy_files
 

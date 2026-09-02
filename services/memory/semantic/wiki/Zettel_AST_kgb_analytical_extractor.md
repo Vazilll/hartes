@@ -1,7 +1,7 @@
 ---
 id: Zettel_AST_kgb_analytical_extractor
 title: AST Pruned Skeleton - kgb_analytical_extractor.py
-date: 2026-08-15
+date: 2026-09-02
 domain: ast_code
 tags: [ast, code, ast_pruner, kgb_analytical_extractor]
 status: VERIFIED
@@ -11,9 +11,9 @@ sources: [ASTPruner, SuperGraph OS]
 # AST Pruned Skeleton for `kgb_analytical_extractor.py`
 
 ## Core Metrics
-- **Total AST Nodes**: 5978
-- **Pruned AST Nodes**: 778
-- **Token Reduction**: 86.99%
+- **Total AST Nodes**: 6079
+- **Pruned AST Nodes**: 1355
+- **Token Reduction**: 77.71%
 - **Syntax Valid**: `True`
 
 ## Pruned Signatures
@@ -38,24 +38,19 @@ try:
 except ImportError:
 
     def normalize_russian_text(text: str) -> str:
-        ...
-DEFAULT_DB_PATH = 'C:\\vazus\\services\\memory\\vazus.db'
-SECONDARY_DB_PATH = 'C:\\vazus\\services\\memory\\vazus.db'
-TERTIARY_DB_PATH = 'C:\\vazus\\services\\memory\\vazus.db'
+        return re.sub('\\s+', ' ', text).strip()
+DEFAULT_DB_PATH = os.environ.get('VAZUS_DB_PATH', 'C:\\vazus\\services\\memory\\vazus.db')
+SECONDARY_DB_PATH = os.environ.get('VAZUS_DB_PATH', 'C:\\vazus\\services\\memory\\vazus.db')
+TERTIARY_DB_PATH = os.environ.get('VAZUS_DB_PATH', 'C:\\vazus\\services\\memory\\vazus.db')
 
 class ThesisNode:
     """Represents an analytical claim, factual assertion, hypothesis, or scientific thesis."""
 
-    def __init__(self, id: str, name: str, statement: str, confidence: float=0.85, confidence_score: Optional[float]=None, domain: str='kgb_analytics', node_type: str='ThesisNode', ach_status: str='HYPOTHESIS', evidence_sources: Optional[List[str]]=None, source_file: str='', scene_id: str='', start_sec: float=0.0, end_sec: float=0.0, tags: Union[str, List[str]]='iad,thesis', properties: Optional[Dict[str, Any]]=None, embedding_json: Optional[str]=None, node_id: Optional[str]=None):
+    def __init__(self, id: str, name: str, statement: str, *, confidence: float=0.85, confidence_score: Optional[float]=None, domain: str='kgb_analytics', node_type: str='ThesisNode', ach_status: str='HYPOTHESIS', evidence_sources: Optional[List[str]]=None, source_file: str='', scene_id: str='', start_sec: float=0.0, end_sec: float=0.0, tags: Union[str, List[str]]='iad,thesis', properties: Optional[Dict[str, Any]]=None, embedding_json: Optional[str]=None, node_id: Optional[str]=None):
         ...
 
     def to_dict(self) -> Dict[str, Any]:
-        ...
-
-class ProtocolNode:
-    """Represents an operational directive, protocol, step-by-step algorithm, or procedure."""
-
-    def __init__(self, id: str, name: str, action_instruction: str='', steps: Optional[List[str]]=None, prerequisites: Optional[List[str]]=None, sequence_order: int=1, target_outcome: str='', frequency_periodicity: str='', safety_warnings: Optional[List[str]]=None, domain: str='kgb_analytics', node_type: str='ProtocolNode', source_file: str='', scene_id: str='', start_sec: float=0.0, end_sec: float=0.0, tags: Union[str
+        return {'id': self.id, 'node_id': self.id, 'name': self.name, 'statement': self.statement, 'confidence': self.confidence, 'confidence_score': self.confidence_score, 'domain': self.domain, 'node_type': 'ThesisNode', 'ach_status': self.ach_status, 'evidence_sources': self.evidence_sources, 'source_file': self.source_file, 'scene_id': self.scene_id, 'start_sec': self.start_sec, 'end_sec': self.end_sec, '
 ```
 
 ## Related Notes & Wikilinks

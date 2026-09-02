@@ -2,7 +2,7 @@
 title: "Research_Synthesize technical report on"
 agent: "open_deep_researcher"
 trace_kind: "RESEARCH_REPORT"
-created_at: "2026-08-15 02:50:22"
+created_at: "2026-09-02 17:18:26"
 tags:
   - subagent
   - memory_trace
@@ -14,7 +14,7 @@ tags:
 
 > **Agent**: [[open_deep_researcher]]  
 > **Trace Kind**: `RESEARCH_REPORT`  
-> **Timestamp**: 2026-08-15 02:50:22  
+> **Timestamp**: 2026-09-02 17:18:26  
 > **Summary**: Organic research for: Synthesize technical report on 768D vector space
 
 ---
@@ -23,13 +23,7 @@ tags:
 
 # 🔬 Research Synthesis: Synthesize technical report on 768D vector space
 
-## 🧠 Grounded SuperGraph Knowledge Insights
-
-- **Verified native SQLite-vec storage without externa** (Relevance: 0.99): 
-- **Darwinian Evolution Cycle Gen 1 completed for vazu** (Relevance: 0.98): 
-- **Contents.json** (Relevance: 0.94): 
-- **README.md** (Relevance: 0.93): 
-- **__init__.py** (Relevance: 0.91): 
+No prior memory traces found for 'Synthesize technical report on 768D vector space'. Research topic logged for continuous indexing.
 
 
 ---

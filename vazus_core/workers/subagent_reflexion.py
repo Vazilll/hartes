@@ -6,7 +6,7 @@ Implements autonomous self-correction loops driven by 3-agent jury consensus and
 import time
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Callable
+from typing import Dict, Any, List, Callable, Tuple
 
 from vazus_core.memory.db import get_db_connection
 from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine
@@ -39,6 +39,70 @@ class MultiAgentJuryReflexionEngine:
         self.consensus_threshold = consensus_threshold
         self.jury_engine = SOTA2027JuryEngine(effort_level="high")
 
+    def _deliberate_iteration(
+        self,
+        ctx: SubagentContext,
+        target_file: str,
+        current_code: str,
+        error_trace: str,
+        fix_generator_fn: Callable[[str, str], str],
+        *,
+        iterations: int
+    ) -> Tuple[str, str, Dict[str, Any], Dict[str, Any]]:
+        ctx.logs.append(f"[Reflexion Iteration {iterations}] Analyzing error: {error_trace[:150]}...")
+        votes = [
+            {"agent": "Arbiter_Z3_Verifier", "verdict": "REJECT" if error_trace else "PASS", "reason": error_trace[:200]},
+            {"agent": "Arbiter_Code_Architect", "verdict": "PASS" if "SyntaxError" not in error_trace else "REJECT", "reason": "Syntax sanity check"},
+            {"agent": "Arbiter_Safety_Policy", "verdict": "PASS", "reason": "No destructive operations detected"}
+        ]
+
+        evaluation = self.jury_engine.evaluate_code_proposal(
+            file_path=target_file,
+            code_content=current_code[:500],
+            agent_votes=votes
+        )
+
+        try:
+            suggested_fix = fix_generator_fn(current_code, error_trace)
+            if suggested_fix and suggested_fix != current_code:
+                current_code = suggested_fix
+                error_trace = ""
+                ctx.logs.append(f"[Reflexion Iteration {iterations}] Applied patch ({len(current_code)} chars).")
+        except Exception as e:
+            logger.debug("[ReflexionEngine] Fix generator note: %s", e)
+            ctx.logs.append(f"[Reflexion Iteration {iterations}] Fix generation failed: {e}")
+
+        patch_eval = self.jury_engine.evaluate_code_proposal(
+            file_path=target_file,
+            code_content=current_code[:1000],
+            agent_votes=None,
+        )
+        return current_code, error_trace, evaluation, patch_eval
+
+    def _build_reflexion_result(
+        self,
+        ctx: SubagentContext,
+        initial_code: str,
+        current_code: str,
+        iterations: int,
+        success: bool,
+        *,
+        votes: List[Dict[str, Any]],
+        lesson: str
+    ) -> ReflexionResult:
+        res = ReflexionResult(
+            task_id=ctx.task_id,
+            subagent_name=ctx.subagent_name,
+            original_code=initial_code,
+            corrected_code=current_code,
+            iterations_used=iterations,
+            success=success,
+            jury_votes=votes,
+            lesson_learned=lesson
+        )
+        self._persist_lesson_learned(res)
+        return res
+
     def run_reflexion_loop(
         self,
         ctx: SubagentContext,
@@ -53,79 +117,29 @@ class MultiAgentJuryReflexionEngine:
         current_code = initial_code
         iterations = 0
         jury_history = []
-        lesson = ""
 
         logger.info(f"[ReflexionEngine] Starting self-correction loop for {target_file} (Task: {ctx.task_id})")
 
         while iterations < self.max_retries:
             iterations += 1
-            ctx.logs.append(f"[Reflexion Iteration {iterations}] Analyzing error: {error_trace[:150]}...")
-
-            # 1. Multi-Agent Jury Deliberation
-            votes = [
-                {"agent": "Arbiter_Z3_Verifier", "verdict": "REJECT" if error_trace else "PASS", "reason": error_trace[:200]},
-                {"agent": "Arbiter_Code_Architect", "verdict": "PASS" if "SyntaxError" not in error_trace else "REJECT", "reason": "Syntax sanity check"},
-                {"agent": "Arbiter_Safety_Policy", "verdict": "PASS", "reason": "No destructive operations detected"}
-            ]
-
-            evaluation = self.jury_engine.evaluate_code_proposal(
-                file_path=target_file,
-                code_content=current_code[:500],
-                agent_votes=votes
+            current_code, error_trace, evaluation, patch_eval = self._deliberate_iteration(
+                ctx, target_file, current_code, error_trace, fix_generator_fn, iterations=iterations
             )
             jury_history.append(evaluation)
 
-            # 2. Generate corrected code patch
-            try:
-                suggested_fix = fix_generator_fn(current_code, error_trace)
-                if suggested_fix and suggested_fix != current_code:
-                    current_code = suggested_fix
-                    error_trace = ""
-                    ctx.logs.append(f"[Reflexion Iteration {iterations}] Applied patch ({len(current_code)} chars).")
-            except Exception as e:
-                ctx.logs.append(f"[Reflexion Iteration {iterations}] Fix generation failed: {e}")
-
-            # Re-evaluate patch with real Jury — no pre-baked votes
-            # This calls async LLM agents to actually verify the patched code
-            patch_eval = self.jury_engine.evaluate_code_proposal(
-                file_path=target_file,
-                code_content=current_code[:1000],
-                agent_votes=None,  # Real jury evaluation — no pre-baked PASS
-            )
             ratio = patch_eval.get("consensus_ratio", 0.0)
-
-            # 3. Test verification of patch
             if ratio >= self.consensus_threshold:
                 lesson = f"Successfully resolved issue via multi-agent jury consensus in {iterations} iteration(s)."
                 ctx.logs.append(f"[Reflexion Success] {lesson}")
-                
-                res = ReflexionResult(
-                    task_id=ctx.task_id,
-                    subagent_name=ctx.subagent_name,
-                    original_code=initial_code,
-                    corrected_code=current_code,
-                    iterations_used=iterations,
-                    success=True,
-                    jury_votes=patch_eval.get("votes", []),
-                    lesson_learned=lesson
+                return self._build_reflexion_result(
+                    ctx, initial_code, current_code, iterations, True, votes=patch_eval.get("votes", []), lesson=lesson
                 )
-                self._persist_lesson_learned(res)
-                return res
 
-        # Fallback if max retries exceeded
         lesson = f"Reflexion loop exceeded {self.max_retries} retries for error: {error_trace[:100]}"
-        res = ReflexionResult(
-            task_id=ctx.task_id,
-            subagent_name=ctx.subagent_name,
-            original_code=initial_code,
-            corrected_code=current_code,
-            iterations_used=iterations,
-            success=False,
-            jury_votes=jury_history[-1].get("votes", []) if jury_history else [],
-            lesson_learned=lesson
+        last_votes = jury_history[-1].get("votes", []) if jury_history else []
+        return self._build_reflexion_result(
+            ctx, initial_code, current_code, iterations, False, votes=last_votes, lesson=lesson
         )
-        self._persist_lesson_learned(res)
-        return res
 
     def _persist_lesson_learned(self, res: ReflexionResult):
         """Persists lesson learned into vazus.db subagent_memory_traces and Obsidian Zettelkasten format."""

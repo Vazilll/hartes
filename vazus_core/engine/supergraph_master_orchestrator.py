@@ -15,8 +15,6 @@ import sqlite3
 from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
 
 from typing import Optional, Union, List, Dict, Any
 
@@ -28,29 +26,24 @@ from vazus_core.integrations.gemma_local_processor import GoogleGemmaLocalEngine
 from vazus_core.langgraph_health_workflow import LangGraphHealthMultiAgentWorkflow
 from vazus_core.workers.self_healing_repl import SelfHealingREPLManager
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"C:\vazus\services\memory\vazus.db"
 
 class SuperGraphMasterOrchestrator:
     def __init__(self, db_path=None):
-        self.db_path = db_path or DB_PATH
+        env_db = os.environ.get("VAZUS_DB_PATH")
+        self.db_path = db_path or env_db or DB_PATH
         self.pipeline_mgr = VazusHealthPipelineManager()
         self.pipeline_mgr.db_path = self.db_path
         self.finance_mgr = TinkoffFinanceManager(db_path=self.db_path)
         self.self_employed_mgr = SelfEmployedManager(db_path=self.db_path)
         self.mirea_mgr = MireaStudentManager()
         self.mirea_mgr.db_path = self.db_path
-        self.gemma_engine = GoogleGemmaLocalEngine()
         self.langgraph_wf = LangGraphHealthMultiAgentWorkflow()
         self.self_healing_mgr = SelfHealingREPLManager()
 
-    def run_hardware_and_peripheral_diagnostics(self):
-        """
-        Diagnoses system hardware, connected devices, and Python virtual environment
-        """
-        print("🔍 [Diagnostics] Auditing hardware & peripheral stack...")
-        conn = sqlite3.connect(self.db_path)
+    def _init_diagnostic_tables(self, conn: sqlite3.Connection) -> None:
+        """Initializes tables required for diagnostics."""
         cur = conn.cursor()
-        
         cur.execute("""
         CREATE TABLE IF NOT EXISTS mi_scale_weighins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -83,18 +76,35 @@ class SuperGraphMasterOrchestrator:
         """)
         conn.commit()
 
+    def _query_db_diagnostics(self, conn: sqlite3.Connection) -> tuple[int, Any, int]:
+        """Queries weigh-in and health knowledge node telemetry."""
+        cur = conn.cursor()
         try:
             weighin_count = cur.execute("SELECT COUNT(*) FROM mi_scale_weighins").fetchone()[0]
             latest_weighin = cur.execute("SELECT timestamp, weight_kg, muscle_mass_kg, body_fat_pct FROM mi_scale_weighins ORDER BY rowid DESC LIMIT 1").fetchone()
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as exc:
+            import logging
+            logging.getLogger(__name__).debug("Diagnostics weighin query failed: %s", exc)
             weighin_count = 0
             latest_weighin = None
 
         try:
             fit_node_count = cur.execute("SELECT COUNT(*) FROM kg_nodes WHERE domain='health'").fetchone()[0]
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as exc:
+            import logging
+            logging.getLogger(__name__).debug("Diagnostics fit nodes query failed: %s", exc)
             fit_node_count = 0
-        
+
+        return weighin_count, latest_weighin, fit_node_count
+
+    def run_hardware_and_peripheral_diagnostics(self) -> Dict[str, Any]:
+        """
+        Diagnoses system hardware, connected devices, and Python virtual environment.
+        """
+        print("🔍 [Diagnostics] Auditing hardware & peripheral stack...")
+        conn = sqlite3.connect(self.db_path)
+        self._init_diagnostic_tables(conn)
+        weighin_count, latest_weighin, fit_node_count = self._query_db_diagnostics(conn)
         conn.close()
 
         import platform
@@ -108,14 +118,14 @@ class SuperGraphMasterOrchestrator:
             "connected_peripherals": {
                 "smartphone": "Google Pixel 10",
                 "wearable": "Xiaomi Smart Band 10 (Mi Band 10)",
-                "scale": "Xiaomi Mi Body Composition Scale 2 (BLE 0x181B)"
+                "scale": "Xiaomi Mi Body Composition Scale 2 (BLE 0x181B)",
             },
             "database_stats": {
                 "db_path": self.db_path,
                 "scale_weighins_recorded": weighin_count,
                 "latest_weighin": latest_weighin,
-                "health_nodes": fit_node_count
-            }
+                "health_nodes": fit_node_count,
+            },
         }
 
     def orchestrate_r3_r4_revenue_matching(self):
@@ -176,8 +186,9 @@ class SuperGraphMasterOrchestrator:
         if temp_created and os.path.exists(target_file):
             try:
                 os.remove(target_file)
-            except Exception:
-                pass
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning("Failed to remove temporary file %s: %s", target_file, exc)
 
         return res
 

@@ -3,8 +3,11 @@ vazus_core.workers.rlm — MIT RLM Code Engineering Worker Module.
 Provides tool loading, LocalREPL integration, and iterative code evaluation.
 """
 
+import logging
 import time
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from vazus_core.config import VAZUS_ROOT
 from vazus_core.verification.ast_pruner import ASTPruner
@@ -16,7 +19,8 @@ from vazus_core.workers.subprocess_repl import ZeroTrustSubprocessREPL
 
 try:
     from rlm.clients.antigravity import AntigravityClient
-except ImportError:
+except ImportError as exc:
+    logger.debug("Optional AntigravityClient not available: %s", exc)
     AntigravityClient = None
 
 
@@ -37,6 +41,7 @@ def load_compiled_tools() -> Dict[str, Any]:
 def run(
     task_id: str,
     prompt: str,
+    *,
     _context: str = "",
     max_iterations: int = 3,
     max_depth: int = 2,

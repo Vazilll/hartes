@@ -4,9 +4,11 @@ Eliminates code duplication across vazus_core modules and scripts.
 """
 
 import re
+import logging
 from datetime import datetime, timezone
 from typing import List, Union, Optional, Any
 
+logger = logging.getLogger(__name__)
 
 
 def normalize_russian_text(text: str) -> str:
@@ -23,7 +25,7 @@ def normalize_russian_text(text: str) -> str:
         r'\(\s*(?:музыка|смех|аплодисменты|шум|кашель|вздох|пауза|тишина|laughter|music|applause)\s*\)',
         ' ',
         text,
-        flags=re.I
+        flags=re.I,
     )
     text = text.replace('\xa0', ' ').replace('\u200b', '')
     return re.sub(r'\s+', ' ', text).strip()
@@ -46,10 +48,10 @@ def parse_selection(selection_str: str, max_val: Optional[int] = None) -> List[i
     """
     if not selection_str or not selection_str.strip():
         return []
-    
+
     selected_indices = set()
     parts = selection_str.replace(" ", "").split(",")
-    
+
     for part in parts:
         if not part:
             continue
@@ -59,16 +61,16 @@ def parse_selection(selection_str: str, max_val: Optional[int] = None) -> List[i
                 for i in range(min(start, end), max(start, end) + 1):
                     if max_val is None or 1 <= i <= max_val:
                         selected_indices.add(i)
-            except ValueError:
-                pass
+            except ValueError as exc:
+                logger.debug("Failed to parse integer range token '%s': %s", part, exc)
         else:
             try:
                 idx = int(part)
                 if max_val is None or 1 <= idx <= max_val:
                     selected_indices.add(idx)
-            except ValueError:
-                pass
-                
+            except ValueError as exc:
+                logger.debug("Failed to parse integer token '%s': %s", part, exc)
+
     return sorted(list(selected_indices))
 
 
@@ -89,7 +91,8 @@ def compute_similarity(vec1: List[float], vec2: List[float]) -> float:
             return 0.0
         res = float(np.dot(arr1, arr2) / (norm1 * norm2))
         return 0.0 if math.isnan(res) or math.isinf(res) else res
-    except Exception:
+    except Exception as exc:
+        logger.debug("Numpy cosine similarity computation failed, falling back to pure Python: %s", exc)
         if any(math.isnan(x) or math.isinf(x) for x in vec1) or any(math.isnan(y) or math.isinf(y) for y in vec2):
             return 0.0
         dot_product = sum(a * b for a, b in zip(vec1, vec2))
@@ -106,7 +109,8 @@ def fast_json_dumps(obj: Any) -> str:
     try:
         import orjson
         return orjson.dumps(obj).decode("utf-8")
-    except ImportError:
+    except ImportError as exc:
+        logger.debug("Optional module orjson unavailable, using stdlib json: %s", exc)
         import json
         return json.dumps(obj)
 
@@ -116,7 +120,8 @@ def fast_json_loads(json_str: Union[str, bytes]) -> Any:
     try:
         import orjson
         return orjson.loads(json_str)
-    except ImportError:
+    except ImportError as exc:
+        logger.debug("Optional module orjson unavailable, using stdlib json: %s", exc)
         import json
         return json.loads(json_str)
 
@@ -127,6 +132,7 @@ def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         return s.connect_ex((host, port)) == 0
+
 
 
 

@@ -4,12 +4,15 @@ Darwinian Code & Prompt Evolution Engine (adapted from NousResearch Hermes Evolv
 Performs genetic mutation, fitness evaluation against test suites, parent crossover, and selection.
 """
 
+import logging
 import os
 import json
 import time
 import subprocess
 import tempfile
 from typing import Dict, Any
+
+logger = logging.getLogger("darwinian_evolver")
 from vazus_core.memory.organic_memory_bridge import record_insight
 from vazus_core.workers.subprocess_repl import (
     create_win32_sandbox_job,
@@ -136,10 +139,67 @@ def evaluate_fitness(target_file_or_dir: str) -> float:
                 code = f.read()
             ast.parse(code)
             valid_files += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("AST parsing failed for %s during fitness evaluation: %s", fpath, exc)
 
     return round(valid_files / max(1, total_files), 4)
+
+
+def _run_single_generation(
+    gen: int, target_path: str, target_module: str, mutation_strategies: list
+) -> Dict[str, Any]:
+    """Runs a single generation testing mutation strategies against test suites."""
+    mutations_tested = 0
+    best_variant_name = f"variant_baseline_gen_{gen}"
+    best_fitness = evaluate_fitness(target_path)
+
+    sample_file = os.path.join(target_path, "ast_pruner.py")
+    if os.path.exists(sample_file):
+        try:
+            with open(sample_file, "r", encoding="utf-8") as f:
+                sample_code = f.read()
+
+            for strat_name, mutator in mutation_strategies:
+                mutations_tested += 1
+                try:
+                    mutated_code = mutator(sample_code)
+                    if ASTPruner.validate_signatures(mutated_code):
+                        test_suite = os.path.join(r"C:\vazus\tests", "test_ast_pruner.py")
+                        variant_fitness = evaluate_variant_pytest(test_suite)
+                        if variant_fitness >= best_fitness:
+                            best_fitness = variant_fitness
+                            best_variant_name = f"variant_{strat_name}_gen_{gen}"
+                except Exception as e:
+                    logger.debug("Mutation %s error: %s", strat_name, e)
+        except Exception as fe:
+            logger.debug("Sample file read error: %s", fe)
+
+    return {
+        "generation": gen,
+        "target": target_module,
+        "fitness": best_fitness,
+        "mutations_tested": mutations_tested,
+        "surviving_variant": best_variant_name,
+        "timestamp": time.time()
+    }
+
+
+def _record_evolution_lessons(generations: int, target_module: str, final_fitness: float) -> None:
+    """Logs evolution lesson in Karpathy Wiki and organic memory."""
+    lesson = f"Darwinian Evolution Cycle Gen {generations} completed for {target_module} with fitness {final_fitness:.2f}"
+    try:
+        from vazus_core.memory.db import close_all_thread_connections
+        close_all_thread_connections()
+    except Exception as e:
+        logger.debug("close_all_thread_connections skipped: %s", e)
+    record_insight("darwinian_evolution", lesson)
+
+    if os.path.exists(os.path.dirname(MEMORY_WIKI_LESSONS)):
+        try:
+            with open(MEMORY_WIKI_LESSONS, "a", encoding="utf-8") as f:
+                f.write(f"\n- [{time.strftime('%Y-%m-%d %H:%M:%S')}] {lesson}")
+        except Exception as we:
+            logger.debug("Wiki append error: %s", we)
 
 
 def run_evolution_cycle(target_module: str = "vazus_core", generations: int = 2) -> Dict[str, Any]:
@@ -155,54 +215,10 @@ def run_evolution_cycle(target_module: str = "vazus_core", generations: int = 2)
     ]
 
     for gen in range(1, generations + 1):
-        mutations_tested = 0
-        best_variant_name = f"variant_baseline_gen_{gen}"
-        best_fitness = evaluate_fitness(target_path)
+        gen_res = _run_single_generation(gen, target_path, target_module, mutation_strategies)
+        results.append(gen_res)
 
-        sample_file = os.path.join(target_path, "ast_pruner.py")
-        if os.path.exists(sample_file):
-            with open(sample_file, "r", encoding="utf-8") as f:
-                sample_code = f.read()
-
-            for strat_name, mutator in mutation_strategies:
-                mutations_tested += 1
-                try:
-                    mutated_code = mutator(sample_code)
-                    if ASTPruner.validate_signatures(mutated_code):
-                        test_suite = os.path.join(r"C:\vazus\tests", "test_ast_pruner.py")
-                        variant_fitness = evaluate_variant_pytest(test_suite)
-                        if variant_fitness >= best_fitness:
-                            best_fitness = variant_fitness
-                            best_variant_name = f"variant_{strat_name}_gen_{gen}"
-                except Exception:
-                    pass
-
-
-        gen_result = {
-            "generation": gen,
-            "target": target_module,
-            "fitness": best_fitness,
-            "mutations_tested": mutations_tested,
-            "surviving_variant": best_variant_name,
-            "timestamp": time.time()
-        }
-        results.append(gen_result)
-
-    # Log lesson in Karpathy Wiki
-    lesson = f"Darwinian Evolution Cycle Gen {generations} completed for {target_module} with fitness {results[-1]['fitness']:.2f}"
-    try:
-        from vazus_core.memory.db import close_all_thread_connections
-        close_all_thread_connections()
-    except Exception:
-        pass
-    record_insight("darwinian_evolution", lesson)
-
-    if os.path.exists(os.path.dirname(MEMORY_WIKI_LESSONS)):
-        try:
-            with open(MEMORY_WIKI_LESSONS, "a", encoding="utf-8") as f:
-                f.write(f"\n- [{time.strftime('%Y-%m-%d %H:%M:%S')}] {lesson}")
-        except Exception:
-            pass
+    _record_evolution_lessons(generations, target_module, results[-1]["fitness"])
 
     return {
         "status": "EVOLUTION_COMPLETED",

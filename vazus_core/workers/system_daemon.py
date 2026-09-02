@@ -6,19 +6,19 @@ HTTP health check server on port 8765 (/healthz, /status, /version), and backgro
 transcript watcher sidecar integration.
 """
 
-import sys
-import os
-import time
+import argparse
 import json
+import logging
+import os
 import signal
 import socket
-import logging
-import argparse
-import threading
 import subprocess
+import sys
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
-from typing import Dict, Any, Tuple, Optional
+from typing import Any, Dict, Optional, Tuple
 
 if os.name == "nt":
     try:
@@ -36,15 +36,15 @@ if os.name == "nt":
                     devnull_fd = os.open(os.devnull, os.O_RDWR)
                 try:
                     os.dup2(devnull_fd, target_fd)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    logging.getLogger("system_daemon").debug("os.dup2 fallback failed: %s", exc)
         if devnull_fd is not None:
             try:
                 os.close(devnull_fd)
-            except OSError:
-                pass
-    except Exception:
-        pass
+            except OSError as exc:
+                logging.getLogger("system_daemon").debug("devnull_fd close failed: %s", exc)
+    except Exception as exc:
+        logging.getLogger("system_daemon").debug("msvcrt handle init failed: %s", exc)
 
 if sys.stdout is not None:
     try:
@@ -55,8 +55,8 @@ if sys.stdout is not None:
     except (AttributeError, OSError):
         try:
             sys.stdout = open(os.devnull, "w", encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("system_daemon").debug("sys.stdout devnull fallback failed: %s", exc)
 
 if sys.stderr is not None:
     try:
@@ -67,8 +67,8 @@ if sys.stderr is not None:
     except (AttributeError, OSError):
         try:
             sys.stderr = open(os.devnull, "w", encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as exc:
+            logging.getLogger("system_daemon").debug("sys.stderr devnull fallback failed: %s", exc)
 
 
 def safe_print(*args, **kwargs):
@@ -77,8 +77,8 @@ def safe_print(*args, **kwargs):
             print(*args, **kwargs)
             if hasattr(sys.stdout, "flush"):
                 sys.stdout.flush()
-        except (AttributeError, OSError):
-            pass
+        except (AttributeError, OSError) as exc:
+            logging.getLogger("system_daemon").debug("safe_print note: %s", exc)
 
 
 # Ensure project root is in sys.path
@@ -115,7 +115,6 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         """Suppresses noisy standard HTTP access logging to stdout (routes to debug logger)."""
         logger.debug(format, *args)
-
 
     def do_GET(self):
         if not self.daemon_instance:
@@ -181,7 +180,8 @@ class VazusSystemDaemon:
             with open(self.pid_path, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 return int(content) if content else None
-        except Exception:
+        except Exception as exc:
+            logger.debug("read_pid error: %s", exc)
             return None
 
     def remove_pid(self, force: bool = False) -> None:
@@ -220,10 +220,10 @@ class VazusSystemDaemon:
                     cmdline_str = " ".join(proc.cmdline()).lower()
                     if "system_daemon" in cmdline_str or "vazus_core" in cmdline_str:
                         return True, pid
-                except (psutil.AccessDenied, psutil.ZombieProcess):
+                except (psutil.AccessDenied, psutil.ZombieProcess) as exc:
+                    logger.debug("psutil access note: %s", exc)
                     return True, pid
         except ImportError:
-            # Fallback to OS-level liveness check
             if os.name == "nt":
                 import ctypes
                 kernel32 = ctypes.windll.kernel32
@@ -240,10 +240,10 @@ class VazusSystemDaemon:
                 try:
                     os.kill(pid, 0)
                     return True, pid
-                except OSError:
-                    pass
-        except Exception:
-            pass
+                except OSError as exc:
+                    logger.debug("os.kill liveness note: %s", exc)
+        except Exception as exc:
+            logger.debug("is_running check note: %s", exc)
 
         return False, None
 
@@ -288,7 +288,8 @@ class VazusSystemDaemon:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(0.2)
                 return s.connect_ex(("127.0.0.1", port)) == 0
-        except Exception:
+        except Exception as exc:
+            logger.debug("Port check note: %s", exc)
             return False
 
     # --- HTTP Server ---
@@ -349,109 +350,110 @@ class VazusSystemDaemon:
             logger.error(f"Worker loop error: {e}")
 
     # --- Lifecycle Actions ---
-    def start(self, foreground: bool = False) -> None:
+    def _check_and_clean_existing_daemon(self) -> None:
         running, existing_pid = self.is_running()
         if running:
             port_pids = self._find_daemon_pids_on_port(self.port)
             if existing_pid not in port_pids or not self._is_port_bound(self.port):
-                # Stale PID file / port mismatch / unbound HTTP server: kill orphaned processes and recycle PID file
                 logger.warning(f"Recycling stale PID file {existing_pid}; port {self.port} held by {port_pids}")
                 if existing_pid:
                     self._kill_process(existing_pid)
                 for opid in port_pids:
                     self._kill_process(opid)
                 self.remove_pid(force=True)
-                running = False
             else:
                 safe_print(f"⚠️ System Daemon already running under PID {existing_pid}")
                 sys.exit(0)
 
-        # Ensure no orphaned daemon process is holding self.port
         orphaned = self._find_daemon_pids_on_port(self.port)
         for opid in orphaned:
             if opid != os.getpid():
                 safe_print(f"🛑 Cleaning orphaned daemon process on port {self.port} [PID: {opid}]...")
                 self._kill_process(opid)
 
-        if not foreground:
-            if self.pid_path.exists():
-                running, _ = self.is_running()
-                if not running:
-                    self.remove_pid(force=True)
-            cmd = [sys.executable, "-m", "vazus_core.system_daemon", "start", "--foreground"]
-            if os.name == "nt":
-                CREATE_BREAKAWAY_FROM_JOB = 0x01000000
-                CREATE_NO_WINDOW = 0x08000000
-                DETACHED_PROCESS = 0x00000008
-                CREATE_NEW_PROCESS_GROUP = 0x00000200
-                flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
-                try:
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=flags | CREATE_BREAKAWAY_FROM_JOB,
-                        close_fds=True
-                    )
-                except (OSError, PermissionError):
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=flags,
-                        close_fds=True
-                    )
-            else:
-                proc = subprocess.Popen(
+    def _launch_daemon_subprocess(self) -> subprocess.Popen:
+        cmd = [sys.executable, "-m", "vazus_core.system_daemon", "start", "--foreground"]
+        if os.name == "nt":
+            CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+            CREATE_NO_WINDOW = 0x08000000
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+            try:
+                return subprocess.Popen(
                     cmd,
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    creationflags=flags | CREATE_BREAKAWAY_FROM_JOB,
                     close_fds=True
                 )
-            # Wait up to 15 seconds for background child process to write PID file
-            success = False
-            for _ in range(150):
-                exit_code = proc.poll()
-                if exit_code is not None:
-                    self.remove_pid(force=True)
-                    safe_print(f"❌ Failed to start background daemon: Child process exited unexpectedly with code {exit_code}")
-                    sys.exit(1)
+            except (OSError, PermissionError) as exc:
+                logger.debug("Breakaway spawn fallback: %s", exc)
+                return subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=flags,
+                    close_fds=True
+                )
+        return subprocess.Popen(
+            cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True
+        )
 
-                if self.pid_path.exists():
-                    try:
-                        content = self.pid_path.read_text(encoding="utf-8").strip()
-                        if content and content.isdigit():
-                            success = True
-                            break
-                    except Exception:
-                        pass
-                time.sleep(0.1)
-
-            if not success:
-                exit_code = proc.poll()
-                if exit_code is None:
-                    try:
-                        proc.kill()
-                    except Exception:
-                        pass
+    def _wait_for_pid_file(self, proc: subprocess.Popen) -> bool:
+        for _ in range(150):
+            exit_code = proc.poll()
+            if exit_code is not None:
                 self.remove_pid(force=True)
-                if exit_code is not None:
-                    safe_print(f"❌ Failed to start background daemon: Child process exited with code {exit_code}")
-                else:
-                    safe_print("❌ Failed to start background daemon: Timed out waiting for PID file creation")
+                safe_print(f"❌ Failed to start background daemon: Child process exited unexpectedly with code {exit_code}")
                 sys.exit(1)
 
-            safe_print(f"🚀 Started vazus System Daemon background process [PID: {proc.pid}]")
-            sys.exit(0)
+            if self.pid_path.exists():
+                try:
+                    content = self.pid_path.read_text(encoding="utf-8").strip()
+                    if content and content.isdigit():
+                        return True
+                except Exception as exc:
+                    logger.debug("PID file read wait note: %s", exc)
+            time.sleep(0.1)
+        return False
 
-        # Foreground Execution Path
+    def _spawn_background_daemon_process(self) -> None:
+        if self.pid_path.exists():
+            running, _ = self.is_running()
+            if not running:
+                self.remove_pid(force=True)
+
+        proc = self._launch_daemon_subprocess()
+        success = self._wait_for_pid_file(proc)
+
+        if not success:
+            exit_code = proc.poll()
+            if exit_code is None:
+                try:
+                    proc.kill()
+                except Exception as exc:
+                    logger.debug("Background proc kill note: %s", exc)
+            self.remove_pid(force=True)
+            if exit_code is not None:
+                safe_print(f"❌ Failed to start background daemon: Child process exited with code {exit_code}")
+            else:
+                safe_print("❌ Failed to start background daemon: Timed out waiting for PID file creation")
+            sys.exit(1)
+
+        safe_print(f"🚀 Started vazus System Daemon background process [PID: {proc.pid}]")
+        sys.exit(0)
+
+    def _run_foreground_daemon(self) -> None:
         self.write_pid()
         self._running = True
 
-        # Signal handlers
         def signal_handler(signum, frame):
             logger.info(f"Received signal {signum}, initiating graceful shutdown...")
             self.stop()
@@ -460,17 +462,15 @@ class VazusSystemDaemon:
         try:
             signal.signal(signal.SIGINT, signal_handler)
             signal.signal(signal.SIGTERM, signal_handler)
-        except (ValueError, AttributeError):
-            pass  # Signal handlers can only be set in main thread
+        except (ValueError, AttributeError) as exc:
+            logger.debug("Signal handler note in foreground runner: %s", exc)
 
         try:
             self.start_http_server()
-            
             self._worker_thread = threading.Thread(target=self._background_worker_loop, daemon=True)
             self._worker_thread.start()
 
             safe_print(f"✅ vazus System Daemon running in foreground [PID: {os.getpid()}] on http://127.0.0.1:{self.port}")
-            
             while self._running:
                 time.sleep(1)
         except KeyboardInterrupt:
@@ -484,9 +484,15 @@ class VazusSystemDaemon:
             self.remove_pid()
             logger.info(f"Daemon process [PID: {os.getpid()}] main loop exited.")
 
+    def start(self, foreground: bool = False) -> None:
+        self._check_and_clean_existing_daemon()
+        if not foreground:
+            self._spawn_background_daemon_process()
+        else:
+            self._run_foreground_daemon()
+
     def _find_daemon_pids_on_port(self, port: int) -> list[int]:
         pids = set()
-        # 1. Fast system-wide psutil scan
         try:
             import psutil
             connections = psutil.net_connections(kind="inet")
@@ -496,7 +502,6 @@ class VazusSystemDaemon:
         except Exception as e:
             logger.debug(f"psutil top-level net_connections error: {e}")
 
-        # 2. Windows netstat scan (always run on Windows to guarantee coverage)
         if os.name == "nt":
             try:
                 res = subprocess.run(["netstat", "-ano"], capture_output=True, text=True, errors="replace")
@@ -542,12 +547,11 @@ class VazusSystemDaemon:
                         time.sleep(0.1)
                     except OSError:
                         break
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("os.kill term note: %s", exc)
 
     def stop(self) -> None:
         running, pid = self.is_running()
-        # ALWAYS scan for processes bound/listening on self.port, regardless of is_running() result
         port_pids = self._find_daemon_pids_on_port(self.port)
 
         if not running and not self._running and not port_pids and not self._is_port_bound(self.port):
@@ -575,7 +579,6 @@ class VazusSystemDaemon:
             safe_print(f"🛑 Terminating Daemon Process [PID: {target_pid}]...")
             self._kill_process(target_pid)
 
-        # Wait up to 3 seconds for port to be released
         for _ in range(30):
             if not self._is_port_bound(self.port):
                 break
@@ -600,6 +603,7 @@ class VazusSystemDaemon:
             res["sidecar_events"] = len(events)
             res["sidecar_status"] = sidecar.status()
         except Exception as e:
+            logger.debug("Sidecar single pass note: %s", e)
             res["sidecar_error"] = str(e)
         return res
 

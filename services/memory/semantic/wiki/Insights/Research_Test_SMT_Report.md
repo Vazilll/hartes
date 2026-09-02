@@ -1,7 +1,7 @@
 ---
 type: insight
 category: "deep_research"
-date: "2026-08-15 02:54:57"
+date: "2026-08-21 17:17:35"
 tags:
   - insight
   - deep_research

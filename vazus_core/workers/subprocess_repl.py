@@ -4,16 +4,19 @@ Executes untrusted Python code in ephemeral, isolated subprocesses with
 Win32 Job Object kernel bounding (512MB RAM, ActiveProcLimit=1, KILL_ON_JOB_CLOSE).
 """
 
-import sys
-import os
 import json
+import logging
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
 import time
 import uuid
-import shutil
-import tempfile
-import subprocess
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional, Tuple
+
+logger = logging.getLogger("SubprocessREPL")
 
 # --- Win32 Job Object Bindings (Kernel Memory & Process Sandbox) ---
 if sys.platform == "win32":
@@ -76,7 +79,7 @@ def create_win32_sandbox_job(max_memory_bytes: int = 512 * 1024 * 1024) -> Optio
         | JOB_OBJECT_LIMIT_JOB_MEMORY
         | JOB_OBJECT_LIMIT_ACTIVE_PROCESS
     )
-    info.BasicLimitInformation.ActiveProcessLimit = 4  # Allow venv launcher shim + interpreter
+    info.BasicLimitInformation.ActiveProcessLimit = 4
     info.JobMemoryLimit = max_memory_bytes
 
     res = kernel32.SetInformationJobObject(
@@ -102,8 +105,7 @@ def assign_process_to_job(job_handle: int, pid: int) -> bool:
 
 
 def block_network_on_job(job_handle: int) -> bool:
-    """Best-effort: sets JobObjectNetRateControlInformation with 0 bandwidth,
-    denying network I/O for all processes in the job (Chromium sandbox pattern)."""
+    """Best-effort: sets JobObjectNetRateControlInformation with 0 bandwidth."""
     if sys.platform != "win32" or not job_handle:
         return False
 
@@ -130,8 +132,7 @@ def block_network_on_job(job_handle: int) -> bool:
 
 
 def close_win32_sandbox_job(job_handle: int) -> bool:
-    """Closes a sandbox Job Object handle. KILL_ON_JOB_CLOSE deterministically
-    terminates any remaining child processes of the job."""
+    """Closes a sandbox Job Object handle."""
     if sys.platform != "win32" or not job_handle:
         return False
     return bool(kernel32.CloseHandle(job_handle))
@@ -158,15 +159,8 @@ class ZeroTrustSubprocessREPL:
         self.require_kernel_sandbox = require_kernel_sandbox
         self.python_bin = getattr(sys, "_base_executable", sys.executable)
 
-    def execute_code(self, code: str, context: Optional[Dict[str, Any]] = None) -> SubprocessREPLResult:
-        start_time = time.perf_counter()
-        context = context or {}
-
-        # 1. Ephemeral Sandbox Directory
-        temp_dir = tempfile.mkdtemp(prefix=f"vazus_repl_{uuid.uuid4().hex[:8]}_")
-
-        # 2. Prepare Injected IPC Harness
-        harness_script = f"""
+    def _build_harness_script(self, code: str, context: Dict[str, Any]) -> str:
+        return f"""
 import sys, json
 
 try:
@@ -177,7 +171,6 @@ try:
     user_code = {json.dumps(code)}
     exec(compile(user_code, '<sandbox_repl>', 'exec'))
 
-    # Extract serializable variables
     clean_locals = {{}}
     for k, v in list(locals().items()):
         if not k.startswith('_') and k not in ('context', 'user_code', 'sys', 'json', 'clean_locals'):
@@ -198,24 +191,19 @@ except Exception as err:
     sys.stderr.write(traceback.format_exc())
     sys.exit(1)
 """
-        harness_path = os.path.join(temp_dir, "harness.py")
-        with open(harness_path, "w", encoding="utf-8") as f:
-            f.write(harness_script)
 
-        # 3. Environment Sanitization (Zero-Trust)
+    def _spawn_sandboxed_subprocess(self, temp_dir: str, harness_path: str) -> Tuple[subprocess.Popen, Optional[int]]:
         sanitized_env = {
             "SYSTEMROOT": os.environ.get("SYSTEMROOT", r"C:\Windows"),
             "PATH": os.environ.get("PATH", r"C:\Windows\system32;C:\Windows"),
             "PYTHONUTF8": "1",
         }
 
-        # 4. Kernel Sandbox Verification (Fail-Secure)
         job_handle = create_win32_sandbox_job(self.memory_limit_bytes)
         if sys.platform == "win32" and not job_handle and self.require_kernel_sandbox:
             shutil.rmtree(temp_dir, ignore_errors=True)
             raise RuntimeError("SecurityIsolationError: Win32 Job Object creation failed — refusing to execute untrusted code without kernel memory bounds.")
 
-        # 5. Spawn Subprocess with -I (Isolated) -S (No site-packages) -B (No .pyc)
         cmd = [self.python_bin, "-I", "-S", "-B", "-u", harness_path]
         proc = subprocess.Popen(
             cmd,
@@ -235,34 +223,47 @@ except Exception as err:
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 raise RuntimeError("SecurityIsolationError: Failed to assign process to Win32 Job Object sandbox.")
 
-        # 5. Monitored Execution with Timeout
+        return proc, job_handle
+
+    def _parse_ipc_output(self, proc: subprocess.Popen, stdout_raw: str, stderr_raw: str, exec_time: float) -> SubprocessREPLResult:
+        if "__VAZUS_IPC_START__" in stdout_raw:
+            parts = stdout_raw.split("__VAZUS_IPC_START__")[1].split("__VAZUS_IPC_END__")
+            payload = json.loads(parts[0])
+            visible_stdout = stdout_raw.replace(f"__VAZUS_IPC_START__{parts[0]}__VAZUS_IPC_END__", "").strip()
+            return SubprocessREPLResult(
+                stdout=visible_stdout,
+                stderr=stderr_raw,
+                locals=payload.get("locals", {}),
+                execution_time=exec_time,
+                status="SUCCESS",
+                final_answer=payload.get("final_answer")
+            )
+        return SubprocessREPLResult(
+            stdout=stdout_raw,
+            stderr=stderr_raw,
+            locals={},
+            execution_time=exec_time,
+            status="ERROR" if proc.returncode != 0 else "SUCCESS"
+        )
+
+    def execute_code(self, code: str, context: Optional[Dict[str, Any]] = None) -> SubprocessREPLResult:
+        start_time = time.perf_counter()
+        context = context or {}
+
+        temp_dir = tempfile.mkdtemp(prefix=f"vazus_repl_{uuid.uuid4().hex[:8]}_")
+        harness_script = self._build_harness_script(code, context)
+        harness_path = os.path.join(temp_dir, "harness.py")
+        with open(harness_path, "w", encoding="utf-8") as f:
+            f.write(harness_script)
+
+        proc, job_handle = self._spawn_sandboxed_subprocess(temp_dir, harness_path)
+
         try:
             stdout_raw, stderr_raw = proc.communicate(timeout=self.timeout_seconds)
             exec_time = time.perf_counter() - start_time
-
-            # Parse IPC delimiter payload
-            if "__VAZUS_IPC_START__" in stdout_raw:
-                parts = stdout_raw.split("__VAZUS_IPC_START__")[1].split("__VAZUS_IPC_END__")
-                payload = json.loads(parts[0])
-                visible_stdout = stdout_raw.replace(f"__VAZUS_IPC_START__{parts[0]}__VAZUS_IPC_END__", "").strip()
-                return SubprocessREPLResult(
-                    stdout=visible_stdout,
-                    stderr=stderr_raw,
-                    locals=payload.get("locals", {}),
-                    execution_time=exec_time,
-                    status="SUCCESS",
-                    final_answer=payload.get("final_answer")
-                )
-            else:
-                return SubprocessREPLResult(
-                    stdout=stdout_raw,
-                    stderr=stderr_raw,
-                    locals={},
-                    execution_time=exec_time,
-                    status="ERROR" if proc.returncode != 0 else "SUCCESS"
-                )
-
+            return self._parse_ipc_output(proc, stdout_raw, stderr_raw, exec_time)
         except subprocess.TimeoutExpired:
+            logger.debug("Execution timed out after %ss for subprocess PID %s", self.timeout_seconds, proc.pid)
             proc.kill()
             if sys.platform == "win32":
                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True)
@@ -276,12 +277,10 @@ except Exception as err:
         finally:
             if job_handle and sys.platform == "win32":
                 kernel32.CloseHandle(job_handle)
-            # Ephemeral cleanup
             try:
-                import shutil
                 shutil.rmtree(temp_dir, ignore_errors=True)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("temp_dir cleanup note: %s", exc)
 
 
 if __name__ == "__main__":

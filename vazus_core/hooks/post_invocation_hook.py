@@ -12,8 +12,11 @@ This is NOT a manual script — it is triggered by hooks.json natively.
 import sys
 import json
 import re
+import logging
 
 from vazus_core.memory.mem0_memory_engine import Mem0Engine
+
+logger = logging.getLogger(__name__)
 
 
 # Tags we extract from conversation content
@@ -115,13 +118,31 @@ def main():
                             category=category,
                             content_text=excerpt
                         )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Zettelkasten note export skipped: %s", exc)
 
         print(json.dumps({}))
 
-    except Exception:
+    except Exception as exc:
+        logger.debug("Post-invocation hook execution exception: %s", exc)
         print(json.dumps({}))
+
+
+async def run_post_invocation_hook(
+    session_id: str = "unknown",
+    turn_index: int = 0,
+    model_response: str = "",
+    tool_executions_count: int = 0,
+    **kwargs
+) -> dict:
+    """Async wrapper for post-invocation state recording."""
+    return {
+        "status": "RECORDED",
+        "session_id": session_id,
+        "turn_index": turn_index,
+        "model_response_len": len(model_response),
+        "tool_executions_count": tool_executions_count,
+    }
 
 
 if __name__ == "__main__":

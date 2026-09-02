@@ -60,24 +60,14 @@ class ASTRepoMapper:
 
         return defs, refs, "\n".join(skeleton_lines)
 
-    def build_repo_map(
-        self,
-        active_files: Optional[List[str]] = None,
-        max_tokens: int = 1800,
-        subsystem: str = "vazus_core"
-    ) -> str:
-        """
-        Builds a token-budgeted (<1800 tokens) Repo Map with Personalized PageRank.
-        """
-        target_dir = self.root_dir / subsystem
-        if not target_dir.exists():
-            target_dir = self.root_dir
-
+    def _collect_file_symbols(
+        self, target_dir: Path
+    ) -> Tuple[Dict[str, List[str]], Dict[str, Set[str]], Dict[str, str], Dict[str, int]]:
+        """Collects defs, refs, and skeletons from all target python files."""
         py_files = [
             f for f in target_dir.rglob("*.py")
             if not any(ign in str(f) for ign in [".venv", "__pycache__", "tests", "scratch", "logs"])
         ]
-
         file_defs: Dict[str, List[str]] = {}
         file_refs: Dict[str, Set[str]] = {}
         file_skeletons: Dict[str, str] = {}
@@ -92,11 +82,17 @@ class ASTRepoMapper:
             for d in defs:
                 all_def_counts[d] += 1
 
-        files = list(file_defs.keys())
-        if not files:
-            return ""
+        return file_defs, file_refs, file_skeletons, all_def_counts
 
-        # Compute Directed Dependency Graph Matrix
+    def _compute_pagerank(
+        self,
+        files: List[str],
+        file_defs: Dict[str, List[str]],
+        file_refs: Dict[str, Set[str]],
+        all_def_counts: Dict[str, int],
+        active_files: Optional[List[str]]
+    ) -> List[Tuple[str, float]]:
+        """Runs Personalized PageRank on file dependency graph."""
         weights: Dict[str, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
         out_weights: Dict[str, float] = defaultdict(float)
 
@@ -110,7 +106,6 @@ class ASTRepoMapper:
                     weights[u][v] = w
                     out_weights[u] += w
 
-        # Personalized PageRank (Power Iteration, d=0.85)
         active_set = set(active_files or [])
         teleport = {}
         total_p = 0.0
@@ -124,7 +119,6 @@ class ASTRepoMapper:
 
         scores = {f: 1.0 / len(files) for f in files}
         d = 0.85
-
         for _ in range(15):
             new_scores = {}
             for v in files:
@@ -137,9 +131,12 @@ class ASTRepoMapper:
                 new_scores[v] = (1 - d) * teleport[v] + d * inflow
             scores = new_scores
 
-        ranked_files = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+        return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
-        # Bisection / Greedy Token Budget Selection (~3.5 chars per token)
+    def _format_ranked_blocks(
+        self, ranked_files: List[Tuple[str, float]], file_skeletons: Dict[str, str], max_tokens: int
+    ) -> str:
+        """Formats greedily selected ranked skeleton blocks within token budget."""
         max_chars = max_tokens * 3
         current_chars = 0
         selected_blocks = []
@@ -157,6 +154,25 @@ class ASTRepoMapper:
 
         header = f"## 🗺️ Vazus OS Active AST Repo Map (Top {len(selected_blocks)} ranked modules):\n\n"
         return header + "\n".join(selected_blocks)
+
+    def build_repo_map(
+        self,
+        active_files: Optional[List[str]] = None,
+        max_tokens: int = 1800,
+        subsystem: str = "vazus_core"
+    ) -> str:
+        """Builds a token-budgeted (<1800 tokens) Repo Map with Personalized PageRank."""
+        target_dir = self.root_dir / subsystem
+        if not target_dir.exists():
+            target_dir = self.root_dir
+
+        file_defs, file_refs, file_skeletons, all_def_counts = self._collect_file_symbols(target_dir)
+        files = list(file_defs.keys())
+        if not files:
+            return ""
+
+        ranked_files = self._compute_pagerank(files, file_defs, file_refs, all_def_counts, active_files)
+        return self._format_ranked_blocks(ranked_files, file_skeletons, max_tokens)
 
 
 if __name__ == "__main__":

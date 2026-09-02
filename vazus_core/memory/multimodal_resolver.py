@@ -5,16 +5,19 @@ Converts disk files, @ references (@clipboard, @latest, @artifact), raw bytes, B
 into google.genai inlineData Base64 parts and ResolvedMultimodalPayload objects.
 """
 
-import os
-import io
 import base64
 import hashlib
+import io
+import logging
 import mimetypes
+import os
 import tempfile
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Union, Dict, Any, Optional, Tuple, List
 from PIL import Image, ImageGrab
+
+logger = logging.getLogger(__name__)
 
 try:
     from google import genai
@@ -180,8 +183,8 @@ class MultimodalResolver:
                     }
                     if fmt_upper in format_map:
                         return format_map[fmt_upper]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Pillow MIME type inspection fallback triggered: %s", exc)
 
         # Tier 3: Extension hint fallback
         if hint_path:
@@ -238,18 +241,13 @@ class MultimodalResolver:
             )
 
     @staticmethod
-    def _resolve_latest(
-        at_ref: str,
-        workspace_dir: Optional[Union[str, Path]] = None,
-        extra_search_dirs: Optional[List[Union[str, Path]]] = None
-    ) -> Tuple[bytes, str, Optional[str]]:
-        """Scans workspace, temp, and screenshots directories for the newest image file."""
-        valid_exts = {".png", ".jpg", ".jpeg", ".webp"}
-        search_dirs = []
-
+    def _build_latest_search_dirs(
+        workspace_dir: Optional[Union[str, Path]],
+        extra_search_dirs: Optional[List[Union[str, Path]]]
+    ) -> List[Path]:
+        """Assembles list of directories to search for latest images."""
         root_dir = Path(workspace_dir).resolve() if workspace_dir else Path.cwd().resolve()
-        search_dirs.append(root_dir)
-
+        search_dirs = [root_dir]
         if extra_search_dirs is not None:
             for d in extra_search_dirs:
                 if d:
@@ -258,7 +256,6 @@ class MultimodalResolver:
             temp_dir = os.environ.get("TEMP") or os.environ.get("TMP") or tempfile.gettempdir()
             if temp_dir:
                 search_dirs.append(Path(temp_dir).resolve())
-
             user_profile = os.environ.get("USERPROFILE") or os.environ.get("HOME")
             if user_profile:
                 pics = Path(user_profile) / "Pictures"
@@ -266,10 +263,15 @@ class MultimodalResolver:
                     search_dirs.append((pics / "Screenshots").resolve())
                 if pics.exists():
                     search_dirs.append(pics.resolve())
+        return search_dirs
 
+    @staticmethod
+    def _collect_latest_image_candidates(
+        search_dirs: List[Path], valid_exts: set
+    ) -> List[Tuple[float, Path]]:
+        """Walks search directories and collects candidate image files sorted by mtime."""
         candidates = []
         skip_dirs = {".git", ".venv", "__pycache__", "node_modules", "build", "dist"}
-
         for s_dir in search_dirs:
             if not s_dir.exists() or not s_dir.is_dir():
                 continue
@@ -282,14 +284,13 @@ class MultimodalResolver:
                         and not d.startswith("pytest-")
                         and not d.startswith("pytest_")
                     ]
-
                     try:
                         rel = Path(root).relative_to(s_dir)
                         if len(rel.parts) > 3:
                             dirs[:] = []
                             continue
-                    except ValueError:
-                        pass
+                    except ValueError as exc:
+                        logger.debug("Path relative_to calculation skipped: %s", exc)
 
                     for f in files:
                         f_path = Path(root) / f
@@ -298,10 +299,22 @@ class MultimodalResolver:
                                 st = f_path.stat()
                                 if st.st_size > 0:
                                     candidates.append((st.st_mtime, f_path))
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+                            except Exception as exc:
+                                logger.debug("stat() failed for %s: %s", f_path, exc)
+            except Exception as exc:
+                logger.debug("Directory traversal failed for %s: %s", s_dir, exc)
+        return candidates
+
+    @staticmethod
+    def _resolve_latest(
+        at_ref: str,
+        workspace_dir: Optional[Union[str, Path]] = None,
+        extra_search_dirs: Optional[List[Union[str, Path]]] = None
+    ) -> Tuple[bytes, str, Optional[str]]:
+        """Scans workspace, temp, and screenshots directories for the newest image file."""
+        valid_exts = {".png", ".jpg", ".jpeg", ".webp"}
+        search_dirs = MultimodalResolver._build_latest_search_dirs(workspace_dir, extra_search_dirs)
+        candidates = MultimodalResolver._collect_latest_image_candidates(search_dirs, valid_exts)
 
         if not candidates:
             raise ImageNotFoundError(
@@ -313,6 +326,59 @@ class MultimodalResolver:
         candidates.sort(key=lambda x: x[0], reverse=True)
         best_file = candidates[0][1]
         return (best_file.read_bytes(), "latest", str(best_file.resolve()))
+
+    @staticmethod
+    def _build_artifact_search_roots(
+        root_dir: Path,
+        extra_search_dirs: Optional[List[Union[str, Path]]]
+    ) -> List[Path]:
+        """Constructs search root list for artifact resolution."""
+        search_roots = []
+        for d_name in [".agents", "artifacts", ".artifacts"]:
+            sub = root_dir / d_name
+            if sub.exists():
+                search_roots.append(sub)
+
+        if extra_search_dirs is not None:
+            for d in extra_search_dirs:
+                if d and Path(d).exists():
+                    search_roots.append(Path(d).resolve())
+        else:
+            user_home = os.environ.get("USERPROFILE") or os.environ.get("HOME")
+            if user_home:
+                for g_path in [
+                    Path(user_home) / ".gemini" / "antigravity-cli" / "artifacts",
+                    Path(user_home) / ".gemini" / "artifacts",
+                ]:
+                    if g_path.exists():
+                        search_roots.append(g_path)
+
+        search_roots.append(root_dir)
+        return search_roots
+
+    @staticmethod
+    def _scan_for_artifact_files(
+        search_roots: List[Path], candidate_names: List[str]
+    ) -> List[Tuple[float, Path]]:
+        """Scans artifact search roots for candidate file names."""
+        found_candidates = []
+        for s_root in search_roots:
+            if not s_root.exists():
+                continue
+            try:
+                for root, _, files in os.walk(s_root):
+                    for c_name in candidate_names:
+                        if c_name in files:
+                            f_path = Path(root) / c_name
+                            try:
+                                st = f_path.stat()
+                                if st.st_size > 0:
+                                    found_candidates.append((st.st_mtime, f_path))
+                            except Exception as exc:
+                                logger.debug("stat() failed for artifact candidate %s: %s", f_path, exc)
+            except Exception as exc:
+                logger.debug("Artifact directory traversal failed for %s: %s", s_root, exc)
+        return found_candidates
 
     @staticmethod
     def _resolve_artifact(
@@ -331,53 +397,8 @@ class MultimodalResolver:
             candidate_names = [f"{artifact_name}{ext}" for ext in valid_exts] + [artifact_name]
 
         root_dir = Path(workspace_dir).resolve() if workspace_dir else Path.cwd().resolve()
-
-        search_roots = []
-        agents_dir = root_dir / ".agents"
-        if agents_dir.exists():
-            search_roots.append(agents_dir)
-
-        ws_artifacts = root_dir / "artifacts"
-        if ws_artifacts.exists():
-            search_roots.append(ws_artifacts)
-
-        ws_dot_artifacts = root_dir / ".artifacts"
-        if ws_dot_artifacts.exists():
-            search_roots.append(ws_dot_artifacts)
-
-        if extra_search_dirs is not None:
-            for d in extra_search_dirs:
-                if d and Path(d).exists():
-                    search_roots.append(Path(d).resolve())
-        else:
-            user_home = os.environ.get("USERPROFILE") or os.environ.get("HOME")
-            if user_home:
-                g1 = Path(user_home) / ".gemini" / "antigravity-cli" / "artifacts"
-                if g1.exists():
-                    search_roots.append(g1)
-                g2 = Path(user_home) / ".gemini" / "artifacts"
-                if g2.exists():
-                    search_roots.append(g2)
-
-        search_roots.append(root_dir)
-
-        found_candidates = []
-        for s_root in search_roots:
-            if not s_root.exists():
-                continue
-            try:
-                for root, dirs, files in os.walk(s_root):
-                    for c_name in candidate_names:
-                        if c_name in files:
-                            f_path = Path(root) / c_name
-                            try:
-                                st = f_path.stat()
-                                if st.st_size > 0:
-                                    found_candidates.append((st.st_mtime, f_path))
-                            except Exception:
-                                pass
-            except Exception:
-                pass
+        search_roots = MultimodalResolver._build_artifact_search_roots(root_dir, extra_search_dirs)
+        found_candidates = MultimodalResolver._scan_for_artifact_files(search_roots, candidate_names)
 
         if not found_candidates:
             raise ArtifactNotFoundError(
@@ -427,6 +448,70 @@ class MultimodalResolver:
                 )
 
     @classmethod
+    def _extract_raw_bytes_from_source(
+        cls,
+        source: Union[str, Path, bytes, bytearray, Image.Image],
+        *,
+        workspace_dir: Optional[Union[str, Path]] = None,
+        extra_search_dirs: Optional[List[Union[str, Path]]] = None,
+    ) -> Tuple[bytes, str, Optional[str]]:
+        """Extracts raw byte payload, source type, and file path from polymorphic source input."""
+        if isinstance(source, (bytes, bytearray)):
+            if len(source) == 0:
+                raise CorruptedImageError("Empty byte array provided as image source", source=source)
+            return bytes(source), "bytes", None
+
+        if isinstance(source, Image.Image):
+            buf = io.BytesIO()
+            fmt = source.format if source.format in ("PNG", "JPEG", "WEBP", "GIF", "BMP", "TIFF") else "PNG"
+            try:
+                source.save(buf, format=fmt)
+            except Exception:
+                buf = io.BytesIO()
+                source.convert("RGB").save(buf, format="PNG")
+            return buf.getvalue(), "pil_image", None
+
+        if isinstance(source, (str, Path)):
+            str_src = str(source).strip()
+            if not str_src:
+                raise ValueError("Empty string source provided")
+
+            str_lower = str_src.lower()
+            is_at_ref = (
+                str_src.startswith("@") or
+                str_lower in ("clipboard", "clip", "latest", "last") or
+                str_lower.startswith("artifact:") or str_lower.startswith("artifact/")
+            )
+            if is_at_ref:
+                return cls.resolve_at_reference(str_src, workspace_dir=workspace_dir, extra_search_dirs=extra_search_dirs)
+
+            if str_src.startswith("data:image/") or str_src.startswith("data:"):
+                try:
+                    _, b64_payload = str_src.split(",", 1) if "," in str_src else ("", str_src)
+                    return base64.b64decode(b64_payload), "base64_data_uri", None
+                except Exception as err:
+                    raise CorruptedImageError(f"Invalid Base64 Data URI string: {str(err)}", source=str_src)
+
+            path_obj = Path(str_src).expanduser()
+            if path_obj.exists() and path_obj.is_file():
+                return path_obj.read_bytes(), "file", str(path_obj.resolve())
+
+            try:
+                decoded = base64.b64decode(str_src, validate=True)
+                magic_mime = cls._inspect_magic_bytes(decoded)
+                if magic_mime:
+                    return decoded, "base64_str", None
+                with Image.open(io.BytesIO(decoded)) as test_img:
+                    test_img.verify()
+                return decoded, "base64_str", None
+            except Exception:
+                raise ImageNotFoundError(
+                    f"Image file not found on disk: {str_src}", source=str_src
+                )
+
+        raise TypeError(f"Unsupported source type: {type(source)}")
+
+    @classmethod
     def resolve(
         cls,
         source: Union[str, Path, bytes, bytearray, Image.Image],
@@ -441,95 +526,12 @@ class MultimodalResolver:
         if source is None:
             raise TypeError("Source cannot be None")
 
-        raw_bytes: bytes = b""
-        source_type: str = "unknown"
-        file_path: Optional[str] = None
+        raw_bytes, source_type, file_path = cls._extract_raw_bytes_from_source(
+            source, workspace_dir=workspace_dir, extra_search_dirs=extra_search_dirs
+        )
 
-        if isinstance(source, (bytes, bytearray)):
-            if len(source) == 0:
-                raise CorruptedImageError("Empty byte array provided as image source", source=source)
-            raw_bytes = bytes(source)
-            source_type = "bytes"
-            file_path = None
-
-        elif isinstance(source, Image.Image):
-            buf = io.BytesIO()
-            fmt = source.format if source.format in ("PNG", "JPEG", "WEBP", "GIF", "BMP", "TIFF") else "PNG"
-            try:
-                source.save(buf, format=fmt)
-            except Exception:
-                buf = io.BytesIO()
-                source.convert("RGB").save(buf, format="PNG")
-            raw_bytes = buf.getvalue()
-            source_type = "pil_image"
-            file_path = None
-
-        elif isinstance(source, (str, Path)):
-            str_src = str(source).strip()
-            if not str_src:
-                raise ValueError("Empty string source provided")
-
-            str_lower = str_src.lower()
-            is_at_ref = (
-                str_src.startswith("@") or
-                str_lower in ("clipboard", "clip", "latest", "last") or
-                str_lower.startswith("artifact:") or str_lower.startswith("artifact/")
-            )
-
-            if is_at_ref:
-                raw_bytes, source_type, file_path = cls.resolve_at_reference(
-                    str_src, workspace_dir=workspace_dir, extra_search_dirs=extra_search_dirs
-                )
-            elif str_src.startswith("data:image/") or str_src.startswith("data:"):
-                # Data URI
-                source_type = "base64_data_uri"
-                file_path = None
-                try:
-                    header, b64_payload = str_src.split(",", 1) if "," in str_src else ("", str_src)
-                    raw_bytes = base64.b64decode(b64_payload)
-                except Exception as err:
-                    raise CorruptedImageError(f"Invalid Base64 Data URI string: {str(err)}", source=str_src)
-            else:
-                # File path or raw Base64 string
-                path_obj = Path(str_src).expanduser()
-                if path_obj.exists() and path_obj.is_file():
-                    raw_bytes = path_obj.read_bytes()
-                    source_type = "file"
-                    file_path = str(path_obj.resolve())
-                else:
-                    # Attempt base64 decode if not a valid file path
-                    try:
-                        decoded = base64.b64decode(str_src, validate=True)
-                        magic_mime = cls._inspect_magic_bytes(decoded)
-                        if magic_mime:
-                            raw_bytes = decoded
-                            source_type = "base64_str"
-                            file_path = None
-                        else:
-                            # Check Pillow open
-                            try:
-                                with Image.open(io.BytesIO(decoded)) as test_img:
-                                    test_img.verify()
-                                raw_bytes = decoded
-                                source_type = "base64_str"
-                                file_path = None
-                            except Exception:
-                                raise ImageNotFoundError(
-                                    f"File path does not exist on disk and string is not a valid base64 image: {str_src}",
-                                    source=str_src
-                                )
-                    except Exception:
-                        raise ImageNotFoundError(
-                            f"Image file not found on disk: {str_src}",
-                            source=str_src
-                        )
-        else:
-            raise TypeError(f"Unsupported source type: {type(source)}")
-
-        # 3-Tier MIME type inspection
         mime_type = cls.inspect_mime_type(raw_bytes, hint_path=file_path)
 
-        # Extract dimensions using Pillow (and verify pixel payload stream if strict=True)
         try:
             with Image.open(io.BytesIO(raw_bytes)) as img:
                 width, height = img.size

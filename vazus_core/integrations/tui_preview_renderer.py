@@ -298,9 +298,24 @@ class TUIPreviewRenderer:
 
         return "\n".join(lines)
 
+    @staticmethod
+    def _resolve_render_dims(instance: Optional["TUIPreviewRenderer"], max_cols: Optional[int], max_rows: Optional[int]) -> Tuple[int, int]:
+        c = max_cols if max_cols is not None else (instance.max_cols if instance and instance.max_cols is not None else None)
+        r = max_rows if max_rows is not None else (instance.max_rows if instance and instance.max_rows is not None else None)
+        if c is None or r is None:
+            try:
+                term_size = shutil.get_terminal_size(fallback=(80, 24))
+                c = c or term_size.columns
+                r = r or term_size.lines
+            except Exception:
+                c = c or 80
+                r = r or 24
+        return max(1, c if c > 0 else 80), max(1, r if r > 0 else 40)
+
     def render(
         self_or_cls=None,
         payload_or_image: Union[ResolvedMultimodalPayload, Image.Image, str, Path, bytes, bytearray, None] = None,
+        *,
         max_cols: Optional[int] = None,
         max_rows: Optional[int] = None,
         mode: Optional[str] = None,
@@ -308,60 +323,27 @@ class TUIPreviewRenderer:
         border_style: str = "unicode",
         source: Union[ResolvedMultimodalPayload, Image.Image, str, Path, bytes, bytearray, None] = None,
     ) -> str:
-        """
-        Main entrypoint. Ingests polymorphic image source and returns ANSI/ASCII string.
-        Can be called on class (TUIPreviewRenderer.render) or instance (renderer.render).
-        """
-        if isinstance(self_or_cls, TUIPreviewRenderer):
-            instance = self_or_cls
-            target_input = payload_or_image if payload_or_image is not None else source
-        else:
-            instance = None
-            target_input = self_or_cls if self_or_cls is not None else (payload_or_image if payload_or_image is not None else source)
-
+        """Main entrypoint. Ingests polymorphic image source and returns ANSI/ASCII string."""
+        instance = self_or_cls if isinstance(self_or_cls, TUIPreviewRenderer) else None
+        target_input = (payload_or_image if payload_or_image is not None else source) if instance else (
+            self_or_cls if self_or_cls is not None else (payload_or_image if payload_or_image is not None else source)
+        )
         if target_input is None:
             raise TypeError("Missing required image source for TUIPreviewRenderer.render()")
 
         cls = TUIPreviewRenderer
-
-        effective_max_cols = max_cols if max_cols is not None else (instance.max_cols if instance and instance.max_cols is not None else None)
-        effective_max_rows = max_rows if max_rows is not None else (instance.max_rows if instance and instance.max_rows is not None else None)
-
-        if effective_max_cols is None or effective_max_rows is None:
-            try:
-                term_size = shutil.get_terminal_size(fallback=(80, 24))
-                if effective_max_cols is None:
-                    effective_max_cols = term_size.columns
-                if effective_max_rows is None:
-                    effective_max_rows = term_size.lines
-            except Exception:
-                if effective_max_cols is None:
-                    effective_max_cols = 80
-                if effective_max_rows is None:
-                    effective_max_rows = 24
-
-        if effective_max_cols <= 0:
-            effective_max_cols = 80
-        if effective_max_rows <= 0:
-            effective_max_rows = 40
-
+        cols_lim, rows_lim = cls._resolve_render_dims(instance, max_cols, max_rows)
         target_mode = mode or (instance.default_mode if instance else "truecolor")
-        norm_mode = str(target_mode).lower().strip()
+        norm_mode = "truecolor" if str(target_mode).lower().strip() == "auto" else str(target_mode).lower().strip()
 
-        valid_modes = {"truecolor", "256", "256color", "ascii", "ascii_10", "ascii_17", "ascii_70", "auto"}
+        valid_modes = {"truecolor", "256", "256color", "ascii", "ascii_10", "ascii_17", "ascii_70"}
         if norm_mode not in valid_modes:
             raise ValueError(f"Invalid render mode: '{mode}'")
 
-        if norm_mode == "auto":
-            norm_mode = "truecolor"
-
-        raw_img, payload = cls._load_pil_image(target_input)
+        raw_img, _ = cls._load_pil_image(target_input)
         img = cls._prepare_rgb_image(raw_img)
-
         is_half_block = norm_mode in ("truecolor", "256", "256color")
-        cols, rows = cls.compute_preview_dimensions(
-            img.width, img.height, max_cols=effective_max_cols, max_rows=effective_max_rows, is_half_block=is_half_block
-        )
+        cols, rows = cls.compute_preview_dimensions(img.width, img.height, max_cols=cols_lim, max_rows=rows_lim, is_half_block=is_half_block)
 
         if norm_mode == "truecolor":
             return cls._render_truecolor_halfblock(img, cols, rows)
@@ -369,78 +351,73 @@ class TUIPreviewRenderer:
             return cls._render_256color_halfblock(img, cols, rows)
         elif norm_mode.startswith("ascii"):
             return cls._render_ascii_ramp(img, cols, rows, mode=norm_mode)
-        else:
-            return cls._render_truecolor_halfblock(img, cols, rows)
+        return cls._render_truecolor_halfblock(img, cols, rows)
 
     def render_diff(
         self_or_cls=None,
         payload_or_image: Union[ResolvedMultimodalPayload, Image.Image, str, Path, bytes, bytearray, None] = None,
+        *,
         max_cols: Optional[int] = None,
         max_rows: Optional[int] = None,
         mode: str = "truecolor",
         source: Union[ResolvedMultimodalPayload, Image.Image, str, Path, bytes, bytearray, None] = None,
     ) -> str:
-        """
-        Stateful double-buffering renderer. Compares matrix against self._front_buffer.
-        Emits cursor positioning escape codes (\\x1b[{r+1};{c+1}H) only for modified cells.
-        """
-        if isinstance(self_or_cls, TUIPreviewRenderer):
-            instance = self_or_cls
-            target_input = payload_or_image if payload_or_image is not None else source
-        else:
-            instance = None
-            target_input = self_or_cls if self_or_cls is not None else (payload_or_image if payload_or_image is not None else source)
-
+        """Stateful double-buffering renderer."""
+        instance = self_or_cls if isinstance(self_or_cls, TUIPreviewRenderer) else None
+        target_input = (payload_or_image if payload_or_image is not None else source) if instance else (
+            self_or_cls if self_or_cls is not None else (payload_or_image if payload_or_image is not None else source)
+        )
         if target_input is None:
             raise TypeError("Missing required image source for TUIPreviewRenderer.render_diff()")
-
         if instance is None:
             return TUIPreviewRenderer.render(target_input, max_cols=max_cols, max_rows=max_rows, mode=mode)
 
-        effective_cols = max_cols if max_cols is not None else (instance.max_cols or 80)
-        effective_rows = max_rows if max_rows is not None else (instance.max_rows or 40)
-        if effective_cols <= 0:
-            effective_cols = 80
-        if effective_rows <= 0:
-            effective_rows = 40
+        effective_cols = max(1, max_cols if max_cols is not None else (instance.max_cols or 80))
+        effective_rows = max(1, max_rows if max_rows is not None else (instance.max_rows or 40))
 
         raw_img, _ = instance._load_pil_image(target_input)
         img = instance._prepare_rgb_image(raw_img)
-
-        cols, rows = instance.compute_preview_dimensions(
-            img.width, img.height, max_cols=effective_cols, max_rows=effective_rows, is_half_block=True
-        )
+        cols, rows = instance.compute_preview_dimensions(img.width, img.height, max_cols=effective_cols, max_rows=effective_rows, is_half_block=True)
         resized = img.resize((cols, rows * 2), resample=Image.Resampling.LANCZOS)
         pixels = resized.load()
 
-        back_buffer = []
-        for r in range(rows):
-            row_cells = []
-            for c in range(cols):
-                fg = pixels[c, 2 * r][:3]
-                bg = pixels[c, 2 * r + 1][:3] if (2 * r + 1) < resized.height else (0, 0, 0)
-                row_cells.append((fg, bg))
-            back_buffer.append(row_cells)
+        back_buffer = [
+            [(pixels[c, 2 * r][:3], pixels[c, 2 * r + 1][:3] if (2 * r + 1) < resized.height else (0, 0, 0)) for c in range(cols)]
+            for r in range(rows)
+        ]
 
         if instance._front_buffer is None or len(instance._front_buffer) != rows or len(instance._front_buffer[0]) != cols:
             instance._front_buffer = back_buffer
             return instance.render(target_input, max_cols=effective_cols, max_rows=effective_rows, mode=mode)
 
-        diff_parts = []
-        for r in range(rows):
-            for c in range(cols):
-                if back_buffer[r][c] != instance._front_buffer[r][c]:
-                    fg, bg = back_buffer[r][c]
-                    diff_parts.append(
-                        f"\x1b[{r+1};{c+1}H\x1b[38;2;{fg[0]};{fg[1]};{fg[2]}m\x1b[48;2;{bg[0]};{bg[1]};{bg[2]}m▀\x1b[0m"
-                    )
-
+        diff_parts = [
+            f"\x1b[{r+1};{c+1}H\x1b[38;2;{fg[0]};{fg[1]};{fg[2]}m\x1b[48;2;{bg[0]};{bg[1]};{bg[2]}m▀\x1b[0m"
+            for r in range(rows) for c in range(cols)
+            if back_buffer[r][c] != instance._front_buffer[r][c]
+            for fg, bg in [back_buffer[r][c]]
+        ]
         instance._front_buffer = back_buffer
         return "".join(diff_parts)
+
+    @staticmethod
+    def _format_card_borders(title_text: str, effective_mode: str, lines: list, max_vis_w: int) -> str:
+        header_str = f"─ [ {title_text} ] ─"
+        footer_str = f"─ [ Mode: {effective_mode} (▀) ] ─"
+        required_w = max(max_vis_w, len(header_str), len(footer_str))
+        top_border = f"┌{header_str}{'─' * max(0, required_w + 2 - len(header_str))}┐"
+        bottom_border = f"└{'─' * max(0, required_w + 2 - len(footer_str))}{footer_str}┘"
+
+        card_lines = [top_border]
+        for line in lines:
+            padding = " " * (required_w - len(strip_ansi(line)))
+            card_lines.append(f"│ {line}{padding} │")
+        card_lines.append(bottom_border)
+        return "\n".join(card_lines)
 
     def render_card(
         self_or_cls=None,
         payload_or_image: Union[ResolvedMultimodalPayload, Image.Image, str, Path, bytes, bytearray, None] = None,
+        *,
         title: Optional[str] = None,
         max_cols: Optional[int] = None,
         max_rows: Optional[int] = None,
@@ -448,79 +425,35 @@ class TUIPreviewRenderer:
         border_style: str = "unicode",
         source: Union[ResolvedMultimodalPayload, Image.Image, str, Path, bytes, bytearray, None] = None,
     ) -> str:
-        """
-        Wraps the TUI pixel matrix inside a retro-cyberpunk Unicode card container.
-        """
-        if isinstance(self_or_cls, TUIPreviewRenderer):
-            instance = self_or_cls
-            target_input = payload_or_image if payload_or_image is not None else source
-        else:
-            instance = None
-            target_input = self_or_cls if self_or_cls is not None else (payload_or_image if payload_or_image is not None else source)
-
+        """Wraps the TUI pixel matrix inside a retro-cyberpunk Unicode card container."""
+        instance = self_or_cls if isinstance(self_or_cls, TUIPreviewRenderer) else None
+        target_input = (payload_or_image if payload_or_image is not None else source) if instance else (
+            self_or_cls if self_or_cls is not None else (payload_or_image if payload_or_image is not None else source)
+        )
         if target_input is None:
             raise TypeError("Missing required image source for TUIPreviewRenderer.render_card()")
 
         cls = TUIPreviewRenderer
         effective_mode = mode or (instance.default_mode if instance else "truecolor")
-        raw_img, payload = cls._load_pil_image(target_input)
+        _, payload = cls._load_pil_image(target_input)
 
         term_size = shutil.get_terminal_size(fallback=(80, 24))
-        c_max = max_cols if max_cols is not None else (instance.max_cols if instance and instance.max_cols is not None else term_size.columns)
-        r_max = max_rows if max_rows is not None else (instance.max_rows if instance and instance.max_rows is not None else term_size.lines)
+        c_max = max(10, max_cols if max_cols is not None else (instance.max_cols if instance and instance.max_cols is not None else term_size.columns))
+        r_max = max(5, max_rows if max_rows is not None else (instance.max_rows if instance and instance.max_rows is not None else term_size.lines))
 
-        if c_max <= 0:
-            c_max = 80
-        if r_max <= 0:
-            r_max = 24
-
-        c_max = max(10, c_max)
-        r_max = max(5, r_max)
-
-        inner_cols = max(4, c_max - 4)
-        inner_rows = max(2, r_max - 2)
-
-        preview_matrix = cls.render(target_input, max_cols=inner_cols, max_rows=inner_rows, mode=effective_mode)
+        preview_matrix = cls.render(target_input, max_cols=max(4, c_max - 4), max_rows=max(2, r_max - 2), mode=effective_mode)
         lines = preview_matrix.splitlines()
-
-        visible_widths = [len(strip_ansi(line)) for line in lines]
-        max_vis_w = max(visible_widths, default=40)
+        max_vis_w = max([len(strip_ansi(line)) for line in lines], default=40)
 
         if title is None:
-            if payload and payload.file_path:
-                label = Path(payload.file_path).name
-            elif payload and payload.source_type == "clipboard":
-                label = "@clipboard"
-            elif payload and payload.source_type == "latest":
-                label = "@latest"
-            elif payload:
-                label = f"Image ({payload.sha256[:8]})"
-            else:
-                label = "Snapshot"
+            label = Path(payload.file_path).name if (payload and payload.file_path) else (
+                f"@{payload.source_type}" if (payload and payload.source_type in ("clipboard", "latest")) else "Snapshot"
+            )
             title_text = f"VISION PREVIEW: {label}"
         else:
             title_text = title
 
-        header_str = f"─ [ {title_text} ] ─"
-        footer_str = f"─ [ Mode: {effective_mode} (▀) ] ─"
-
-        # Content width must accommodate header and footer titles
-        required_content_w = max(max_vis_w, len(header_str), len(footer_str))
-
-        fill_top = max(0, required_content_w + 2 - len(header_str))
-        top_border = f"┌{header_str}{'─' * fill_top}┐"
-
-        fill_bot = max(0, required_content_w + 2 - len(footer_str))
-        bottom_border = f"└{'─' * fill_bot}{footer_str}┘"
-
-        card_lines = [top_border]
-        for line in lines:
-            line_vis_w = len(strip_ansi(line))
-            padding = " " * (required_content_w - line_vis_w)
-            card_lines.append(f"│ {line}{padding} │")
-        card_lines.append(bottom_border)
-
-        return "\n".join(card_lines)
+        return cls._format_card_borders(title_text, effective_mode, lines, max_vis_w)
 
 
 def render_terminal_harness_hud(

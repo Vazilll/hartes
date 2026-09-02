@@ -24,8 +24,15 @@ def main():
     ap.add_argument("--append", action="store_true", help="Append to existing index")
     args = ap.parse_args()
 
+    import re
+
+    # Sanitize index name to prevent path traversal
+    safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', args.name).strip('_')
+    if not safe_name:
+        safe_name = "default_index"
+
     # Load documents
-    docs_path = Path(args.docs)
+    docs_path = Path(args.docs).resolve()
     if not docs_path.exists():
         print(f"ERROR: docs file not found: {docs_path}", file=sys.stderr)
         sys.exit(1)
@@ -39,8 +46,11 @@ def main():
 
     docs = [str(d) for d in docs if d]
 
-    # Write passages JSONL
-    out_path = LEANN_DIR / f"{args.name}.leann.passages.jsonl"
+    # Write passages JSONL (strictly confined to LEANN_DIR)
+    out_path = (LEANN_DIR / f"{safe_name}.leann.passages.jsonl").resolve()
+    if not out_path.is_relative_to(LEANN_DIR):
+        print("ERROR: Path traversal detected in output path", file=sys.stderr)
+        sys.exit(1)
 
     mode = "a" if args.append else "w"
     written = 0

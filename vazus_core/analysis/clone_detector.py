@@ -22,14 +22,13 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import json
 import logging
 import sqlite3
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 import re
 
 logger = logging.getLogger("CloneDetector")
@@ -223,7 +222,7 @@ class CloneDetector:
             logger.warning("DB store failed: %s", e)
 
     def _store_suggestion(self, file_path: str, line: int, category: str,
-                          severity: str, suggestion: str, snippet: str = "") -> None:
+                          *, severity: str, suggestion: str, snippet: str = "") -> None:
         try:
             with sqlite3.connect(self.db_path, timeout=5) as conn:
                 conn.execute(
@@ -248,8 +247,7 @@ class CloneDetector:
         try:
             import tempfile, os, json
             with tempfile.TemporaryDirectory() as tmpdir:
-                report_path = os.path.join(tmpdir, "jscpd.json")
-                result = subprocess.run(
+                subprocess.run(
                     [
                         "jscpd", str(self.root),
                         "--format", "python",
@@ -374,87 +372,76 @@ class CloneDetector:
 
     # ── Stage 3: Type 4 via 768D semantic embeddings ──────────────────────
 
-    def detect_type4_semantic(self, threshold: float = 0.92) -> list[Clone]:
-        """
-        Finds semantic clones (Type 4) using UnifiedEmbeddingManager 768D vectors.
-        Functions with cosine_sim > threshold are flagged as semantic duplicates.
+    def _collect_embeddable_functions(self) -> list[dict]:
+        all_funcs: list[dict] = []
+        for fp in self.root.rglob("*.py"):
+            if "__pycache__" in str(fp):
+                continue
+            for func in _extract_functions(fp):
+                if len(func["source"]) > 100:
+                    all_funcs.append(func)
+        return all_funcs
 
-        This catches functions that do the same thing but are written differently
-        — not detectable by any token/AST-based tool.
-        """
+    def _find_semantic_pairs(self, all_funcs: list[dict], sim_matrix: Any, threshold: float) -> list[Clone]:
         clones: list[Clone] = []
+        n = len(all_funcs)
+        seen_pairs: set[frozenset] = set()
+        for i in range(n):
+            for j in range(i + 1, n):
+                sim = float(sim_matrix[i, j])
+                if sim < threshold:
+                    continue
+                a, b = all_funcs[i], all_funcs[j]
+                if a["file"] == b["file"] and a["name"] == b["name"]:
+                    continue
+                pair_key = frozenset([f"{a['file']}:{a['start']}", f"{b['file']}:{b['start']}"])
+                if pair_key in seen_pairs:
+                    continue
+                seen_pairs.add(pair_key)
+                clones.append(Clone(
+                    clone_type=4,
+                    file_a=a["file"], line_a_start=a["start"], line_a_end=a["end"],
+                    file_b=b["file"], line_b_start=b["start"], line_b_end=b["end"],
+                    similarity=round(sim, 4),
+                    fragment_a=a["source"][:200], fragment_b=b["source"][:200],
+                    suggestion=self._build_suggestion(4, a["file"], a["start"], b["file"], b["start"],
+                                                      extra=f"sim={sim:.3f}: {a['name']} ≈ {b['name']}")
+                ))
+        return clones
+
+    def detect_type4_semantic(self, threshold: float = 0.92) -> list[Clone]:
+        """Finds semantic clones (Type 4) using UnifiedEmbeddingManager 768D vectors."""
         try:
             sys.path.insert(0, str(VAZUS_ROOT))
             from vazus_core.memory.embeddings import UnifiedEmbeddingManager
             import numpy as np
 
             manager = UnifiedEmbeddingManager()
-
-            # Collect all functions with source > 100 chars (non-trivial)
-            py_files = list(self.root.rglob("*.py"))
-            all_funcs: list[dict] = []
-            for fp in py_files:
-                if "__pycache__" in str(fp):
-                    continue
-                for func in _extract_functions(fp):
-                    if len(func["source"]) > 100:
-                        all_funcs.append(func)
-
+            all_funcs = self._collect_embeddable_functions()
             if len(all_funcs) < 2:
                 return []
 
             logger.info("Computing 768D embeddings for %d functions...", len(all_funcs))
-            # Batch embed all function sources
-            texts = [f["source"][:512] for f in all_funcs]  # truncate for embedding
-            embeddings = manager.embed_batch(texts)  # shape: (N, 768)
+            texts = [f["source"][:512] for f in all_funcs]
+            embeddings = manager.embed_batch(texts)
 
             if embeddings is None or len(embeddings) != len(all_funcs):
                 logger.warning("Embedding batch failed or size mismatch")
                 return []
 
-            # Normalize for cosine similarity
             norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
             norms = np.where(norms == 0, 1e-8, norms)
             normed = embeddings / norms
-
-            # Upper triangle cosine similarity — O(N^2) but N usually < 300
             sim_matrix = normed @ normed.T
 
-            n = len(all_funcs)
-            seen_pairs: set[frozenset] = set()
-            for i in range(n):
-                for j in range(i + 1, n):
-                    sim = float(sim_matrix[i, j])
-                    if sim < threshold:
-                        continue
-                    a, b = all_funcs[i], all_funcs[j]
-                    # Skip same-file same-function (self-similarity edge case)
-                    if a["file"] == b["file"] and a["name"] == b["name"]:
-                        continue
-                    pair_key = frozenset([
-                        f"{a['file']}:{a['start']}",
-                        f"{b['file']}:{b['start']}"
-                    ])
-                    if pair_key in seen_pairs:
-                        continue
-                    seen_pairs.add(pair_key)
-
-                    clones.append(Clone(
-                        clone_type=4,
-                        file_a=a["file"], line_a_start=a["start"], line_a_end=a["end"],
-                        file_b=b["file"], line_b_start=b["start"], line_b_end=b["end"],
-                        similarity=round(sim, 4),
-                        fragment_a=a["source"][:200],
-                        fragment_b=b["source"][:200],
-                        suggestion=self._build_suggestion(4, a["file"], a["start"], b["file"], b["start"],
-                                                          extra=f"sim={sim:.3f}: {a['name']} ≈ {b['name']}")
-                    ))
+            clones = self._find_semantic_pairs(all_funcs, sim_matrix, threshold)
             clones.sort(key=lambda c: -c.similarity)
+            return clones
         except ImportError as e:
             logger.warning("Type-4 detection requires UnifiedEmbeddingManager: %s", e)
         except Exception as e:
             logger.exception("Type-4 semantic clone detection failed: %s", e)
-        return clones
+        return []
 
     # ── Master entrypoint ─────────────────────────────────────────────────
 

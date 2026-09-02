@@ -16,7 +16,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger("LocalREPL")
 
@@ -79,8 +79,8 @@ class _AnswerDict(dict):
         if key == "ready" and value and self._on_ready is not None:
             try:
                 self._on_ready(self.get("content", ""))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("on_ready callback failed: %s", exc)
 
 
 class REPLSandboxSecurityError(Exception):
@@ -294,7 +294,7 @@ class LocalREPL:
 
         temp_dir = self.temp_dir
 
-        def _safe_open(file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, closefd=True, opener=None):
+        def _safe_open(file, mode="r", buffering=-1, *, encoding=None, errors=None, newline=None, closefd=True, opener=None):
             file_str = str(file)
             if not os.path.isabs(file_str):
                 target_path = os.path.abspath(os.path.join(temp_dir, file_str))
@@ -334,6 +334,58 @@ class LocalREPL:
         """Alias for execute_code."""
         return self.execute_code(code)
 
+    def _pre_validate_code_security(self, code: str, start_time: float) -> Optional[REPLResult]:
+        try:
+            tree = ast.parse(code)
+            validator = REPLSandboxASTValidator()
+            validator.validate(tree)
+            return None
+        except REPLSandboxSecurityError as sec_err:
+            logger.debug("Sandbox security policy violation: %s", sec_err)
+            return REPLResult(
+                stdout="",
+                stderr=str(sec_err),
+                locals=self.locals.copy(),
+                execution_time=time.perf_counter() - start_time,
+                status="BLOCKED",
+                final_answer=None,
+                original_error=str(sec_err),
+                rlm_calls=[],
+            )
+        except SyntaxError as syn_err:
+            logger.debug("AST parse syntax note during validation: %s", syn_err)
+            return None
+
+    def _run_exec_sandbox(self, code: str) -> Tuple[str, str, str]:
+        stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
+        old_stdout, old_stderr = sys.stdout, sys.stderr
+        old_cwd = os.getcwd()
+
+        try:
+            os.chdir(self.temp_dir)
+            sys.stdout, sys.stderr = stdout_buf, stderr_buf
+
+            combined = {**self.globals, **self.locals}
+            exec(code, combined, combined)
+
+            for key, value in combined.items():
+                if key not in self.globals and not key.startswith("_"):
+                    self.locals[key] = value
+
+            return stdout_buf.getvalue(), stderr_buf.getvalue(), "SUCCESS"
+        except Exception as e:
+            logger.debug("REPL execution caught error: %s", e)
+            stdout = stdout_buf.getvalue()
+            is_sec = isinstance(e, (REPLSandboxSecurityError, PermissionError)) or "REPLSandboxSecurityError" in str(e)
+            stderr = stdout + stderr_buf.getvalue() + ("\nREPLSandboxSecurityError: " + str(e) if is_sec else f"\n{type(e).__name__}: {e}")
+            return stdout, stderr, ("BLOCKED" if is_sec else "ERROR")
+        finally:
+            sys.stdout, sys.stderr = old_stdout, old_stderr
+            try:
+                os.chdir(old_cwd)
+            except Exception as exc:
+                logger.debug("os.chdir restore note: %s", exc)
+
     def execute_code(self, code: str) -> REPLResult:
         """Executes Python code inside sandboxed REPL environment."""
         if not code or not code.strip():
@@ -349,56 +401,12 @@ class LocalREPL:
 
         start_time = time.perf_counter()
 
-        # Tier 1: Pre-Execution AST Validation
-        try:
-            tree = ast.parse(code)
-            validator = REPLSandboxASTValidator()
-            validator.validate(tree)
-        except REPLSandboxSecurityError as sec_err:
-            return REPLResult(
-                stdout="",
-                stderr=str(sec_err),
-                locals=self.locals.copy(),
-                execution_time=time.perf_counter() - start_time,
-                status="BLOCKED",
-                final_answer=None,
-                original_error=str(sec_err),
-                rlm_calls=[],
-            )
-        except SyntaxError:
-            pass
+        blocked_result = self._pre_validate_code_security(code, start_time)
+        if blocked_result is not None:
+            return blocked_result
 
         self._pending_llm_calls = []
-        stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
-
-        old_stdout, old_stderr = sys.stdout, sys.stderr
-        old_cwd = os.getcwd()
-
-        try:
-            os.chdir(self.temp_dir)
-            sys.stdout, sys.stderr = stdout_buf, stderr_buf
-
-            combined = {**self.globals, **self.locals}
-            exec(code, combined, combined)
-
-            for key, value in combined.items():
-                if key not in self.globals and not key.startswith("_"):
-                    self.locals[key] = value
-
-            stdout = stdout_buf.getvalue()
-            stderr = stderr_buf.getvalue()
-            status = "SUCCESS"
-        except Exception as e:
-            stdout = stdout_buf.getvalue()
-            is_sec = isinstance(e, (REPLSandboxSecurityError, PermissionError)) or "REPLSandboxSecurityError" in str(e)
-            stderr = stdout_buf.getvalue() + stderr_buf.getvalue() + ("\nREPLSandboxSecurityError: " + str(e) if is_sec else f"\n{type(e).__name__}: {e}")
-            status = "BLOCKED" if is_sec else "ERROR"
-        finally:
-            sys.stdout, sys.stderr = old_stdout, old_stderr
-            try:
-                os.chdir(old_cwd)
-            except Exception:
-                pass
+        stdout, stderr, status = self._run_exec_sandbox(code)
 
         final_ans = self._last_final_answer
         self._last_final_answer = None
@@ -537,8 +545,8 @@ class LocalREPL:
         """Cleanup temporary execution files."""
         try:
             shutil.rmtree(self.temp_dir)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("shutil.rmtree cleanup error: %s", exc)
         if hasattr(self, "globals"):
             self.globals.clear()
         if hasattr(self, "locals"):

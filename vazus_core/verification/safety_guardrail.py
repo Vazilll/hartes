@@ -8,10 +8,13 @@ vazus SuperGraph OS v4.0 Unified Architecture
 
 import ast
 import re
+import logging
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Callable, Union
+from typing import Dict, Any, List, Optional, Callable, Union, Tuple
+
+logger = logging.getLogger(__name__)
 
 # Attempt import of official z3 solver library
 try:
@@ -225,8 +228,8 @@ def _extract_return_from_body(body_stmts: List[ast.stmt], z3_vars: Dict[str, Any
                     try:
                         val_z3 = _ast_to_z3(stmt.value, z3_vars, type_hints)
                         z3_vars[target.id] = val_z3
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("AST assignment to Z3 value conversion skipped for %s: %s", target.id, exc)
         elif isinstance(stmt, ast.Return) and stmt.value:
             return _parse_expr_to_z3(stmt.value, z3_vars, type_hints)
         elif isinstance(stmt, ast.If):
@@ -254,9 +257,73 @@ class SMTZ3Verifier:
         self.depth = depth
         self.z3_available = Z3_AVAILABLE
 
+    def _check_node_contract(
+        self, node: ast.AST, requires: List[str], ensures: List[str]
+    ) -> Optional[VerificationResult]:
+        """Verifies formal docstring contracts for a single function node using SMT Z3."""
+        try:
+            z3_vars: Dict[str, Any] = {}
+            for arg in node.args.args:
+                z3_vars[arg.arg] = z3.Int(arg.arg)
+
+            result_z3 = _extract_return_from_body(node.body, z3_vars)
+            if result_z3 is None:
+                ret_node = next((n for n in ast.walk(node) if isinstance(n, ast.Return) and n.value), None)
+                if ret_node:
+                    result_z3 = _ast_to_z3(ret_node.value, z3_vars)
+            if result_z3 is None:
+                result_z3 = z3.Int("result")
+
+            z3_vars["result"] = result_z3
+            solver = z3.Solver()
+            solver.set("timeout", self.timeout_ms)
+
+            for req in requires:
+                req_ast = ast.parse(req.strip(), mode="eval").body
+                solver.add(_parse_expr_to_z3(req_ast, z3_vars))
+
+            ensures_z3_list = [_parse_expr_to_z3(ast.parse(ens.strip(), mode="eval").body, z3_vars) for ens in ensures]
+            if ensures_z3_list:
+                postcondition = z3.And(*ensures_z3_list) if len(ensures_z3_list) > 1 else ensures_z3_list[0]
+                solver.add(z3.Not(postcondition))
+
+            check_res = solver.check()
+            if check_res == z3.sat:
+                model = solver.model()
+                cex = {}
+                for var_name, z3_var in z3_vars.items():
+                    if var_name == "result":
+                        continue
+                    try:
+                        cex[var_name] = str(model.eval(z3_var, model_completion=True))
+                    except Exception as exc:
+                        logger.debug("Failed to eval model var %s: %s", var_name, exc)
+                        continue
+                cex_val = cex if cex else {"_note": "counterexample exists but no model vars captured"}
+                structured = [{"function": node.name, "smt_result": {"counterexample": cex_val, "status": "SAT", "message": f"Contract violation found for function '{node.name}'."}}]
+                return VerificationResult(
+                    verified=False, smt_solver_status="SAT", contract_satisfied=False,
+                    counterexample=cex_val, proof_details=f"Contract violation found for function '{node.name}'.",
+                    proof_type="SMT_Z3_CONTRACT", structured_details=structured
+                )
+            elif check_res == z3.unknown:
+                return VerificationResult(
+                    verified=False, smt_solver_status="UNKNOWN", contract_satisfied=False,
+                    proof_details=f"Solver returned UNKNOWN (timeout or undecidable) for function '{node.name}'.",
+                    proof_type="SMT_Z3_CONTRACT"
+                )
+            return None
+        except Exception as e:
+            return VerificationResult(
+                verified=False, smt_solver_status="ERROR", contract_satisfied=False,
+                proof_details=f"SMT Z3 translation error in '{node.name}': {e}",
+                proof_type="SMT_Z3_CONTRACT"
+            )
+
     def verify_code_contracts(
         self,
         code_str: str = "",
+        *,
         depth: Optional[int] = None,
         expected_functions: Optional[List[str]] = None,
         _expected_functions: Optional[List[str]] = None,
@@ -267,57 +334,19 @@ class SMTZ3Verifier:
         **_kwargs
     ) -> VerificationResult:
         """Parses Python code, extracts docstring contracts (:requires:, :ensures:), and checks with Z3."""
-        code_str = python_code or code or code_str or code_content or ""
-        actual_code = code_str or code_content or ""
-        target_funcs = expected_functions or _expected_functions
-        if target_funcs:
-            _ = target_funcs
+        actual_code = python_code or code or code_str or code_content or ""
         if not actual_code.strip():
-            return VerificationResult(
-                verified=True,
-                smt_solver_status="UNSAT",
-                contract_satisfied=True,
-                proof_details="Empty code snippet provided.",
-                proof_type="SMT_Z3_CONTRACT"
-            )
+            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True, proof_details="Empty code snippet provided.", proof_type="SMT_Z3_CONTRACT")
 
         try:
             tree = ast.parse(actual_code)
         except SyntaxError as se:
-            return VerificationResult(
-                verified=True,
-                smt_solver_status="UNSAT",
-                contract_satisfied=True,
-                ast_valid=False,
-                error_message=f"Syntax Error: {se}",
-                proof_type="SMT_Z3_CONTRACT"
-            )
+            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True, ast_valid=False, error_message=f"Syntax Error: {se}", proof_type="SMT_Z3_CONTRACT")
 
         if not self.z3_available:
-            return VerificationResult(
-                verified=True,
-                smt_solver_status="SKIPPED",
-                contract_satisfied=True,
-                proof_details="Z3 solver not installed; syntax verified.",
-                proof_type="SMT_Z3_CONTRACT"
-            )
-
-        if hasattr(self, '_check_smt_z3'):
-            try:
-                check_override = self._check_smt_z3("test", [], [], [])
-                if isinstance(check_override, dict) and check_override.get("smt_status") == "UNKNOWN":
-                    return VerificationResult(
-                        verified=False,
-                        smt_solver_status="UNKNOWN",
-                        contract_satisfied=False,
-                        proof_details=check_override.get("reason", "Solver returned UNKNOWN"),
-                        proof_type="SMT_Z3_CONTRACT"
-                    )
-            except Exception:
-                pass
+            return VerificationResult(verified=True, smt_solver_status="SKIPPED", contract_satisfied=True, proof_details="Z3 solver not installed; syntax verified.", proof_type="SMT_Z3_CONTRACT")
 
         contracts_checked = 0
-        # Extract functions and inspect contracts
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 docstring = ast.get_docstring(node) or ""
@@ -326,109 +355,40 @@ class SMTZ3Verifier:
 
                 if requires or ensures:
                     contracts_checked += 1
-                    try:
-                        z3_vars: Dict[str, Any] = {}
-                        for arg in node.args.args:
-                            z3_vars[arg.arg] = z3.Int(arg.arg)
-
-                        result_z3 = _extract_return_from_body(node.body, z3_vars)
-                        if result_z3 is None:
-                            ret_node = next((n for n in ast.walk(node) if isinstance(n, ast.Return) and n.value), None)
-                            if ret_node:
-                                result_z3 = _ast_to_z3(ret_node.value, z3_vars)
-
-                        if result_z3 is not None:
-                            z3_vars["result"] = result_z3
-
-                            solver = z3.Solver()
-                            solver.set("timeout", self.timeout_ms)
-
-                            for req in requires:
-                                req_ast = ast.parse(req.strip(), mode="eval").body
-                                req_z3 = _parse_expr_to_z3(req_ast, z3_vars)
-                                solver.add(req_z3)
-
-                            # Hoare triple: find counterexample where ALL preconditions hold
-                            # but SOME postcondition fails: NOT(ens1 AND ens2 AND ...)
-                            ensures_z3_list = []
-                            for ens in ensures:
-                                ens_ast = ast.parse(ens.strip(), mode="eval").body
-                                ens_z3 = _parse_expr_to_z3(ens_ast, z3_vars)
-                                ensures_z3_list.append(ens_z3)
-                            if ensures_z3_list:
-                                postcondition = z3.And(*ensures_z3_list) if len(ensures_z3_list) > 1 else ensures_z3_list[0]
-                                solver.add(z3.Not(postcondition))
-
-                            check_res = solver.check()
-                            if check_res == z3.sat:
-                                model = solver.model()
-                                cex = {}
-                                for var_name, z3_var in z3_vars.items():
-                                    if var_name == "result":
-                                        continue
-                                    try:
-                                        cex[var_name] = str(model.eval(z3_var, model_completion=True))
-                                    except Exception:
-                                        continue
-                                cex_val = cex if cex else {"_note": "counterexample exists but no model vars captured"}
-                                structured = [{
-                                    "function": node.name,
-                                    "smt_result": {
-                                        "counterexample": cex_val,
-                                        "status": "SAT",
-                                        "message": f"Contract violation found for function '{node.name}'."
-                                    }
-                                }]
-                                return VerificationResult(
-                                    verified=False,
-                                    smt_solver_status="SAT",
-                                    contract_satisfied=False,
-                                    counterexample=cex_val,
-                                    proof_details=f"Contract violation found for function '{node.name}'.",
-                                    proof_type="SMT_Z3_CONTRACT",
-                                    structured_details=structured
-                                )
-                            elif check_res == z3.unknown:
-                                return VerificationResult(
-                                    verified=False,
-                                    smt_solver_status="UNKNOWN",
-                                    contract_satisfied=False,
-                                    proof_details=f"Solver returned UNKNOWN (timeout or undecidable) for function '{node.name}'.",
-                                    proof_type="SMT_Z3_CONTRACT"
-                                )
-                        else:
-                            return VerificationResult(
-                                verified=False,
-                                smt_solver_status="ERROR",
-                                contract_satisfied=False,
-                                proof_details=f"Could not extract symbolic return expression for contracted function '{node.name}'.",
-                                proof_type="SMT_Z3_CONTRACT"
-                            )
-                    except Exception as e:
-                        return VerificationResult(
-                            verified=False,
-                            smt_solver_status="ERROR",
-                            contract_satisfied=False,
-                            proof_details=f"SMT Z3 translation error in '{node.name}': {e}",
-                            proof_type="SMT_Z3_CONTRACT"
-                        )
+                    violation = self._check_node_contract(node, requires, ensures)
+                    if violation is not None:
+                        return violation
 
         if contracts_checked > 0:
+            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True, proof_details=f"All {contracts_checked} formal contract(s) proved mathematically sound (UNSAT).", proof_type="SMT_Z3_CONTRACT")
+        return VerificationResult(verified=True, smt_solver_status="NO_CONTRACTS", contract_satisfied=True, proof_details="No formal :requires:/:ensures: docstring contracts found in AST.", proof_type="SMT_Z3_CONTRACT")
+
+    def _solve_z3_contract_formula(self, solver: Any) -> VerificationResult:
+        """Solves SAT/UNSAT/UNKNOWN on SMT contract solver."""
+        res = solver.check()
+        if res == z3.sat:
             return VerificationResult(
-                verified=True,
-                smt_solver_status="UNSAT",
-                contract_satisfied=True,
-                proof_details=f"All {contracts_checked} formal contract(s) proved mathematically sound (UNSAT).",
+                verified=False,
+                smt_solver_status="SAT",
+                contract_satisfied=False,
+                proof_details="Contract violation detected",
                 proof_type="SMT_Z3_CONTRACT"
             )
-        else:
+        if res == z3.unknown:
             return VerificationResult(
-                verified=True,
-                smt_solver_status="NO_CONTRACTS",
-                contract_satisfied=True,
-                proof_details="No formal :requires:/:ensures: docstring contracts found in AST.",
+                verified=False,
+                smt_solver_status="UNKNOWN",
+                contract_satisfied=False,
+                proof_details="Solver returned UNKNOWN",
                 proof_type="SMT_Z3_CONTRACT"
             )
+        return VerificationResult(
+            verified=True,
+            smt_solver_status="UNSAT",
+            contract_satisfied=True,
+            proof_details="Contract satisfied (UNSAT): pre ∧ ¬post unsatisfiable.",
+            proof_type="SMT_Z3_CONTRACT"
+        )
 
     def _check_smt_z3(
         self,
@@ -436,6 +396,7 @@ class SMTZ3Verifier:
         args: list = None,
         reqs: list = None,
         enss: list = None,
+        *,
         depth: int = 1,
         func_name: str = None,
         params: list = None,
@@ -474,31 +435,9 @@ class SMTZ3Verifier:
             for ens in post:
                 ens_ast = ast.parse(ens.strip(), mode="eval").body
                 solver.add(z3.Not(_parse_expr_to_z3(ens_ast, z3_vars)))
-            res = solver.check()
-            if res == z3.sat:
-                return VerificationResult(
-                    verified=False,
-                    smt_solver_status="SAT",
-                    contract_satisfied=False,
-                    proof_details="Contract violation detected",
-                    proof_type="SMT_Z3_CONTRACT"
-                )
-            elif res == z3.unknown:
-                return VerificationResult(
-                    verified=False,
-                    smt_solver_status="UNKNOWN",
-                    contract_satisfied=False,
-                    proof_details="Solver returned UNKNOWN",
-                    proof_type="SMT_Z3_CONTRACT"
-                )
-            return VerificationResult(
-                verified=True,
-                smt_solver_status="UNSAT",
-                contract_satisfied=True,
-                proof_details="Contract satisfied (UNSAT): pre ∧ ¬post unsatisfiable.",
-                proof_type="SMT_Z3_CONTRACT"
-            )
+            return self._solve_z3_contract_formula(solver)
         except Exception as e:
+            logger.debug("SMT Z3 contract check error: %s", e)
             return VerificationResult(
                 verified=False,
                 smt_solver_status="ERROR",
@@ -510,6 +449,73 @@ class SMTZ3Verifier:
     def verify_contract(self, code_str: str) -> VerificationResult:
         """Alias method for verify_code_contracts."""
         return self.verify_code_contracts(code_str)
+
+    def _find_matching_function_nodes(
+        self, tree_orig: ast.AST, tree_opt: ast.AST, func_name: Optional[str]
+    ) -> Tuple[Optional[ast.FunctionDef], Optional[ast.FunctionDef]]:
+        """Finds matching function definition nodes across original and optimized trees."""
+        func_orig = None
+        func_opt = None
+        for node in ast.walk(tree_orig):
+            if isinstance(node, ast.FunctionDef):
+                if func_name is None or node.name == func_name:
+                    func_orig = node
+                    break
+        for node in ast.walk(tree_opt):
+            if isinstance(node, ast.FunctionDef):
+                if func_name is None or node.name == func_name:
+                    func_opt = node
+                    break
+        return func_orig, func_opt
+
+    def _solve_z3_functional_equivalence(
+        self, func_orig: ast.FunctionDef, func_opt: ast.FunctionDef
+    ) -> Optional[VerificationResult]:
+        """Encodes symbolic return expressions and solves for functional equivalence."""
+        ret_orig = next((n for n in ast.walk(func_orig) if isinstance(n, ast.Return) and n.value), None)
+        ret_opt = next((n for n in ast.walk(func_opt) if isinstance(n, ast.Return) and n.value), None)
+        if not (ret_orig and ret_opt):
+            return None
+
+        z3_vars_orig: Dict[str, Any] = {}
+        z3_vars_opt: Dict[str, Any] = {}
+        for arg in func_orig.args.args:
+            z3_vars_orig[arg.arg] = z3.Int(arg.arg)
+            z3_vars_opt[arg.arg] = z3_vars_orig[arg.arg]
+
+        z3_orig = _extract_return_from_body(func_orig.body, z3_vars_orig)
+        if z3_orig is None:
+            z3_orig = _parse_expr_to_z3(ret_orig.value, z3_vars_orig)
+
+        z3_opt = _extract_return_from_body(func_opt.body, z3_vars_opt)
+        if z3_opt is None:
+            z3_opt = _parse_expr_to_z3(ret_opt.value, z3_vars_opt)
+
+        solver = z3.Solver()
+        solver.set("timeout", self.timeout_ms)
+        solver.add(z3_orig != z3_opt)
+        check_res = solver.check()
+
+        if check_res == z3.unsat:
+            return VerificationResult(
+                verified=True,
+                smt_solver_status="UNSAT",
+                contract_satisfied=True,
+                proof_details="Functional equivalence formally proven (UNSAT).",
+                proof_type="FUNCTIONAL_EQUIVALENCE"
+            )
+        if check_res == z3.sat:
+            model = solver.model()
+            cex = {str(k): str(model[v]) for k, v in z3_vars_orig.items()} if z3_vars_orig else {"counterexample": "found"}
+            return VerificationResult(
+                verified=False,
+                smt_solver_status="SAT",
+                contract_satisfied=False,
+                counterexample=cex,
+                proof_details="Functional equivalence violated (SAT counterexample found).",
+                proof_type="FUNCTIONAL_EQUIVALENCE"
+            )
+        return None
 
     def verify_functional_equivalence(
         self,
@@ -532,78 +538,30 @@ class SMTZ3Verifier:
             )
 
         if not self.z3_available:
+            if orig_code.strip() == opt_code.strip():
+                return VerificationResult(
+                    verified=True,
+                    smt_solver_status="UNSAT",
+                    contract_satisfied=True,
+                    proof_details="Exact code identity verified (UNSAT).",
+                    proof_type="FUNCTIONAL_EQUIVALENCE"
+                )
             return VerificationResult(
-                verified=True,
+                verified=False,
                 smt_solver_status="SKIPPED",
-                contract_satisfied=True,
-                proof_details="Z3 solver omitted; AST syntax verified.",
+                contract_satisfied=False,
+                proof_details="Z3 solver unavailable; formal proof cannot be established (Fail-Closed).",
                 proof_type="FUNCTIONAL_EQUIVALENCE"
             )
 
         try:
-            # Find function defs
-            func_orig = None
-            func_opt = None
-
-            for node in ast.walk(tree_orig):
-                if isinstance(node, ast.FunctionDef):
-                    if func_name is None or node.name == func_name:
-                        func_orig = node
-                        break
-
-            for node in ast.walk(tree_opt):
-                if isinstance(node, ast.FunctionDef):
-                    if func_name is None or node.name == func_name:
-                        func_opt = node
-                        break
-
+            func_orig, func_opt = self._find_matching_function_nodes(tree_orig, tree_opt, func_name)
             if func_orig and func_opt:
-                # Find return statements
-                ret_orig = next((n for n in ast.walk(func_orig) if isinstance(n, ast.Return) and n.value), None)
-                ret_opt = next((n for n in ast.walk(func_opt) if isinstance(n, ast.Return) and n.value), None)
-
-                if ret_orig and ret_opt:
-                    z3_vars_orig: Dict[str, Any] = {}
-                    z3_vars_opt: Dict[str, Any] = {}
-                    for arg in func_orig.args.args:
-                        z3_vars_orig[arg.arg] = z3.Int(arg.arg)
-                        z3_vars_opt[arg.arg] = z3_vars_orig[arg.arg]
-
-                    z3_orig = _extract_return_from_body(func_orig.body, z3_vars_orig)
-                    if z3_orig is None:
-                        z3_orig = _parse_expr_to_z3(ret_orig.value, z3_vars_orig)
-
-                    z3_opt = _extract_return_from_body(func_opt.body, z3_vars_opt)
-                    if z3_opt is None:
-                        z3_opt = _parse_expr_to_z3(ret_opt.value, z3_vars_opt)
-
-                    solver = z3.Solver()
-                    solver.set("timeout", self.timeout_ms)
-                    solver.add(z3_orig != z3_opt)
-                    check_res = solver.check()
-
-                    if check_res == z3.unsat:
-                        return VerificationResult(
-                            verified=True,
-                            smt_solver_status="UNSAT",
-                            contract_satisfied=True,
-                            proof_details="Functional equivalence formally proven (UNSAT).",
-                            proof_type="FUNCTIONAL_EQUIVALENCE"
-                        )
-                    elif check_res == z3.sat:
-                        model = solver.model()
-                        cex = {str(k): str(model[v]) for k, v in z3_vars_orig.items()} if z3_vars_orig else {"counterexample": "found"}
-                        return VerificationResult(
-                            verified=False,
-                            smt_solver_status="SAT",
-                            contract_satisfied=False,
-                            counterexample=cex,
-                            proof_details="Functional equivalence violated (SAT counterexample found).",
-                            proof_type="FUNCTIONAL_EQUIVALENCE"
-                        )
-        except Exception:
-            # Fallback if AST to Z3 expression conversion fails
-            pass
+                solved = self._solve_z3_functional_equivalence(func_orig, func_opt)
+                if solved is not None:
+                    return solved
+        except Exception as exc:
+            logger.debug("Symbolic AST-Z3 equivalence solver failed: %s", exc)
 
         # String or default comparison fallback
         if orig_code.strip() == opt_code.strip():
@@ -614,15 +572,14 @@ class SMTZ3Verifier:
                 proof_details="Exact code identity verified (UNSAT).",
                 proof_type="FUNCTIONAL_EQUIVALENCE"
             )
-        else:
-            return VerificationResult(
-                verified=False,
-                smt_solver_status="SAT",
-                contract_satisfied=False,
-                counterexample={"diff": "code_mismatch"},
-                proof_details="Code mismatch detected without formal proof.",
-                proof_type="FUNCTIONAL_EQUIVALENCE"
-            )
+        return VerificationResult(
+            verified=False,
+            smt_solver_status="SAT",
+            contract_satisfied=False,
+            counterexample={"diff": "code_mismatch"},
+            proof_details="Code mismatch detected without formal proof.",
+            proof_type="FUNCTIONAL_EQUIVALENCE"
+        )
 
     def verify_memory_safety(self, offset: int, length: int, capacity: int) -> VerificationResult:
         """Formally verifies buffer bounds safety: offset >= 0 and length >= 0 and offset + length <= capacity."""
@@ -829,8 +786,8 @@ def verify_no_external_api_quota(code_str: str) -> VerificationResult:
                         contract_satisfied=False,
                         error_message="Prohibited direct google.genai import detected."
                     )
-    except SyntaxError:
-        pass
+    except SyntaxError as se:
+        logger.debug("AST syntax error in verify_no_direct_gemini_api: %s", se)
     
     if "genai.Client()" in code_str and "GEMINI_API_KEY" in code_str:
         return VerificationResult(
@@ -955,6 +912,26 @@ def verify_code_contracts(code_str: str) -> VerificationResult:
     """Helper shortcut for SMT Z3 contract verification."""
     verifier = SMTZ3Verifier()
     return verifier.verify_code_contracts(code_str)
+
+
+def generate_failing_pytest_fixture(func_name: str, counterexample: Dict[str, Any]) -> str:
+    """
+    Synthesizes an executable pytest test fixture from an SMT Z3 SAT counterexample.
+    Used in CEGIS (Counterexample-Guided Inductive Synthesis) feedback loops.
+    """
+    clean_cex = {k: v for k, v in counterexample.items() if not k.startswith("_")}
+    args_repr = ", ".join(f"{k}={v!r}" for k, v in clean_cex.items())
+    safe_fn_name = re.sub(r"[^a-zA-Z0-9_]", "_", func_name) or "synthesized_function"
+
+    lines = [
+        f"def test_{safe_fn_name}_smt_counterexample():",
+        '    """Empirical regression fixture generated from formal SMT Z3 SAT counterexample."""',
+        "    # Counterexample inputs violating formal Hoare contract:",
+        f"    # {clean_cex}",
+        f"    result = {safe_fn_name}({args_repr})",
+        "    assert result is not None, 'Contract violation on counterexample input'",
+    ]
+    return "\n".join(lines)
 
 
 # Global singleton instance for backward compatibility

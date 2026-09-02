@@ -5,13 +5,17 @@ Implements verifiable workflows: INGEST, QUERY, LINT, SAVE, RESEARCH, REVIEW.
 vazus SuperGraph OS Architecture
 """
 
-import sys
 import json
+import logging
+import os
 import sqlite3
+import sys
 import time
 from contextlib import contextmanager
-from typing import Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -26,12 +30,9 @@ class RaytSwarmHandoffManager:
 
     WORKFLOWS = ["INGEST", "QUERY", "LINT", "SAVE", "RESEARCH", "REVIEW"]
 
-    TARGET_DB_PATHS = [
-        Path("C:/vazus/services/memory/vazus.db"),
-    ]
-
-    def __init__(self, db_path: str = "C:\\vazus\\services\\memory\\vazus.db"):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Optional[str | Path] = None):
+        target = db_path if db_path is not None else os.getenv("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db")
+        self.db_path = Path(target)
         self.embedder = UnifiedEmbeddingManager()
         self.jury = SOTA2027JuryEngine(effort_level="high")
         self._ensure_tables()
@@ -44,8 +45,8 @@ class RaytSwarmHandoffManager:
         try:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA busy_timeout=30000;")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("PRAGMA setup note for %s: %s", target_path, exc)
         try:
             with conn:
                 yield conn
@@ -53,11 +54,7 @@ class RaytSwarmHandoffManager:
             conn.close()
 
     def _ensure_tables(self):
-        """Auto-creates raytsystem_ledger table across all DB target locations."""
-        paths = list(self.TARGET_DB_PATHS)
-        if self.db_path not in paths:
-            paths.append(self.db_path)
-
+        """Auto-creates raytsystem_ledger table in target DB location."""
         ddl = """
         CREATE TABLE IF NOT EXISTS raytsystem_ledger (
             handoff_id TEXT PRIMARY KEY,
@@ -76,44 +73,87 @@ class RaytSwarmHandoffManager:
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         """
-        for p in paths:
-            try:
-                p.parent.mkdir(parents=True, exist_ok=True)
-                with self._connection(p) as conn:
-                    conn.execute(ddl)
-                    # Migrations / Column check for existing tables
-                    existing_cols = {col[1] for col in conn.execute("PRAGMA table_info(raytsystem_ledger)").fetchall()}
-                    column_defs = {
-                        "handoff_id": "TEXT",
-                        "from_agent": "TEXT",
-                        "to_agent": "TEXT",
-                        "task_name": "TEXT",
-                        "status": "TEXT",
-                        "payload": "TEXT",
-                        "timestamp": "TEXT",
-                        "id": "TEXT",
-                        "workflow": "TEXT",
-                        "source_agent": "TEXT",
-                        "target_agent": "TEXT",
-                        "payload_summary": "TEXT",
-                        "vector_768d": "BLOB",
-                        "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-                    }
-                    for col_name, col_type in column_defs.items():
-                        if col_name not in existing_cols:
-                            conn.execute(f"ALTER TABLE raytsystem_ledger ADD COLUMN {col_name} {col_type};")
+        try:
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            with self._connection(self.db_path) as conn:
+                conn.execute(ddl)
+                existing_cols = {col[1] for col in conn.execute("PRAGMA table_info(raytsystem_ledger)").fetchall()}
+                column_defs = {
+                    "handoff_id": "TEXT",
+                    "from_agent": "TEXT",
+                    "to_agent": "TEXT",
+                    "task_name": "TEXT",
+                    "status": "TEXT",
+                    "payload": "TEXT",
+                    "timestamp": "TEXT",
+                    "id": "TEXT",
+                    "workflow": "TEXT",
+                    "source_agent": "TEXT",
+                    "target_agent": "TEXT",
+                    "payload_summary": "TEXT",
+                    "vector_768d": "BLOB",
+                    "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                }
+                for col_name, col_type in column_defs.items():
+                    if col_name not in existing_cols:
+                        conn.execute(f"ALTER TABLE raytsystem_ledger ADD COLUMN {col_name} {col_type};")
 
-                    conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_from_to ON raytsystem_ledger(from_agent, to_agent);")
-                    conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_status ON raytsystem_ledger(status);")
-                    conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_workflow ON raytsystem_ledger(workflow);")
-                    conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_created ON raytsystem_ledger(created_at);")
-                    conn.commit()
-            except Exception as e:
-                sys.stderr.write(f"[RaytSwarmHandoffManager] DB table init error for {p}: {e}\n")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_from_to ON raytsystem_ledger(from_agent, to_agent);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_status ON raytsystem_ledger(status);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_workflow ON raytsystem_ledger(workflow);")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_raytsystem_ledger_created ON raytsystem_ledger(created_at);")
+                conn.commit()
+        except Exception as e:
+            logger.warning("DB table init error for %s: %s", self.db_path, e)
 
     def _ensure_ledger(self):
         """Alias for _ensure_tables for backward compatibility."""
         self._ensure_tables()
+
+    def _run_jury_verification(self, payload: Dict[str, Any], payload_str: str) -> Optional[Dict[str, Any]]:
+        target_file = payload.get("target_file", "handoff_payload.py")
+        code_content = payload.get("code_proposal", payload.get("code", payload_str))
+        jury_verdict = self.jury.evaluate_code_proposal(
+            file_path=target_file,
+            code_content=code_content,
+            agent_votes=payload.get("agent_votes")
+        )
+        return {
+            "approved": jury_verdict.get("approved", False),
+            "consensus_ratio": jury_verdict.get("consensus_ratio", 0.0),
+            "rejection_reasons": jury_verdict.get("rejection_reasons", []),
+            "votes": jury_verdict.get("votes", []),
+        }
+
+    def _persist_ledger_entry(
+        self,
+        handoff_id: str,
+        source_agent: str,
+        target_agent: str,
+        workflow_upper: str,
+        *,
+        status_val: str,
+        payload_str: str
+    ) -> None:
+        try:
+            with self._connection(self.db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO raytsystem_ledger 
+                    (handoff_id, id, from_agent, source_agent, to_agent, target_agent, task_name, workflow, status, payload, payload_summary, timestamp) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """,
+                    (
+                        handoff_id, handoff_id,
+                        source_agent, source_agent,
+                        target_agent, target_agent,
+                        workflow_upper, workflow_upper,
+                        status_val,
+                        payload_str, payload_str[:500]
+                    )
+                )
+        except Exception as e:
+            logger.warning("Ledger record error for %s: %s", self.db_path, e)
 
     def execute_handoff(
         self,
@@ -132,57 +172,24 @@ class RaytSwarmHandoffManager:
         payload_str = json.dumps(payload, ensure_ascii=False)
         vector_768d = self.embedder.get_embedding(payload_str[:2000])
 
-        # Step 1: Optional SOTA 2027 Jury Verification
-        jury_result = None
-        if require_jury:
-            # Real jury: votes=None forces LLM subagent evaluation.
-            # Payload code content is limited to 500 chars of JSON for context efficiency.
-            jury_result = self.jury.evaluate_code_proposal(
-                file_path=payload.get("file_path", "system_handoff.py"),
-                code_content=payload_str[:500],
-                agent_votes=None,  # Real jury — no self-approval
-            )
-
+        jury_result = self._run_jury_verification(payload, payload_str) if require_jury else None
         handoff_id = f"rayt_{workflow_upper.lower()}_{int(time.time()*1000)}"
-
-        # Step 2: Record in SQLite Raytsystem Ledger (Syncing across active database paths)
         status_val = "APPROVED" if (not jury_result or jury_result["approved"]) else "REJECTED"
-        paths = list(self.TARGET_DB_PATHS)
-        if self.db_path not in paths:
-            paths.append(self.db_path)
 
-        for p in paths:
-            try:
-                with self._connection(p) as conn:
-                    conn.execute(
-                        """
-                        INSERT OR REPLACE INTO raytsystem_ledger 
-                        (handoff_id, id, from_agent, source_agent, to_agent, target_agent, task_name, workflow, status, payload, payload_summary, timestamp) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                        """,
-                        (
-                            handoff_id, handoff_id,
-                            source_agent, source_agent,
-                            target_agent, target_agent,
-                            workflow_upper, workflow_upper,
-                            status_val,
-                            payload_str, payload_str[:500]
-                        )
-                    )
-            except Exception as e:
-                sys.stderr.write(f"[RaytSwarmHandoffManager] Ledger record error for {p}: {e}\n")
-
-        elapsed = round(time.time() - start_time, 3)
+        self._persist_ledger_entry(
+            handoff_id, source_agent, target_agent, workflow_upper,
+            status_val=status_val, payload_str=payload_str
+        )
 
         return {
             "handoff_id": handoff_id,
             "workflow": workflow_upper,
             "source_agent": source_agent,
             "target_agent": target_agent,
-            "status": "APPROVED" if (not jury_result or jury_result["approved"]) else "REJECTED",
+            "status": status_val,
             "vector_dim": len(vector_768d),
             "jury_verification": jury_result,
-            "execution_time_sec": elapsed,
+            "execution_time_sec": round(time.time() - start_time, 3),
         }
 
     def record_handoff(
@@ -190,6 +197,7 @@ class RaytSwarmHandoffManager:
         agent_name: str,
         action: str,
         payload: Dict[str, Any],
+        *,
         status: str = "APPROVED",
         target_agent: str = "system",
         workflow: str = "RESEARCH"
@@ -213,13 +221,3 @@ class RaytSwarmHandoffManager:
 
 # Global singleton instance
 handoff_manager = RaytSwarmHandoffManager()
-
-
-if __name__ == "__main__":
-    res = handoff_manager.execute_handoff(
-        workflow="RESEARCH",
-        source_agent="local_code_researcher",
-        target_agent="rlm_code_engineer",
-        payload={"file_path": "C:\\vazus\\vazus_core\\supergraph_linker.py", "action": "optimize_ast_links"}
-    )
-    print("Raytsystem Handoff Result:", res)

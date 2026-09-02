@@ -22,7 +22,22 @@ from vazus_core.workers.subprocess_repl import (
     block_network_on_job,
 )
 
+from dataclasses import dataclass, field
+
 logger = logging.getLogger("WorktreeSandbox")
+
+
+@dataclass
+class WorktreeTaskResult:
+    """Result of an execution task inside a worktree sandbox."""
+    success: bool
+    returncode: int = 0
+    stdout: str = ""
+    stderr: str = ""
+    error: str = ""
+    duration_s: float = 0.0
+    task_id: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class AntigravityWorktreeSandbox:
@@ -31,10 +46,17 @@ class AntigravityWorktreeSandbox:
     with native Win32 Job Object kernel confinement.
     Guarantees 100% isolation from production files and atomic verification gates.
     """
-    def __init__(self, repo_root: str = r"C:\vazus", scratch_dir: Optional[str] = None):
+    def __init__(
+        self,
+        repo_root: str = r"C:\vazus",
+        scratch_dir: Optional[str] = None,
+        snapshot_items: Optional[List[str]] = None,
+        **_kwargs,
+    ):
         self.repo_root = Path(repo_root)
         self.scratch_dir = Path(scratch_dir or self.repo_root / "scratch" / "worktrees")
         self.scratch_dir.mkdir(parents=True, exist_ok=True)
+        self.snapshot_items = snapshot_items or []
 
     @contextmanager
     def create_sandbox(self, prefix: str = "mutation") -> Generator[Path, None, None]:
@@ -88,30 +110,33 @@ class AntigravityWorktreeSandbox:
                 shutil.rmtree(worktree_path, ignore_errors=True)
             logger.info(f"[WorktreeSandbox] Cleaned up sandbox {worktree_path}")
 
-    def run_sandboxed_command(
+    def _init_job_handle(self, memory_limit_mb: int, block_network: bool) -> Optional[int]:
+        """Initializes Win32 Job Object sandbox handle if on Windows."""
+        if sys.platform != "win32":
+            return None
+        max_bytes = memory_limit_mb * 1024 * 1024
+        job_handle = create_win32_sandbox_job(max_memory_bytes=max_bytes)
+        if block_network and job_handle:
+            block_network_on_job(job_handle)
+        return job_handle
+
+    def _prepare_sandboxed_env(self, worktree_path: Path, env: Optional[Dict[str, str]]) -> Dict[str, str]:
+        """Prepares environment dictionary with isolated PYTHONPATH and UTF-8 flags."""
+        exec_env = env.copy() if env else os.environ.copy()
+        exec_env["PYTHONPATH"] = f"{worktree_path};{self.repo_root}"
+        exec_env["PYTHONUTF8"] = "1"
+        return exec_env
+
+    def _execute_contained_process(
         self,
         cmd: List[str],
         worktree_path: Path,
-        timeout: int = 30,
-        memory_limit_mb: int = 1024,
-        env: Optional[Dict[str, str]] = None,
-        block_network: bool = True,
+        exec_env: Dict[str, str],
+        job_handle: Optional[int],
+        timeout: int
     ) -> Dict[str, Any]:
-        """
-        Executes a command inside the worktree under a Win32 Job Object sandbox
-        with memory capping and network restriction.
-        """
-        job_handle = None
-        if sys.platform == "win32":
-            max_bytes = memory_limit_mb * 1024 * 1024
-            job_handle = create_win32_sandbox_job(max_memory_bytes=max_bytes)
-            if block_network and job_handle:
-                block_network_on_job(job_handle)
-
-        exec_env = env or os.environ.copy()
-        exec_env["PYTHONPATH"] = f"{worktree_path};{self.repo_root}"
-        exec_env["PYTHONUTF8"] = "1"
-
+        """Spawns subprocess inside sandbox job and waits for output."""
+        proc = None
         try:
             proc = subprocess.Popen(
                 cmd,
@@ -152,6 +177,25 @@ class AntigravityWorktreeSandbox:
                 "success": False,
                 "timed_out": False,
             }
+
+    def run_sandboxed_command(
+        self,
+        cmd: List[str],
+        worktree_path: Path,
+        *,
+        timeout: int = 30,
+        memory_limit_mb: int = 1024,
+        env: Optional[Dict[str, str]] = None,
+        block_network: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        Executes a command inside the worktree under a Win32 Job Object sandbox
+        with memory capping and network restriction.
+        """
+        job_handle = self._init_job_handle(memory_limit_mb, block_network)
+        exec_env = self._prepare_sandboxed_env(worktree_path, env)
+        try:
+            return self._execute_contained_process(cmd, worktree_path, exec_env, job_handle, timeout)
         finally:
             if job_handle:
                 close_win32_sandbox_job(job_handle)

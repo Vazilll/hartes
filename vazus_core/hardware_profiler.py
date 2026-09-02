@@ -59,34 +59,40 @@ class HardwareCapProfiler:
             if self._capabilities is None:
                 self.detect_capabilities()
 
-            profile_json = json.dumps(self._capabilities, indent=2)
-
-            conn = sqlite3.connect(target_db)
-            try:
-                cursor = conn.cursor()
-                cursor.execute(
-                    """
+            os.makedirs(os.path.dirname(os.path.abspath(target_db)), exist_ok=True)
+            with sqlite3.connect(target_db, timeout=10.0) as conn:
+                cur = conn.cursor()
+                cur.execute("""
                     CREATE TABLE IF NOT EXISTS hardware_profiles (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        profile_json TEXT,
+                        profile_json TEXT NOT NULL,
                         probed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
-                    """
-                )
-                cursor.execute(
-                    "INSERT INTO hardware_profiles (profile_json) VALUES (?)",
-                    (profile_json,),
+                """)
+                cur.execute(
+                    "INSERT INTO hardware_profiles (profile_json, probed_at) VALUES (?, ?)",
+                    (
+                        json.dumps(self._capabilities, indent=2, ensure_ascii=False),
+                        datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    ),
                 )
                 conn.commit()
-                return True
-            finally:
-                conn.close()
+            logger.info("Hardware capabilities saved to %s", target_db)
+            return True
         except Exception as err:
-            logger.error(f"Failed to save hardware profile to database '{db_path}': {err}")
+            logger.warning("Failed saving hardware profile to %s: %s", target_db, err)
             return False
 
     def _probe_cpu_isas(self) -> Dict[str, bool]:
-        """Probe CPU ISAs: AVX2, AVX-512, FMA, BMI2, NEON."""
+        """
+        Probe CPU Instruction Set Architectures (AVX2, AVX-512, FMA, BMI2, NEON).
+        Uses multi-tier probing:
+        1. ctypes CPUID instruction / kernel32 IsProcessorFeaturePresent on Windows
+        2. /proc/cpuinfo on Linux
+        3. sysctl on macOS
+        4. OpenVINO runtime CPU capabilities
+        5. PyTorch CPU capability probe
+        """
         flags = {
             "AVX2": False,
             "AVX-512": False,
@@ -95,32 +101,27 @@ class HardwareCapProfiler:
             "NEON": False,
         }
 
-        # 1. Platform / OS specific ctypes inspection (Windows API & CPUID)
-        self._probe_win32_isas(flags)
-        self._probe_cpuid(flags)
+        # Probe 1: Windows IsProcessorFeaturePresent / CPUID
+        if sys.platform == "win32":
+            self._probe_windows_processor_features(flags)
+            self._probe_cpuid(flags)
 
-        # 2. Linux /proc/cpuinfo inspection
+        # Probe 2: Linux /proc/cpuinfo
         self._probe_proc_cpuinfo(flags)
 
-        # 3. macOS sysctl inspection
+        # Probe 3: macOS sysctl
         self._probe_macos_sysctl(flags)
 
-        # 4. OpenVINO CPU capabilities inspection
+        # Probe 4: OpenVINO runtime capabilities
         self._probe_openvino_cpu_caps(flags)
 
-        # 5. PyTorch CPU capability inspection
+        # Probe 5: PyTorch CPU capability
         self._probe_pytorch_cpu_caps(flags)
-
-        # 6. Architecture / machine fallback
-        machine = platform.machine().lower()
-        if "arm" in machine or "aarch64" in machine:
-            # ARM64 architecture standardly includes NEON (ASIMD)
-            flags["NEON"] = True
 
         return flags
 
-    def _probe_win32_isas(self, flags: Dict[str, bool]) -> None:
-        """Probe CPU features via Windows API (IsProcessorFeaturePresent)."""
+    def _probe_windows_processor_features(self, flags: Dict[str, bool]) -> None:
+        """Call Windows Win32 IsProcessorFeaturePresent."""
         if sys.platform != "win32":
             return
         try:
@@ -135,74 +136,92 @@ class HardwareCapProfiler:
                 flags["AVX-512"] = True
             if kernel32.IsProcessorFeaturePresent(19):  # PF_ARM_NEON
                 flags["NEON"] = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Windows processor feature detection error: %s", exc)
+
+    @staticmethod
+    def _get_cpuid_machine_code() -> bytes:
+        """Returns x86 or x86_64 machine code for executing CPUID."""
+        if sys.maxsize > 2**32:
+            return bytes([
+                0x89, 0xC8,             # mov eax, ecx
+                0x89, 0xD1,             # mov ecx, edx
+                0x53,                   # push rbx
+                0x0F, 0xA2,             # cpuid
+                0x41, 0x89, 0x00,       # mov [r8], eax
+                0x41, 0x89, 0x58, 0x04, # mov [r8+4], ebx
+                0x41, 0x89, 0x48, 0x08, # mov [r8+8], ecx
+                0x41, 0x89, 0x50, 0x0C, # mov [r8+12], edx
+                0x5B,                   # pop rbx
+                0xC3                    # ret
+            ])
+        return bytes([
+            0x55,                   # push ebp
+            0x89, 0xE5,             # mov ebp, esp
+            0x53,                   # push ebx
+            0x57,                   # push edi
+            0x8B, 0x45, 0x08,       # mov eax, [ebp+8]
+            0x8B, 0x4D, 0x0C,       # mov ecx, [ebp+12]
+            0x0F, 0xA2,             # cpuid
+            0x8B, 0x7D, 0x10,       # mov edi, [ebp+16]
+            0x89, 0x07,             # mov [edi], eax
+            0x89, 0x5F, 0x04,       # mov [edi+4], ebx
+            0x89, 0x4F, 0x08,       # mov [edi+8], ecx
+            0x89, 0x57, 0x0C,       # mov [edi+12], edx
+            0x5F,                   # pop edi
+            0x5B,                   # pop ebx
+            0x5D,                   # pop ebp
+            0xC3                    # ret
+        ])
+
+    @staticmethod
+    def _parse_cpuid_regs(cpuid_func: Any, flags: Dict[str, bool]) -> None:
+        """Invokes CPUID function for leaf 1 & leaf 7, setting detected ISA flags."""
+        regs = (ctypes.c_uint32 * 4)()
+
+        # Leaf 1: Basic features
+        cpuid_func(1, 0, ctypes.byref(regs))
+        ecx1 = regs[2]
+        if ecx1 & (1 << 12):  # FMA bit
+            flags["FMA"] = True
+
+        # Leaf 7, Subleaf 0: Extended features
+        cpuid_func(7, 0, ctypes.byref(regs))
+        ebx7 = regs[1]
+        if ebx7 & (1 << 5):   # AVX2 bit
+            flags["AVX2"] = True
+        if ebx7 & (1 << 8):   # BMI2 bit
+            flags["BMI2"] = True
+        if ebx7 & (1 << 16):  # AVX512F bit
+            flags["AVX-512"] = True
 
     def _probe_cpuid(self, flags: Dict[str, bool]) -> None:
         """Execute CPUID directly on x86/x86_64 architectures using ctypes."""
         machine = platform.machine().lower()
-        if machine not in ("amd64", "x86_64", "x86"):
-            return
-        if sys.platform != "win32":
-            # Native CPUID memory allocation is win32 specific in this helper;
-            # Linux/macOS are handled by /proc/cpuinfo & sysctl.
+        if machine not in ("amd64", "x86_64", "x86") or sys.platform != "win32":
             return
 
         try:
-            # 64-bit Windows calling convention for CPUID wrapper:
-            # RCX=leaf, RDX=subleaf, R8=pointer to int[4]
-            code = bytes([
-                0x53,                   # push rbx
-                0x89, 0xc8,             # mov eax, ecx
-                0x89, 0xd1,             # mov ecx, edx
-                0x0f, 0xa2,             # cpuid
-                0x41, 0x89, 0x00,       # mov dword ptr [r8], eax
-                0x41, 0x89, 0x58, 0x04, # mov dword ptr [r8+4], ebx
-                0x41, 0x89, 0x48, 0x08, # mov dword ptr [r8+8], ecx
-                0x41, 0x89, 0x50, 0x0c, # mov dword ptr [r8+12], edx
-                0x5b,                   # pop rbx
-                0xc3                    # ret
-            ])
-
-            MEM_COMMIT = 0x1000
-            MEM_RESERVE = 0x2000
-            PAGE_EXECUTE_READWRITE = 0x40
-
             kernel32 = ctypes.windll.kernel32
             kernel32.VirtualAlloc.restype = ctypes.c_void_p
             kernel32.VirtualAlloc.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_ulong, ctypes.c_ulong]
-            ptr = kernel32.VirtualAlloc(None, len(code), MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE)
+
+            code = self._get_cpuid_machine_code()
+            ptr = kernel32.VirtualAlloc(0, len(code), 0x1000 | 0x2000, 0x40)
             if not ptr:
                 return
 
             try:
                 ctypes.memmove(ptr, code, len(code))
-                CMPFUNC = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32 * 4))
-                func = CMPFUNC(ptr)
-
-                # Leaf 1: FMA & AVX
-                regs1 = (ctypes.c_uint32 * 4)()
-                func(1, 0, ctypes.byref(regs1))
-                ecx1 = regs1[2]
-                if ecx1 & (1 << 12):  # FMA bit
-                    flags["FMA"] = True
-
-                # Leaf 7, Subleaf 0: AVX2, BMI2, AVX-512
-                regs7 = (ctypes.c_uint32 * 4)()
-                func(7, 0, ctypes.byref(regs7))
-                ebx7 = regs7[1]
-                if ebx7 & (1 << 5):   # AVX2 bit
-                    flags["AVX2"] = True
-                if ebx7 & (1 << 8):   # BMI2 bit
-                    flags["BMI2"] = True
-                if ebx7 & (1 << 16):  # AVX512F bit
-                    flags["AVX-512"] = True
+                func_type = ctypes.CFUNCTYPE(None, ctypes.c_uint32, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint32 * 4))
+                cpuid_func = func_type(ptr)
+                self._parse_cpuid_regs(cpuid_func, flags)
             finally:
                 kernel32.VirtualFree.restype = ctypes.c_bool
                 kernel32.VirtualFree.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_ulong]
                 kernel32.VirtualFree(ptr, 0, 0x8000)  # MEM_RELEASE
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("CPUID probe failed: %s", exc)
 
     def _probe_proc_cpuinfo(self, flags: Dict[str, bool]) -> None:
         """Parse Linux /proc/cpuinfo if available."""
@@ -221,8 +240,8 @@ class HardwareCapProfiler:
                     flags["BMI2"] = True
                 if "neon" in content or "asimd" in content:
                     flags["NEON"] = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("/proc/cpuinfo parsing error: %s", exc)
 
     def _probe_macos_sysctl(self, flags: Dict[str, bool]) -> None:
         """Probe macOS sysctl features if on Darwin."""
@@ -242,8 +261,8 @@ class HardwareCapProfiler:
                 flags["BMI2"] = True
             if "hw.optional.neon: 1" in out or "hw.optional.arm64: 1" in out:
                 flags["NEON"] = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("macOS sysctl probe failed: %s", exc)
 
     def _probe_openvino_cpu_caps(self, flags: Dict[str, bool]) -> None:
         """Probe OpenVINO CPU optimization capabilities."""
@@ -266,8 +285,8 @@ class HardwareCapProfiler:
                     flags["FMA"] = True
                 if any("BMI2" in c for c in caps_str):
                     flags["BMI2"] = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("OpenVINO CPU capabilities probe failed: %s", exc)
 
     def _probe_pytorch_cpu_caps(self, flags: Dict[str, bool]) -> None:
         """Probe PyTorch CPU capabilities."""
@@ -282,8 +301,8 @@ class HardwareCapProfiler:
                 elif "AVX2" in cap:
                     flags["AVX2"] = True
                     flags["FMA"] = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("PyTorch CPU capabilities probe failed: %s", exc)
 
     def _probe_accelerators(self) -> Dict[str, Any]:
         """Probe accelerator availability (OpenVINO NPU, CUDA GPUs)."""
@@ -301,8 +320,8 @@ class HardwareCapProfiler:
             openvino_devices = [str(dev) for dev in core.available_devices]
             openvino_available = True
             openvino_npu = "NPU" in openvino_devices
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("OpenVINO accelerator probe failed: %s", exc)
 
         cuda_gpu: bool = False
         cuda_device_count: int = 0
@@ -315,8 +334,8 @@ class HardwareCapProfiler:
                 cuda_device_count = int(torch.cuda.device_count())
                 if cuda_device_count > 0:
                     cuda_device_name = str(torch.cuda.get_device_name(0))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("CUDA GPU accelerator probe failed: %s", exc)
 
         return {
             "openvino_npu": openvino_npu,
@@ -431,7 +450,8 @@ class HardwareCapProfiler:
                         caches[level_key] = int(cache.Size)
 
             return line_size, caches
-        except Exception:
+        except Exception as exc:
+            logger.debug("Win32 cache probe failed: %s", exc)
             return None, {}
 
     def _probe_linux_cache(self) -> Tuple[Optional[int], Dict[str, int]]:
@@ -444,8 +464,8 @@ class HardwareCapProfiler:
                     val = os.sysconf("SC_LEVEL1_DCACHE_LINESIZE")
                     if isinstance(val, int) and val > 0:
                         line_size = val
-                except (ValueError, OSError):
-                    pass
+                except (ValueError, OSError) as exc:
+                    logger.debug("Linux sysconf probe failed: %s", exc)
 
             base_dir = "/sys/devices/system/cpu/cpu0/cache"
             if os.path.exists(base_dir):
@@ -473,6 +493,19 @@ class HardwareCapProfiler:
                             elif raw_sz.isdigit():
                                 sz_bytes = int(raw_sz)
                             caches[f"L{lvl}"] = sz_bytes
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Linux sysfs cache probe failed: %s", exc)
         return line_size, caches
+
+
+def get_hardware_profiler() -> HardwareCapProfiler:
+    """Returns singleton HardwareCapProfiler instance."""
+    return HardwareCapProfiler()
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    profiler = get_hardware_profiler()
+    profile = profiler.detect_capabilities()
+    print(json.dumps(profile, indent=2, ensure_ascii=False))
+    profiler.save_profile_to_db()

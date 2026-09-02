@@ -4,19 +4,21 @@ Provides automatic entity, fact, and preference extraction, deduplication, and 7
 inside vazus.db for Vazus SuperGraph OS v5.0.
 """
 
-import re
-import time
 import json
+import logging
+import os
+import re
 import sqlite3
-from typing import List, Dict, Any
-
 import sys
-sys.path.insert(0, "C:/vazus")
+import time
+from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from vazus_core.memory.db import get_db_connection
 from vazus_core.memory.embeddings import get_embedding_manager
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"C:\vazus\services\memory\vazus.db"
 
 
 class Mem0Engine:
@@ -70,8 +72,9 @@ class Mem0Engine:
     );
     """
 
-    def __init__(self, db_path: str = DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_path: Optional[str] = None):
+        env_db = os.environ.get("VAZUS_DB_PATH")
+        self.db_path = db_path or env_db or DB_PATH
         self._ensure_table()
         self.emb_mgr = get_embedding_manager()
 
@@ -121,8 +124,8 @@ class Mem0Engine:
                             "UPDATE mem0_facts SET status = 'SUPERSEDED', valid_until = ?, superseded_by = ? WHERE fact_id = ?",
                             (now, fact_id, f_id)
                         )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed computing semantic overlap for fact %s: %s", f_id, exc)
 
         cur.execute("""
             INSERT OR REPLACE INTO mem0_facts (
@@ -202,6 +205,7 @@ class Mem0Engine:
     def record_observation_v2(
         self,
         fact_text: str,
+        *,
         category: str = "observation",
         source_agent: str = "antigravity",
         provenance: str = "turn_context",

@@ -6,20 +6,20 @@ extracts turn step events, applies binary and security guardrails, and queues sa
 objects for downstream subscribers.
 """
 
-import os
-import sys
-import time
-import json
-import sqlite3
-import re
-import queue
-import signal
-import threading
 import datetime
+import json
 import logging
+import os
+import queue
+import re
+import signal
+import sqlite3
+import sys
+import threading
+import time
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import List, Dict, Any, Optional, Tuple, Callable
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from vazus_core.engine.config import settings
 
@@ -93,8 +93,8 @@ class TranscriptWatcher:
         try:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("PRAGMA busy_timeout=30000;")
-        except sqlite3.OperationalError:
-            pass  # Read-only mode may disallow PRAGMA mutation if WAL already set
+        except sqlite3.OperationalError as exc:
+            logger.debug("Read-only PRAGMA mode: %s", exc)
             
         return conn
 
@@ -108,7 +108,8 @@ class TranscriptWatcher:
                 self._cached_mtimes[path_key] = current_mtime
                 return True
             return False
-        except OSError:
+        except OSError as exc:
+            logger.debug("mtime check error for %s: %s", db_path, exc)
             return False
 
     def _load_state(self) -> Dict[str, Any]:
@@ -121,7 +122,7 @@ class TranscriptWatcher:
                 logger.warning(f"Failed to load daemon state, re-initializing: {e}")
         return {
             "last_processed_timestamp": None,
-            "conversations": {}  # format: {conv_id: {"last_step_idx": int, "last_updated": str}}
+            "conversations": {}
         }
 
     def _save_state(self) -> None:
@@ -179,83 +180,90 @@ class TranscriptWatcher:
                 
         return True
 
-    def poll_once(self) -> List[TranscriptEvent]:
-        """
-        Executes a single read-only polling sweep across conversation databases.
-        Returns a list of newly discovered, sanitized TranscriptEvents.
-        """
-        new_events: List[TranscriptEvent] = []
+    def _query_summary_rows(self) -> List[sqlite3.Row]:
         if not self.summaries_db_path.exists():
-            return new_events
-
-        # MTime pre-check on summary DB
+            return []
         if not self._has_mtime_changed(self.summaries_db_path) and self.state.get("conversations"):
-            return new_events
-
+            return []
         try:
             conn = self._get_ro_connection(self.summaries_db_path)
             cursor = conn.cursor()
             cursor.execute(
                 "SELECT conversation_id, step_count, last_modified_time FROM conversation_summaries ORDER BY last_modified_time DESC"
             )
-            summaries = cursor.fetchall()
+            rows = cursor.fetchall()
             conn.close()
+            return rows
         except Exception as e:
             logger.debug(f"Transient error querying conversation_summaries: {e}")
-            return new_events
+            return []
+
+    def _fetch_new_steps(self, conv_db_path: Path, last_step_idx: int) -> List[sqlite3.Row]:
+        try:
+            c_conn = self._get_ro_connection(conv_db_path)
+            c_cursor = c_conn.cursor()
+            c_cursor.execute(
+                "SELECT idx, status, step_payload FROM steps WHERE idx > ? ORDER BY idx ASC",
+                (last_step_idx,)
+            )
+            steps = c_cursor.fetchall()
+            c_conn.close()
+            return steps
+        except Exception as e:
+            logger.debug(f"Transient error querying steps: {e}")
+            return []
+
+    def _process_single_conversation(self, conv_id: str) -> List[TranscriptEvent]:
+        conv_db_path = self.conversations_dir / f"{conv_id}.db"
+        if not conv_db_path.exists():
+            return []
+
+        conv_state = self.state.get("conversations", {}).get(conv_id, {"last_step_idx": -1})
+        last_step_idx = conv_state["last_step_idx"]
+
+        if not self._has_mtime_changed(conv_db_path) and last_step_idx >= 0:
+            return []
+
+        steps = self._fetch_new_steps(conv_db_path, last_step_idx)
+        events: List[TranscriptEvent] = []
+        max_idx = last_step_idx
+
+        for step in steps:
+            idx = step["idx"]
+            status_code = "SUCCESS" if step["status"] == 0 else "ERROR"
+            user_input, tool_calls = self._extract_payload_strings(step["step_payload"])
+            
+            if self._apply_guardrails(user_input, tool_calls):
+                events.append(TranscriptEvent(
+                    conversation_id=conv_id,
+                    step_idx=idx,
+                    user_input=user_input,
+                    tool_calls=tool_calls,
+                    status=status_code
+                ))
+            max_idx = max(max_idx, idx)
+
+        if max_idx > last_step_idx:
+            if "conversations" not in self.state:
+                self.state["conversations"] = {}
+            self.state["conversations"][conv_id] = {
+                "last_step_idx": max_idx,
+                "last_updated": datetime.datetime.utcnow().isoformat() + "Z"
+            }
+
+        return events
+
+    def poll_once(self) -> List[TranscriptEvent]:
+        """
+        Executes a single read-only polling sweep across conversation databases.
+        Returns a list of newly discovered, sanitized TranscriptEvents.
+        """
+        summaries = self._query_summary_rows()
+        new_events: List[TranscriptEvent] = []
 
         for row in summaries:
-            conv_id = row["conversation_id"]
-            conv_db_path = self.conversations_dir / f"{conv_id}.db"
-            if not conv_db_path.exists():
-                continue
-
-            conv_state = self.state.get("conversations", {}).get(conv_id, {"last_step_idx": -1})
-            last_step_idx = conv_state["last_step_idx"]
-
-            if not self._has_mtime_changed(conv_db_path) and last_step_idx >= 0:
-                continue
-
-            try:
-                c_conn = self._get_ro_connection(conv_db_path)
-                c_cursor = c_conn.cursor()
-                c_cursor.execute(
-                    "SELECT idx, status, step_payload FROM steps WHERE idx > ? ORDER BY idx ASC",
-                    (last_step_idx,)
-                )
-                steps = c_cursor.fetchall()
-                c_conn.close()
-            except Exception as e:
-                logger.debug(f"Transient error querying steps for conversation {conv_id}: {e}")
-                continue
-
-            max_idx = last_step_idx
-            for step in steps:
-                idx = step["idx"]
-                status_code = "SUCCESS" if step["status"] == 0 else "ERROR"
-                payload_bytes = step["step_payload"]
-
-                user_input, tool_calls = self._extract_payload_strings(payload_bytes)
-                
-                if self._apply_guardrails(user_input, tool_calls):
-                    event = TranscriptEvent(
-                        conversation_id=conv_id,
-                        step_idx=idx,
-                        user_input=user_input,
-                        tool_calls=tool_calls,
-                        status=status_code
-                    )
-                    new_events.append(event)
-                    
-                max_idx = max(max_idx, idx)
-
-            if max_idx > last_step_idx:
-                if "conversations" not in self.state:
-                    self.state["conversations"] = {}
-                self.state["conversations"][conv_id] = {
-                    "last_step_idx": max_idx,
-                    "last_updated": datetime.datetime.utcnow().isoformat() + "Z"
-                }
+            events = self._process_single_conversation(row["conversation_id"])
+            new_events.extend(events)
 
         if new_events:
             self.state["last_processed_timestamp"] = datetime.datetime.utcnow().isoformat() + "Z"
@@ -327,6 +335,7 @@ class DaemonSidecar:
                 self.total_events_processed += 1
                 self.event_queue.task_done()
             except queue.Empty:
+                logger.debug("Queue empty, waiting...")
                 continue
 
     def _write_pid(self) -> None:
@@ -344,8 +353,8 @@ class DaemonSidecar:
         if self.pid_file and self.pid_file.exists():
             try:
                 self.pid_file.unlink()
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("Failed removing PID file: %s", exc)
 
     def start(self, daemonize: bool = False) -> None:
         """

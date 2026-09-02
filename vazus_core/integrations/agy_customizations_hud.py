@@ -15,14 +15,17 @@ Usage (terminal):
 Auto-registered as SubagentFramework on_start hook when module is imported.
 """
 
-import os
-import sys
-import re
 import json
+import logging
+import os
+import re
+import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
-from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────
 # ANSI helpers (ASCII-safe boxes, no Unicode chars)
@@ -50,8 +53,8 @@ def _vt100():
             k.GetConsoleMode(h, ctypes.byref(m))
             m.value |= 0x0004
             k.SetConsoleMode(h, m)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed setting VT100 mode: %s", exc)
 
 
 def _p(text: str):
@@ -187,8 +190,8 @@ class CustomizationScanner:
             from vazus_core.memory.auto_improver import SkillUsageTracker
             for s in SkillUsageTracker().get_top_skills(500):
                 scores[s["name"]] = s["score"]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed loading AutoImprover skill scores: %s", exc)
 
         def _walk(base: Path, source: str):
             if not base.exists():
@@ -206,8 +209,8 @@ class CustomizationScanner:
                             name = m.group(1).strip()
                         if d:
                             desc = d.group(1).strip()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Failed parsing SKILL.md for %s: %s", skill_md, exc)
                     if name not in seen:
                         seen.add(name)
                         skills.append(SkillInfo(
@@ -237,8 +240,8 @@ class CustomizationScanner:
                 args = cfg.get("args", [])
                 status = self._check_status(name, cmd, args)
                 servers.append(McpServerInfo(name=name, command=cmd, args=args, status=status))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed loading MCP config %s: %s", MCP_CONFIG, exc)
         return servers
 
     def _check_status(self, name: str, cmd: str, args: List[str]) -> str:
@@ -267,8 +270,8 @@ class CustomizationScanner:
                     skills_count=sum(1 for _ in d.rglob("SKILL.md")),
                     has_hooks=(d / "hooks.json").exists(),
                 ))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Failed parsing plugin manifest %s: %s", manifest, exc)
         return plugins
 
     # ── Hooks ─────────────────────────────────────────────
@@ -420,8 +423,8 @@ class CustomizationsHUD:
             if top:
                 top_str = "  ".join(f"{s['name']}={s['score']:.2f}" for s in top)
                 lines.append(f"{CYAN}AutoImprover EMA{RESET}: top skills -> {top_str}")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed retrieving AutoImprover stats for HUD: %s", exc)
 
         for l in _box("VAZUS INTERNAL HARNESS  (SubagentFramework hooks)", lines, color=BLUE):
             _p(l)
@@ -452,8 +455,8 @@ def render_compact_hud():
                 sc = GREEN if s.status in ("running", "ready") else YELLOW
                 parts.append(f"{sc}{s.name}{RESET}:{s.status}")
             _p(f"{CYAN}[AGY-HUD MCP]{RESET} " + "  ".join(parts))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Compact HUD rendering error: %s", exc)
 
 
 # ─────────────────────────────────────────────────────────
@@ -471,8 +474,8 @@ def _register_hud_hook():
         names = [getattr(h, "__name__", "") for h in global_hook_registry._on_start_hooks]
         if "_hud_on_start" not in names:
             global_hook_registry.register_on_start(_hud_on_start)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Failed registering HUD on_start hook: %s", exc)
 
 
 _register_hud_hook()

@@ -6,6 +6,7 @@ maps media references to M1 MediaScene nodes, generates 768D Gemini vector embed
 and persists kg_nodes and kg_edges into SuperGraph SQLite databases.
 """
 
+import logging
 import os
 import sys
 import glob
@@ -14,8 +15,9 @@ import re
 import sqlite3
 from typing import List, Dict, Any, Optional, Tuple
 
-
 import threading
+
+logger = logging.getLogger("telegram_indexer")
 
 _EMBEDDING_MANAGER_CACHE = None
 _EMBEDDING_LOCK = threading.Lock()
@@ -64,7 +66,8 @@ def parse_jsonl_file(fpath: str) -> List[Dict[str, Any]]:
                 continue
             try:
                 data = json.loads(line)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as json_err:
+                logger.debug("Failed to decode jsonl line: %s", json_err)
                 continue
 
             msg_id = data.get("id")
@@ -73,7 +76,8 @@ def parse_jsonl_file(fpath: str) -> List[Dict[str, Any]]:
 
             try:
                 msg_id = int(msg_id)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as parse_err:
+                logger.debug("Failed to parse msg_id %s: %s", msg_id, parse_err)
                 continue
 
             sender = data.get("sender") or data.get("from") or data.get("author") or "Пользователь"
@@ -156,342 +160,312 @@ def parse_md_file(fpath: str) -> List[Dict[str, Any]]:
     return messages
 
 
+def _query_db_media_scenes(
+    db_file: str, scene_by_file: Dict[str, List[str]], media_by_msg_id: Dict[int, List[Tuple[str, str]]]
+) -> None:
+    if not os.path.exists(db_file):
+        return
+    try:
+        conn = sqlite3.connect(db_file)
+        cur = conn.cursor()
+        tables = [t[0] for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if 'kg_nodes' in tables:
+            rows = cur.execute("SELECT id, properties FROM kg_nodes WHERE domain='multimodal_av'").fetchall()
+            for nid, props_str in rows:
+                p = json.loads(props_str) if props_str else {}
+                sf = p.get("source_file", "")
+                fn = os.path.basename(sf)
+                if fn:
+                    fn_lower = fn.lower()
+                    if nid not in scene_by_file.setdefault(fn_lower, []):
+                        scene_by_file[fn_lower].append(nid)
+
+                m = re.search(r'(?:_msg|msg_|media_|video_msg|msg)(\d+)', fn, re.IGNORECASE)
+                if m:
+                    msg_id = int(m.group(1))
+                    item = (nid, fn)
+                    if item not in media_by_msg_id.setdefault(msg_id, []):
+                        media_by_msg_id[msg_id].append(item)
+        conn.close()
+    except Exception as e:
+        logger.debug("MediaScene index query note for %s: %s", db_file, e)
+
+
+def _scan_courses_media_files(
+    courses_dir: str, scene_by_file: Dict[str, List[str]], media_by_msg_id: Dict[int, List[Tuple[str, str]]]
+) -> None:
+    if not os.path.exists(courses_dir):
+        return
+    media_exts = ('.mp4', '.m4a', '.mp3', '.oga', '.ogg', '.wav', '.mov', '.jpg', '.jpeg', '.png')
+    for root, _, files in os.walk(courses_dir):
+        for f in files:
+            if f.lower().endswith(media_exts):
+                m = re.search(r'(?:_msg|msg_|media_|video_msg|msg)(\d+)', f, re.IGNORECASE)
+                if m:
+                    msg_id = int(m.group(1))
+                    f_lower = f.lower()
+                    if f_lower in scene_by_file:
+                        for sid in scene_by_file[f_lower]:
+                            item = (sid, f)
+                            if item not in media_by_msg_id.setdefault(msg_id, []):
+                                media_by_msg_id[msg_id].append(item)
+                    else:
+                        item = (f"media:{f}", f)
+                        if item not in media_by_msg_id.setdefault(msg_id, []):
+                            media_by_msg_id[msg_id].append(item)
+
+
 def build_media_index(
     courses_dir: str = "C:/vazus/knowledge/telegram_courses",
     target_dbs: Optional[List[str]] = None
 ) -> Tuple[Dict[str, List[str]], Dict[int, List[Tuple[str, str]]]]:
-    """
-    Builds lookup structures for media files and M1 MediaScene nodes.
-    Returns:
-      - scene_by_file: filename_lower -> list of scene_ids
-      - media_by_msg_id: msg_id -> list of (target_id, filename)
-    """
+    """Builds lookup structures for media files and M1 MediaScene nodes."""
     scene_by_file: Dict[str, List[str]] = {}
     media_by_msg_id: Dict[int, List[Tuple[str, str]]] = {}
 
     if target_dbs is None:
-        target_dbs = ["C:/vazus/services/memory/vazus.db", "C:/vazus/services/memory/vazus.db"]
+        target_dbs = ["C:/vazus/services/memory/vazus.db"]
 
-    # Query existing MediaScene nodes from database
     for db_file in target_dbs:
-        if not os.path.exists(db_file):
-            continue
-        try:
-            conn = sqlite3.connect(db_file)
-            cur = conn.cursor()
-            tables = [t[0] for t in cur.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
-            if 'kg_nodes' in tables:
-                rows = cur.execute("SELECT id, properties FROM kg_nodes WHERE domain='multimodal_av'").fetchall()
-                for nid, props_str in rows:
-                    p = json.loads(props_str) if props_str else {}
-                    sf = p.get("source_file", "")
-                    fn = os.path.basename(sf)
-                    if fn:
-                        fn_lower = fn.lower()
-                        if nid not in scene_by_file.setdefault(fn_lower, []):
-                            scene_by_file[fn_lower].append(nid)
+        _query_db_media_scenes(db_file, scene_by_file, media_by_msg_id)
 
-                    m = re.search(r'(?:_msg|msg_|media_|video_msg|msg)(\d+)', fn, re.IGNORECASE)
-                    if m:
-                        msg_id = int(m.group(1))
-                        item = (nid, fn)
-                        if item not in media_by_msg_id.setdefault(msg_id, []):
-                            media_by_msg_id[msg_id].append(item)
-            conn.close()
-        except Exception as e:
-            sys.stderr.write(f"[TelegramIndexer] MediaScene index query note for {db_file}: {e}\n")
-
-    # Scan physical media files in telegram_courses
-    if os.path.exists(courses_dir):
-        for root, _, files in os.walk(courses_dir):
-            for f in files:
-                if f.lower().endswith(('.mp4', '.m4a', '.mp3', '.oga', '.ogg', '.wav', '.mov', '.jpg', '.jpeg', '.png')):
-                    m = re.search(r'(?:_msg|msg_|media_|video_msg|msg)(\d+)', f, re.IGNORECASE)
-                    if m:
-                        msg_id = int(m.group(1))
-                        # Determine if scene_id exists for f, else fallback to media:<f>
-                        f_lower = f.lower()
-                        if f_lower in scene_by_file:
-                            for sid in scene_by_file[f_lower]:
-                                item = (sid, f)
-                                if item not in media_by_msg_id.setdefault(msg_id, []):
-                                    media_by_msg_id[msg_id].append(item)
-                        else:
-                            item = (f"media:{f}", f)
-                            if item not in media_by_msg_id.setdefault(msg_id, []):
-                                media_by_msg_id[msg_id].append(item)
-
+    _scan_courses_media_files(courses_dir, scene_by_file, media_by_msg_id)
     return scene_by_file, media_by_msg_id
+
+
+def _load_channel_messages(fpaths: Dict[str, Optional[str]]) -> List[Dict[str, Any]]:
+    """Loads raw messages from jsonl (primary) or md (fallback/supplement)."""
+    channel_messages_dict: Dict[int, Dict[str, Any]] = {}
+    if fpaths["jsonl"]:
+        for m in parse_jsonl_file(fpaths["jsonl"]):
+            channel_messages_dict[m["msg_id"]] = m
+    if fpaths["md"]:
+        for m in parse_md_file(fpaths["md"]):
+            if m["msg_id"] not in channel_messages_dict:
+                channel_messages_dict[m["msg_id"]] = m
+            elif not channel_messages_dict[m["msg_id"]]["reply_to_msg_id"] and m["reply_to_msg_id"]:
+                channel_messages_dict[m["msg_id"]]["reply_to_msg_id"] = m["reply_to_msg_id"]
+    sorted_msg_ids = sorted(channel_messages_dict.keys())
+    return [channel_messages_dict[mid] for mid in sorted_msg_ids]
+
+
+def _resolve_thread_trees(
+    channel_msgs: List[Dict[str, Any]],
+    channel_slug: str,
+    *,
+    all_edges_to_insert: List[Tuple[str, str, str, float, str]]
+) -> int:
+    """Builds Q&A thread trees and inserts REPLIES_TO edges."""
+    msgs_by_id: Dict[int, Dict[str, Any]] = {}
+    sorted_msg_ids = [m["msg_id"] for m in channel_msgs]
+    replies_linked = 0
+
+    for item in channel_msgs:
+        msg_id, text, parent_id = item["msg_id"], item["text"], item["reply_to_msg_id"]
+        if parent_id is None and text:
+            m1 = re.search(r'\[(?:ID|msg):\s*(\d+)\]', text, re.IGNORECASE)
+            if m1:
+                parent_id = int(m1.group(1))
+            else:
+                m2 = re.search(r'^(?:Re|Ответ на|в ответ на)\s*#?(\d+)', text, re.IGNORECASE)
+                if m2:
+                    parent_id = int(m2.group(1))
+
+        if parent_id is None and text.startswith(">"):
+            quote_line = text.split("\n")[0].lstrip("> ").strip().lower()
+            if len(quote_line) > 10:
+                for prev_id in reversed(sorted_msg_ids):
+                    if prev_id < msg_id and prev_id in msgs_by_id:
+                        if quote_line[:30] in msgs_by_id[prev_id]["text"].lower():
+                            parent_id = prev_id
+                            break
+
+        item["parent_id"] = parent_id
+        item["root_msg_id"] = msg_id
+        item["reply_depth"] = 0
+        item["is_thread_root"] = True
+
+        if parent_id is not None and parent_id in msgs_by_id:
+            parent_node = msgs_by_id[parent_id]
+            item["is_thread_root"] = False
+            item["root_msg_id"] = parent_node["root_msg_id"]
+            item["reply_depth"] = parent_node["reply_depth"] + 1
+
+            child_node_id = f"tg_msg_{channel_slug}_{msg_id}"
+            parent_node_id = f"tg_msg_{channel_slug}_{parent_id}"
+            edge_props = json.dumps({"reply_to_msg_id": parent_id}, ensure_ascii=False)
+            all_edges_to_insert.append((child_node_id, parent_node_id, "REPLIES_TO", 1.0, edge_props))
+            replies_linked += 1
+
+        msgs_by_id[msg_id] = item
+    return replies_linked
+
+
+def _build_media_targets_for_msg(
+    item: Dict[str, Any],
+    msg_id: int,
+    *,
+    media_by_msg_id: Dict[int, List[Tuple[str, str]]],
+    scene_by_file: Dict[str, List[str]]
+) -> List[Tuple[str, str]]:
+    """Gathers referenced media targets for a single message."""
+    referenced_media_targets: List[Tuple[str, str]] = []
+    if msg_id in media_by_msg_id:
+        for target_id, fn in media_by_msg_id[msg_id]:
+            referenced_media_targets.append((target_id, fn))
+
+    raw_media = item.get("raw_media")
+    if isinstance(raw_media, str) and raw_media:
+        fn = os.path.basename(raw_media)
+        fn_lower = fn.lower()
+        if fn_lower in scene_by_file:
+            for sid in scene_by_file[fn_lower]:
+                referenced_media_targets.append((sid, fn))
+        else:
+            referenced_media_targets.append((f"media:{fn}", fn))
+
+    return list(dict.fromkeys(referenced_media_targets))
+
+
+def _process_single_message(
+    item: Dict[str, Any],
+    channel_name: str,
+    channel_slug: str,
+    channel_node_id: str,
+    *,
+    media_by_msg_id: Dict[int, List[Tuple[str, str]]],
+    scene_by_file: Dict[str, List[str]],
+    embedder: Any,
+    all_nodes_to_insert: list,
+    all_edges_to_insert: list
+) -> int:
+    """Processes a single Telegram message into node and edge records."""
+    msg_id, sender, date, text = item["msg_id"], item["sender"], item["date"], item["text"]
+    msg_node_id = f"tg_msg_{channel_slug}_{msg_id}"
+
+    unique_media_targets = _build_media_targets_for_msg(
+        item, msg_id, media_by_msg_id=media_by_msg_id, scene_by_file=scene_by_file
+    )
+    referenced_media_files = [fn for _, fn in unique_media_targets]
+
+    for target_id, fn in unique_media_targets:
+        media_edge_props = json.dumps({"media_file": fn, "channel": channel_name, "match_rule": "msg_id"}, ensure_ascii=False)
+        all_edges_to_insert.append((msg_node_id, target_id, "REFERENCES_MEDIA", 1.0, media_edge_props))
+
+    belongs_props = json.dumps({"channel_name": channel_name}, ensure_ascii=False)
+    all_edges_to_insert.append((msg_node_id, channel_node_id, "BELONGS_TO", 1.0, belongs_props))
+
+    node_props = json.dumps({
+        "msg_id": msg_id, "channel_name": channel_name, "channel_slug": channel_slug,
+        "sender": sender, "date": date, "text": text,
+        "reply_to_msg_id": item["parent_id"], "root_msg_id": item["root_msg_id"],
+        "reply_depth": item["reply_depth"], "has_media": bool(referenced_media_files),
+        "referenced_media_files": referenced_media_files, "file_source": item["file_source"]
+    }, ensure_ascii=False)
+
+    formatted_prompt = f"[{channel_name}] Message #{msg_id} by {sender} ({date}):\n{text}"
+    msg_emb = embedder.get_embedding(formatted_prompt)
+
+    all_nodes_to_insert.append((
+        msg_node_id, f"Message #{msg_id} by {sender} ({date})",
+        "telegram_discussion", "TelegramMessage",
+        text[:500], f"telegram,discussion,{channel_slug}",
+        node_props, json.dumps(msg_emb)
+    ))
+    return len(unique_media_targets)
+
+
+def _persist_kg_batch(
+    target_dbs: List[str],
+    all_nodes_to_insert: list,
+    all_edges_to_insert: list
+) -> int:
+    """Executes batch inserts into target SuperGraph SQLite databases."""
+    from vazus_core.analysis.kg_schema import ensure_kg_schema
+    updated_count = 0
+    for db_target in target_dbs:
+        db_dir = os.path.dirname(db_target)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+
+        with sqlite3.connect(db_target) as conn:
+            cur = conn.cursor()
+            ensure_kg_schema(cur)
+            cur.executemany("""
+                INSERT OR REPLACE INTO kg_nodes (
+                    id, name, domain, node_type, description, tags, properties, embedding_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, all_nodes_to_insert)
+            cur.executemany("""
+                INSERT OR REPLACE INTO kg_edges (
+                    source_id, target_id, relation, strength, properties
+                ) VALUES (?, ?, ?, ?, ?)
+            """, all_edges_to_insert)
+            conn.commit()
+        updated_count += 1
+    return updated_count
 
 
 def index_telegram_messages(
     messages_dir: str = "C:/vazus/knowledge/telegram_messages",
     db_path: str = "C:/vazus/services/memory/vazus.db"
 ) -> Dict[str, int]:
-    """
-    Parses all .jsonl and .md files in messages_dir, links Q&A discussion threads via reply_to_msg_id,
-    maps media references to M1 MediaScene nodes, generates 768D Gemini vector embeddings,
-    and inserts kg_nodes and kg_edges into SQLite SuperGraph databases.
-
-    Returns summary dictionary with counts of processed files, indexed messages, channels,
-    linked replies, media edges, and updated databases.
-    """
+    """Parses .jsonl/.md files, links Q&A discussion threads, and persists kg_nodes/kg_edges."""
     messages_dir = os.path.abspath(messages_dir).replace('\\', '/')
     db_path = os.path.abspath(db_path).replace('\\', '/')
-
-    target_dbs = list(dict.fromkeys([
-        db_path,
-        "C:/vazus/services/memory/vazus.db",
-        "C:/vazus/services/memory/vazus.db"
-    ]))
+    target_dbs = list(dict.fromkeys([db_path, "C:/vazus/services/memory/vazus.db"]))
 
     embedder = get_embedding_manager()
-
-    # Pre-build media lookup index
     courses_dir = "C:/vazus/knowledge/telegram_courses"
     scene_by_file, media_by_msg_id = build_media_index(courses_dir, target_dbs)
 
-    # 1. Discover all .jsonl and .md files in messages_dir
-    jsonl_files = glob.glob(os.path.join(messages_dir, "*.jsonl"))
-    md_files = glob.glob(os.path.join(messages_dir, "*.md"))
-    all_files = jsonl_files + md_files
-
-    # Group files by channel name (stem)
+    all_files = glob.glob(os.path.join(messages_dir, "*.jsonl")) + glob.glob(os.path.join(messages_dir, "*.md"))
     channels_map: Dict[str, Dict[str, Optional[str]]] = {}
     for fpath in all_files:
         stem = os.path.splitext(os.path.basename(fpath))[0]
         ext = os.path.splitext(fpath)[1].lower()
         if stem not in channels_map:
             channels_map[stem] = {"jsonl": None, "md": None}
-        if ext == ".jsonl":
-            channels_map[stem]["jsonl"] = fpath
-        elif ext == ".md":
-            channels_map[stem]["md"] = fpath
-
-    total_files_processed = len(all_files)
-    total_channels_indexed = len(channels_map)
-    total_messages_indexed = 0
-    total_replies_linked = 0
-    total_media_edges_linked = 0
+        channels_map[stem]["jsonl" if ext == ".jsonl" else "md"] = fpath
 
     all_nodes_to_insert: List[Tuple[str, str, str, str, str, str, str, str]] = []
     all_edges_to_insert: List[Tuple[str, str, str, float, str]] = []
+    tot_msgs, tot_replies, tot_media_edges = 0, 0, 0
 
-    # Process each channel dataset
     for channel_name, fpaths in channels_map.items():
         channel_slug = make_channel_slug(channel_name)
         channel_node_id = f"tg_channel_{channel_slug}"
+        channel_msgs = _load_channel_messages(fpaths)
 
-        # Load raw messages from jsonl (primary) or md (fallback/supplement)
-        channel_messages_dict: Dict[int, Dict[str, Any]] = {}
+        tot_replies += _resolve_thread_trees(channel_msgs, channel_slug, all_edges_to_insert=all_edges_to_insert)
 
-        if fpaths["jsonl"]:
-            jsonl_msgs = parse_jsonl_file(fpaths["jsonl"])
-            for m in jsonl_msgs:
-                channel_messages_dict[m["msg_id"]] = m
-
-        if fpaths["md"]:
-            md_msgs = parse_md_file(fpaths["md"])
-            for m in md_msgs:
-                if m["msg_id"] not in channel_messages_dict:
-                    channel_messages_dict[m["msg_id"]] = m
-                else:
-                    # Enrich reply_to_msg_id from md if missing in jsonl
-                    if not channel_messages_dict[m["msg_id"]]["reply_to_msg_id"] and m["reply_to_msg_id"]:
-                        channel_messages_dict[m["msg_id"]]["reply_to_msg_id"] = m["reply_to_msg_id"]
-
-        # Sort messages chronologically ascending by msg_id
-        sorted_msg_ids = sorted(channel_messages_dict.keys())
-        channel_msgs = [channel_messages_dict[mid] for mid in sorted_msg_ids]
-
-        # Build Q&A Thread Trees
-        msgs_by_id: Dict[int, Dict[str, Any]] = {}
-
-        for item in channel_msgs:
-            msg_id = item["msg_id"]
-            text = item["text"]
-            parent_id = item["reply_to_msg_id"]
-
-            # Fallback regex pattern checks if parent_id not set
-            if parent_id is None and text:
-                m1 = re.search(r'\[(?:ID|msg):\s*(\d+)\]', text, re.IGNORECASE)
-                if m1:
-                    parent_id = int(m1.group(1))
-                else:
-                    m2 = re.search(r'^(?:Re|Ответ на|в ответ на)\s*#?(\d+)', text, re.IGNORECASE)
-                    if m2:
-                        parent_id = int(m2.group(1))
-
-            # Quoting fallback if text starts with >
-            if parent_id is None and text.startswith(">"):
-                quote_line = text.split("\n")[0].lstrip("> ").strip().lower()
-                if len(quote_line) > 10:
-                    for prev_id in reversed(sorted_msg_ids):
-                        if prev_id >= msg_id:
-                            continue
-                        prev_item = msgs_by_id.get(prev_id)
-                        if prev_item and quote_line[:30] in prev_item["text"].lower():
-                            parent_id = prev_id
-                            break
-
-            item["parent_id"] = parent_id
-            item["root_msg_id"] = msg_id
-            item["reply_depth"] = 0
-            item["is_thread_root"] = True
-
-            if parent_id is not None and parent_id in msgs_by_id:
-                parent_node = msgs_by_id[parent_id]
-                item["is_thread_root"] = False
-                item["root_msg_id"] = parent_node["root_msg_id"]
-                item["reply_depth"] = parent_node["reply_depth"] + 1
-
-                # Create REPLIES_TO Edge
-                child_node_id = f"tg_msg_{channel_slug}_{msg_id}"
-                parent_node_id = f"tg_msg_{channel_slug}_{parent_id}"
-                edge_props = json.dumps({"reply_to_msg_id": parent_id}, ensure_ascii=False)
-                all_edges_to_insert.append((child_node_id, parent_node_id, "REPLIES_TO", 1.0, edge_props))
-                total_replies_linked += 1
-
-            msgs_by_id[msg_id] = item
-
-        # Create Channel Container Node
         channel_desc = f"Telegram channel / course discussion: {channel_name}"
-        channel_props = json.dumps({
-            "channel_name": channel_name,
-            "channel_slug": channel_slug,
-            "total_messages": len(channel_msgs)
-        }, ensure_ascii=False)
+        channel_props = json.dumps({"channel_name": channel_name, "channel_slug": channel_slug, "total_messages": len(channel_msgs)}, ensure_ascii=False)
         channel_emb = embedder.get_embedding(channel_name)
-        channel_tags = f"telegram,channel,{channel_slug}"
 
         all_nodes_to_insert.append((
-            channel_node_id,
-            channel_name,
-            "telegram_discussion",
-            "TelegramChannel",
-            channel_desc,
-            channel_tags,
-            channel_props,
-            json.dumps(channel_emb)
+            channel_node_id, channel_name, "telegram_discussion", "TelegramChannel",
+            channel_desc, f"telegram,channel,{channel_slug}", channel_props, json.dumps(channel_emb)
         ))
 
-        # Process Message Nodes and Media Edges
         for item in channel_msgs:
-            msg_id = item["msg_id"]
-            sender = item["sender"]
-            date = item["date"]
-            text = item["text"]
-            msg_node_id = f"tg_msg_{channel_slug}_{msg_id}"
+            med_count = _process_single_message(
+                item, channel_name, channel_slug, channel_node_id,
+                media_by_msg_id=media_by_msg_id, scene_by_file=scene_by_file,
+                embedder=embedder, all_nodes_to_insert=all_nodes_to_insert,
+                all_edges_to_insert=all_edges_to_insert
+            )
+            tot_media_edges += med_count
+            tot_msgs += 1
 
-            # Check media references
-            referenced_media_targets: List[Tuple[str, str]] = []
-            if msg_id in media_by_msg_id:
-                for target_id, fn in media_by_msg_id[msg_id]:
-                    referenced_media_targets.append((target_id, fn))
-
-            # Also check raw_media if present
-            raw_media = item.get("raw_media")
-            if isinstance(raw_media, str) and raw_media:
-                fn = os.path.basename(raw_media)
-                fn_lower = fn.lower()
-                if fn_lower in scene_by_file:
-                    for sid in scene_by_file[fn_lower]:
-                        referenced_media_targets.append((sid, fn))
-                else:
-                    referenced_media_targets.append((f"media:{fn}", fn))
-
-            # Deduplicate referenced media targets
-            unique_media_targets = list(dict.fromkeys(referenced_media_targets))
-            referenced_media_files = [fn for _, fn in unique_media_targets]
-
-            # Create REFERENCES_MEDIA edges
-            for target_id, fn in unique_media_targets:
-                media_edge_props = json.dumps({
-                    "media_file": fn,
-                    "channel": channel_name,
-                    "match_rule": "msg_id"
-                }, ensure_ascii=False)
-                all_edges_to_insert.append((msg_node_id, target_id, "REFERENCES_MEDIA", 1.0, media_edge_props))
-                total_media_edges_linked += 1
-
-            # Create BELONGS_TO edge
-            belongs_props = json.dumps({"channel_name": channel_name}, ensure_ascii=False)
-            all_edges_to_insert.append((msg_node_id, channel_node_id, "BELONGS_TO", 1.0, belongs_props))
-
-            # Build Message Node
-            node_name = f"Message #{msg_id} by {sender} ({date})"
-            description_snippet = text[:500]
-            tags = f"telegram,discussion,{channel_slug}"
-
-            node_props = json.dumps({
-                "msg_id": msg_id,
-                "channel_name": channel_name,
-                "channel_slug": channel_slug,
-                "sender": sender,
-                "date": date,
-                "text": text,
-                "reply_to_msg_id": item["parent_id"],
-                "root_msg_id": item["root_msg_id"],
-                "reply_depth": item["reply_depth"],
-                "has_media": bool(referenced_media_files),
-                "referenced_media_files": referenced_media_files,
-                "file_source": item["file_source"]
-            }, ensure_ascii=False)
-
-            formatted_prompt = f"[{channel_name}] Message #{msg_id} by {sender} ({date}):\n{text}"
-            msg_emb = embedder.get_embedding(formatted_prompt)
-
-            all_nodes_to_insert.append((
-                msg_node_id,
-                node_name,
-                "telegram_discussion",
-                "TelegramMessage",
-                description_snippet,
-                tags,
-                node_props,
-                json.dumps(msg_emb)
-            ))
-
-            total_messages_indexed += 1
-
-    # Persist kg_nodes and kg_edges into SQLite databases
-    updated_dbs = []
-    for db_target in target_dbs:
-        db_dir = os.path.dirname(db_target)
-        if db_dir:
-            os.makedirs(db_dir, exist_ok=True)
-
-        conn = sqlite3.connect(db_target)
-        cur = conn.cursor()
-
-        from vazus_core.analysis.kg_schema import ensure_kg_schema
-        ensure_kg_schema(cur)
-
-
-        # Execute batch inserts
-        cur.executemany("""
-        INSERT OR REPLACE INTO kg_nodes (
-            id, name, domain, node_type, description, tags, properties, embedding_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, all_nodes_to_insert)
-
-        cur.executemany("""
-        INSERT OR REPLACE INTO kg_edges (
-            source_id, target_id, relation, strength, properties
-        ) VALUES (?, ?, ?, ?, ?)
-        """, all_edges_to_insert)
-
-        conn.commit()
-        conn.close()
-        updated_dbs.append(db_target)
-
+    updated_count = _persist_kg_batch(target_dbs, all_nodes_to_insert, all_edges_to_insert)
     return {
-        "total_files_processed": total_files_processed,
-        "total_messages_indexed": total_messages_indexed,
-        "total_channels_indexed": total_channels_indexed,
-        "total_replies_linked": total_replies_linked,
-        "total_media_edges_linked": total_media_edges_linked,
-        "databases_updated": len(updated_dbs)
+        "total_files_processed": len(all_files),
+        "total_messages_indexed": tot_msgs,
+        "total_channels_indexed": len(channels_map),
+        "total_replies_linked": tot_replies,
+        "total_media_edges_linked": tot_media_edges,
+        "databases_updated": updated_count
     }
 
 

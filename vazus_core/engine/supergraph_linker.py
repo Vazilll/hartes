@@ -4,33 +4,34 @@ Integrates Layer A (AST Code Topology) with Layer B (Karpathy Memory Wiki).
 """
 
 import sys
+import os
 import json
 import sqlite3
 import hashlib
 import time
 import re
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional, Union
 from contextlib import contextmanager
 
-VAZUS_DIR = Path("C:/vazus")
-if str(VAZUS_DIR) not in sys.path:
-    sys.path.insert(0, str(VAZUS_DIR))
+logger = logging.getLogger(__name__)
+
+VAZUS_DIR = Path(os.environ.get("VAZUS_WORKSPACE_DIR", "C:/vazus"))
 
 from vazus_core.memory.embeddings import UnifiedGoogleEmbedder
 
-DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
-if not DEFAULT_DB_PATH.exists() and Path("C:/vazus/services/memory/vazus.db").exists():
-    DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
+_env_db = os.environ.get("VAZUS_DB_PATH")
+DEFAULT_DB_PATH = Path(_env_db) if _env_db else Path("C:/vazus/services/memory/vazus.db")
 
 DEFAULT_GRAPH_JSON_PATH = VAZUS_DIR / "services" / "gomcp" / "graphify-out" / "graph.json"
+_env_wiki = os.environ.get("VAZUS_WIKI_DIR")
 DEFAULT_WIKI_DIRS = [
-    Path("C:/vazus/services/memory/semantic/wiki"),
-    Path("C:/vazus/services/memory/semantic/wiki")
+    Path(_env_wiki) if _env_wiki else Path("C:/vazus/services/memory/semantic/wiki"),
 ]
 
 
-def calculate_cosine_similarity(vec_a: Optional[List[float]] = None, vec_b: Optional[List[float]] = None, *args, **kwargs) -> float:
+def calculate_cosine_similarity(vec_a: Optional[List[float]] = None, vec_b: Optional[List[float]] = None, *_args, **_kwargs) -> float:
     """Computes high-speed cosine similarity between two 768D float vectors using NumPy / SIMD acceleration."""
     if not vec_a or not vec_b:
         return 0.0
@@ -184,32 +185,16 @@ class SuperGraphLinker:
                 sys.stderr.write(f"[SuperGraphLinker] Warning reading graph.json: {e}\n")
         return ast_nodes
 
-    def parse_wiki_note_content(self, fpath: Path, content: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Parses a markdown wiki note into a main WikiNote node, WikiSection nodes, and [[Note]] wikilinks."""
-        stem = fpath.stem
-        note_id = f"wiki:{stem}"
-        rel_path = str(fpath).replace("\\", "/")
-
-        main_node = {
-            "id": note_id,
-            "name": stem.replace("_", " "),
-            "domain": "memory_wiki",
-            "node_type": "WikiNote",
-            "description": content[:500],
-            "content": content,
-            "source_file": rel_path,
-            "community": 1,
-            "_origin": "wiki",
-            "tags": f"wiki,memory,{stem}"
-        }
-
+    @staticmethod
+    def _extract_wiki_sections(
+        note_id: str, stem: str, rel_path: str, content: str
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Extracts markdown sections and containment edges from note content."""
         section_nodes = []
         edges = []
-
-        # Parse sections based on markdown headings or date timestamps
         lines = content.splitlines()
         current_section_title = None
-        current_section_lines = []
+        current_section_lines: List[str] = []
 
         def commit_section():
             if current_section_title and current_section_lines:
@@ -240,33 +225,29 @@ class SuperGraphLinker:
         for line in lines:
             header_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
             timestamp_match = re.match(r'^- \*\*\[([^\]]+)\]\*\*:\s*##?\s*(.+)$', line.strip())
-
-            if header_match:
+            if header_match or timestamp_match:
                 commit_section()
-                current_section_title = header_match.group(2).strip()
-                current_section_lines = [line]
-            elif timestamp_match:
-                commit_section()
-                current_section_title = timestamp_match.group(2).strip()
+                current_section_title = (header_match or timestamp_match).group(2).strip()
                 current_section_lines = [line]
             elif current_section_title:
                 current_section_lines.append(line)
 
         commit_section()
+        return section_nodes, edges
 
-        # Extract [[Note]] wikilinks from entire note content
+    @staticmethod
+    def _extract_wiki_links(note_id: str, content: str) -> List[Dict[str, Any]]:
+        """Extracts [[Note]] wikilinks and creates WIKILINK edges."""
+        edges = []
         wikilink_pattern = re.compile(r"\[\[([^\]\|#]+)(?:#([^\]\|]+))?(?:\|([^\]]+))?\]\]")
         for match in wikilink_pattern.finditer(content):
             target_note_raw = match.group(1).strip()
             target_sec_raw = match.group(2).strip() if match.group(2) else None
             label_raw = match.group(3).strip() if match.group(3) else None
-
             target_stem = target_note_raw.replace(" ", "_")
-            target_id = f"wiki:{target_stem}"
-
             edges.append({
                 "source_id": note_id,
-                "target_id": target_id,
+                "target_id": f"wiki:{target_stem}",
                 "relation": "WIKILINK",
                 "strength": 1.0,
                 "properties": {
@@ -276,8 +257,30 @@ class SuperGraphLinker:
                     "label": label_raw
                 }
             })
+        return edges
 
-        return main_node, section_nodes, edges
+    def parse_wiki_note_content(self, fpath: Path, content: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Parses a markdown wiki note into a main WikiNote node, WikiSection nodes, and [[Note]] wikilinks."""
+        stem = fpath.stem
+        note_id = f"wiki:{stem}"
+        rel_path = str(fpath).replace("\\", "/")
+
+        main_node = {
+            "id": note_id,
+            "name": stem.replace("_", " "),
+            "domain": "memory_wiki",
+            "node_type": "WikiNote",
+            "description": content[:500],
+            "content": content,
+            "source_file": rel_path,
+            "community": 1,
+            "_origin": "wiki",
+            "tags": f"wiki,memory,{stem}"
+        }
+
+        section_nodes, section_edges = self._extract_wiki_sections(note_id, stem, rel_path, content)
+        link_edges = self._extract_wiki_links(note_id, content)
+        return main_node, section_nodes, section_edges + link_edges
 
     def load_memory_wiki_nodes_and_edges(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Loads Layer B Wiki notes, sections, containment edges, and [[Note]] wikilinks across configured wiki dirs."""
@@ -328,8 +331,8 @@ class SuperGraphLinker:
             if row and row["embedding_json"]:
                 try:
                     return json.loads(row["embedding_json"])
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to deserialize embedding from cache: %s", exc)
 
             emb = self.embedder.get_embedding(text_content)
             c.execute(

@@ -5,17 +5,17 @@ Interactive Confirmation Gate, and Background Subagent Dispatcher.
 Fulfills Requirement R1 for Vazus OS Milestone M1.
 """
 
+import logging
 import os
+import re
+import subprocess
 import sys
+import threading
 import time
 import uuid
-import re
-import logging
-import subprocess
-from dataclasses import dataclass, field, asdict
-from typing import Any, Callable
-import threading
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any, Callable, List, Optional, Tuple
 
 # Ensure workspace root is in sys.path
 WORKSPACE_ROOT = str(Path(__file__).resolve().parent.parent.parent)
@@ -35,12 +35,12 @@ def safe_print(text: str = "", end: str = "\n"):
     try:
         sys.stdout.write(text + end)
         sys.stdout.flush()
-    except (UnicodeEncodeError, AttributeError):
+    except (UnicodeEncodeError, AttributeError) as exc:
+        logger.debug("safe_print fallback encoding note: %s", exc)
         enc = getattr(sys.stdout, "encoding", None) or "utf-8"
         safe_text = text.encode(enc, errors="replace").decode(enc, errors="replace")
         sys.stdout.write(safe_text + end)
         sys.stdout.flush()
-
 
 
 @dataclass(init=False)
@@ -50,12 +50,12 @@ class IntentEvaluationResult:
     Supports attribute aliases for seamless compatibility across subsystem APIs.
     """
     user_prompt: str
-    complexity_score: float                # Score from 0.0 (trivial) to 1.0 (ultra complex)
-    requires_subagents: bool               # True if subagents should be triggered
-    recommended_subagents: list[str]      # Recommended subagent names
-    reasoning_summary: str                # Human-readable rationale
-    estimated_effort: str                 # 'low', 'medium', 'high', 'xhigh', 'ultra'
-    recommended_mode: str                 # 'single_agent', 'multi_agent_interactive', 'background_autonomous'
+    complexity_score: float
+    requires_subagents: bool
+    recommended_subagents: list[str]
+    reasoning_summary: str
+    estimated_effort: str
+    recommended_mode: str
     matched_skills: list[str]
     subtasks: list[dict[str, Any]]
     metadata: dict[str, Any]
@@ -64,6 +64,7 @@ class IntentEvaluationResult:
         self,
         user_prompt: str = "",
         complexity_score: float = 0.0,
+        *,
         requires_subagents: bool = False,
         recommended_subagents: list[str] | None = None,
         reasoning_summary: str = "",
@@ -176,7 +177,7 @@ class SubagentDispatchHandle:
     """Handle for tracking and managing a non-blocking background subagent task."""
     task_id: str
     subagent_name: str
-    status: str = "DISPATCHED"             # 'DISPATCHED', 'RUNNING', 'COMPLETED', 'FAILED', 'KILLED'
+    status: str = "DISPATCHED"
     pid: int = 0
     log_path: str = ""
     created_at: float = field(default_factory=time.time)
@@ -236,14 +237,14 @@ class SubagentDispatchHandle:
                     self.process.stderr.close()
                 if self.process.stdin and not getattr(self.process.stdin, "closed", True):
                     self.process.stdin.close()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Process stream close note: %s", exc)
             try:
                 poll_res = self.process.poll()
                 if poll_res is not None and self.process.returncode is None:
                     self.process.returncode = poll_res
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Process returncode check note: %s", exc)
             if hasattr(self.process, "_handle") and self.process._handle is not None:
                 try:
                     if hasattr(self.process._handle, "Close"):
@@ -251,14 +252,14 @@ class SubagentDispatchHandle:
                     else:
                         import _winapi
                         _winapi.CloseHandle(self.process._handle)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("WinAPI CloseHandle note: %s", exc)
                 try:
                     if self.process.returncode is None:
                         self.process.returncode = 0
                     self.process._handle = None
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Reset process handle note: %s", exc)
 
     def wait(self, timeout: float | None = None) -> dict[str, Any]:
         """Waits for background subagent process completion and returns status dict."""
@@ -280,7 +281,7 @@ class SubagentDispatchHandle:
                     self.close()
                     return self.result
                 except subprocess.TimeoutExpired:
-                    logger.warning(f"[DispatchHandle] Task {self.task_id} timed out after {timeout}s. Terminating process PID {self.pid}.")
+                    logger.warning(f"[DispatchHandle] Task {self.task_id} timed out after {timeout}s. Terminating PID {self.pid}.")
                     self._kill_unlocked()
                     self.result = {
                         "task_id": self.task_id,
@@ -302,8 +303,8 @@ class SubagentDispatchHandle:
                 self.process.kill()
                 try:
                     self.process.wait(timeout=1.0)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Process wait note after kill: %s", exc)
                 if self.process.returncode is None:
                     self.process.returncode = -9
                 self.status = "KILLED"
@@ -323,7 +324,7 @@ class SubagentDispatchHandle:
         self.close()
 
     def to_dict(self) -> dict[str, Any]:
-        d = {
+        return {
             "task_id": self.task_id,
             "subagent_name": self.subagent_name,
             "status": self.status,
@@ -334,7 +335,6 @@ class SubagentDispatchHandle:
             "start_time": self.start_time,
             "result": self.result
         }
-        return d
 
 
 class HermesTaskIntentEvaluator:
@@ -372,6 +372,63 @@ class HermesTaskIntentEvaluator:
         except Exception as e:
             logger.debug(f"[HermesTaskIntentEvaluator] SkillIntentParser initialization skipped: {e}")
 
+    def _compute_structural_complexity(self, prompt_clean: str) -> float:
+        struct_score = 0.2
+        length = len(prompt_clean)
+        lines = [l for l in prompt_clean.splitlines() if l.strip()]
+
+        if length > 50:
+            struct_score += 0.15
+        if length > 200:
+            struct_score += 0.15
+        if len(lines) > 3:
+            struct_score += 0.15
+        if "```" in prompt_clean:
+            struct_score += 0.25
+
+        return min(1.0, struct_score)
+
+    def _compute_keyword_complexity(self, prompt_lower: str) -> Tuple[float, List[str]]:
+        sorted_kws = sorted(self.keyword_weights.items(), key=lambda x: len(x[0]), reverse=True)
+        matched_keywords = []
+        keyword_score = 0.0
+
+        prompt_work = re.sub(r'[\-_]', ' ', prompt_lower)
+        for kw, weight in sorted_kws:
+            kw_normalized = re.sub(r'[\-_]', ' ', kw)
+            pattern = r'\b' + re.escape(kw_normalized) + r'\b'
+            if re.search(pattern, prompt_work):
+                keyword_score += weight
+                matched_keywords.append(kw)
+                prompt_work = re.sub(pattern, ' ', prompt_work)
+
+        return min(1.0, keyword_score), matched_keywords
+
+    def _compute_skill_score(self, prompt_clean: str) -> Tuple[float, List[str]]:
+        if self.skill_parser is None:
+            return 0.0, []
+        try:
+            matched_meta = self.skill_parser.match_skills(prompt_clean, top_k=3)
+            matched_ids = [s.skill_id for s in matched_meta]
+            skill_score = max([s.score for s in matched_meta], default=0.0) if matched_meta else 0.0
+            return skill_score, matched_ids
+        except Exception as e:
+            logger.debug(f"[HermesTaskIntentEvaluator] Skill matching error: {e}")
+            return 0.0, []
+
+    def _map_suggested_subagents(self, prompt_lower: str, requires_subagents: bool) -> List[str]:
+        suggested = []
+        if any(k in prompt_lower for k in ["research", "deep research", "search", "investigate", "paper", "explore"]):
+            suggested.append("open_deep_researcher")
+        if any(k in prompt_lower for k in ["code", "refactor", "build", "create app", "implement", "repl", "full stack", "algorithm"]):
+            suggested.append("rlm_code_engineer")
+        if any(k in prompt_lower for k in ["verify", "smt z3", "test", "concordia", "check", "audit", "provenance"]):
+            suggested.append("verifier_worker")
+
+        if requires_subagents and not suggested:
+            suggested = ["rlm_code_engineer", "open_deep_researcher", "verifier_worker"]
+        return suggested
+
     def evaluate(self, user_prompt: str) -> IntentEvaluationResult:
         """Evaluates task complexity and identifies subagent requirements."""
         if not user_prompt or not user_prompt.strip():
@@ -391,92 +448,26 @@ class HermesTaskIntentEvaluator:
         prompt_clean = user_prompt.strip()
         prompt_lower = prompt_clean.lower()
 
-        # 1. Structural complexity scoring (20% weight)
-        struct_score = 0.2
-        length = len(prompt_clean)
-        lines = [l for l in prompt_clean.splitlines() if l.strip()]
+        struct_score = self._compute_structural_complexity(prompt_clean)
+        keyword_score, matched_keywords = self._compute_keyword_complexity(prompt_lower)
+        skill_score, matched_skills_ids = self._compute_skill_score(prompt_clean)
 
-        if length > 50:
-            struct_score += 0.15
-        if length > 200:
-            struct_score += 0.15
-        if len(lines) > 3:
-            struct_score += 0.15
-        if "```" in prompt_clean:
-            struct_score += 0.25
-
-        struct_score = min(1.0, struct_score)
-
-        # 2. Keyword matching & weighting (60% weight)
-        sorted_kws = sorted(self.keyword_weights.items(), key=lambda x: len(x[0]), reverse=True)
-        matched_keywords = []
-        keyword_score = 0.0
-
-        # Normalize punctuation/delimiters (e.g. smt_z3 -> smt z3, e2e-test -> e2e test)
-        prompt_work = re.sub(r'[\-_]', ' ', prompt_lower)
-        for kw, weight in sorted_kws:
-            kw_normalized = re.sub(r'[\-_]', ' ', kw)
-            pattern = r'\b' + re.escape(kw_normalized) + r'\b'
-            if re.search(pattern, prompt_work):
-                keyword_score += weight
-                matched_keywords.append(kw)
-                prompt_work = re.sub(pattern, ' ', prompt_work)
-
-        keyword_score = min(1.0, keyword_score)
-
-        # 3. Vector Skill Overlap (20% weight)
-        matched_skills_ids = []
-        skill_score = 0.0
-
-        if self.skill_parser is not None:
-            try:
-                matched_meta = self.skill_parser.match_skills(prompt_clean, top_k=3)
-                matched_skills_ids = [s.skill_id for s in matched_meta]
-                if matched_meta:
-                    skill_score = max([s.score for s in matched_meta], default=0.0)
-            except Exception as e:
-                logger.debug(f"[HermesTaskIntentEvaluator] Skill matching error: {e}")
-
-        # 4. Composite Complexity Score
         composite_score = round(0.20 * struct_score + 0.60 * keyword_score + 0.20 * skill_score, 3)
-
         if keyword_score >= 0.7:
             composite_score = max(composite_score, 0.65)
         elif keyword_score >= 0.5:
             composite_score = max(composite_score, 0.55)
 
         composite_score = min(1.0, max(0.0, composite_score))
-
         requires_subagents = (composite_score >= self.threshold) or (len(matched_keywords) >= 2)
+        suggested = self._map_suggested_subagents(prompt_lower, requires_subagents)
 
-        # 5. Suggested Subagent Mapping
-        suggested = []
-
-        if any(k in prompt_lower for k in ["research", "deep research", "search", "investigate", "paper", "explore"]):
-            suggested.append("open_deep_researcher")
-        if any(k in prompt_lower for k in ["code", "refactor", "build", "create app", "implement", "repl", "full stack", "algorithm"]):
-            suggested.append("rlm_code_engineer")
-        if any(k in prompt_lower for k in ["verify", "smt z3", "test", "concordia", "check", "audit", "provenance"]):
-            suggested.append("verifier_worker")
-
-        if requires_subagents and not suggested:
-            suggested = ["rlm_code_engineer", "open_deep_researcher", "verifier_worker"]
-
-        # Effort preset scaling
         effort_cfg = ReasoningEffortController.get_config(composite_score)
         estimated_effort = effort_cfg["level"]
 
         mode = "multi_agent_interactive" if requires_subagents else "single_agent"
         reasoning = f"Matched keywords: {matched_keywords}; Score: {composite_score} (threshold: {self.threshold})"
-
-        subtasks = [
-            {
-                "subagent": name,
-                "action": f"Execute subtask via {name}",
-                "effort": estimated_effort
-            }
-            for name in suggested
-        ]
+        subtasks = [{"subagent": name, "action": f"Execute subtask via {name}", "effort": estimated_effort} for name in suggested]
 
         return IntentEvaluationResult(
             user_prompt=prompt_clean,
@@ -488,7 +479,7 @@ class HermesTaskIntentEvaluator:
             recommended_mode=mode,
             matched_skills=matched_skills_ids,
             subtasks=subtasks,
-            metadata={"matched_keywords": matched_keywords, "prompt_length": length}
+            metadata={"matched_keywords": matched_keywords, "prompt_length": len(prompt_clean)}
         )
 
     def evaluate_intent(self, user_prompt: str) -> IntentEvaluationResult:
@@ -525,55 +516,34 @@ class InteractiveConfirmationGate:
             return False
         return sys.stdin.isatty()
 
-    def request_confirmation(self, evaluation: IntentEvaluationResult) -> bool:
-        """Requests user confirmation for executing subagent tasks."""
-        if not evaluation.requires_subagents:
-            return True
+    def _handle_custom_interactive(self, prompt_msg: str) -> bool:
+        try:
+            res = self.interactive_fn(prompt_msg)
+            if hasattr(res, "__await__") or hasattr(res, "send"):
+                import asyncio
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        import nest_asyncio
+                        nest_asyncio.apply()
+                        res = loop.run_until_complete(res)
+                    else:
+                        res = loop.run_until_complete(res)
+                except Exception as exc:
+                    logger.debug("Async loop runner note: %s", exc)
+                    res = asyncio.run(res)
+            if isinstance(res, bool):
+                return res
+            if isinstance(res, str):
+                return res.strip().lower() in ("y", "yes", "true", "1", "")
+            if isinstance(res, (int, float)):
+                return res != 0
+            return bool(res)
+        except Exception as e:
+            logger.error(f"[ConfirmationGate] Custom interactive_fn callback error: {e}")
+            return not self.is_interactive()
 
-        if self.auto_approve:
-            logger.info("[ConfirmationGate] Auto-approving multi-agent execution.")
-            return True
-
-        prompt_msg = (
-            f"[CONFIRMATION GATE] Deep analysis required (Score: {evaluation.intent_score:.2f}).\n"
-            f"Reason: {evaluation.reasoning}\n"
-            f"Suggested Subagents: {', '.join(evaluation.suggested_subagents)}\n"
-            f"Proceed with multi-agent background breakdown? [Y/n]: "
-        )
-
-        if self.interactive_fn is not None:
-            try:
-                res = self.interactive_fn(prompt_msg)
-                # Handle un-awaited async coroutines gracefully
-                if hasattr(res, "__await__") or hasattr(res, "send"):
-                    import asyncio
-                    try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            import nest_asyncio
-                            nest_asyncio.apply()
-                            res = loop.run_until_complete(res)
-                        else:
-                            res = loop.run_until_complete(res)
-                    except Exception:
-                        res = asyncio.run(res)
-                if isinstance(res, bool):
-                    return res
-                if isinstance(res, str):
-                    cleaned = res.strip().lower()
-                    return cleaned in ("y", "yes", "true", "1", "")
-                if isinstance(res, (int, float)):
-                    return res != 0
-                return bool(res)
-            except Exception as e:
-                logger.error(f"[ConfirmationGate] Custom interactive_fn callback error: {e}")
-                return not self.is_interactive()
-
-        if not self.is_interactive():
-            logger.info(f"[ConfirmationGate] Non-interactive environment detected. Auto-approving task.")
-            return True
-
-        # Render terminal ANSI HUD box for interactive TTY
+    def _render_hud_and_prompt(self, evaluation: IntentEvaluationResult, prompt_msg: str) -> bool:
         prompt_preview = evaluation.user_prompt[:60] + ("..." if len(evaluation.user_prompt) > 60 else "")
         subagent_str = ", ".join(evaluation.recommended_subagents) or "rlm_code_engineer"
 
@@ -593,9 +563,35 @@ class InteractiveConfirmationGate:
                 return True
             safe_print("[ConfirmationGate] Execution cancelled by user.")
             return False
-        except (KeyboardInterrupt, EOFError):
+        except (KeyboardInterrupt, EOFError) as exc:
+            logger.debug("Interactive prompt cancelled: %s", exc)
             safe_print("\n[ConfirmationGate] Execution cancelled.")
             return False
+
+    def request_confirmation(self, evaluation: IntentEvaluationResult) -> bool:
+        """Requests user confirmation for executing subagent tasks."""
+        if not evaluation.requires_subagents:
+            return True
+
+        if self.auto_approve:
+            logger.info("[ConfirmationGate] Auto-approving multi-agent execution.")
+            return True
+
+        prompt_msg = (
+            f"[CONFIRMATION GATE] Deep analysis required (Score: {evaluation.intent_score:.2f}).\n"
+            f"Reason: {evaluation.reasoning}\n"
+            f"Suggested Subagents: {', '.join(evaluation.suggested_subagents)}\n"
+            f"Proceed with multi-agent background breakdown? [Y/n]: "
+        )
+
+        if self.interactive_fn is not None:
+            return self._handle_custom_interactive(prompt_msg)
+
+        if not self.is_interactive():
+            logger.info("[ConfirmationGate] Non-interactive environment detected. Auto-approving task.")
+            return True
+
+        return self._render_hud_and_prompt(evaluation, prompt_msg)
 
 
 class SubagentBackgroundDispatcher:
@@ -610,8 +606,8 @@ class SubagentBackgroundDispatcher:
         self.engine = DeclarativeSubagentEngine()
         self._active_handles: dict[str, SubagentDispatchHandle] = {}
 
-    def dispatch(self, task_spec: dict[str, Any] | TaskSpec) -> SubagentDispatchHandle:
-        """Dispatches a subagent task in the background."""
+    def _normalize_task_spec(self, task_spec: dict[str, Any] | TaskSpec) -> TaskSpec:
+        """Normalizes dict or TaskSpec object into standardized TaskSpec."""
         if isinstance(task_spec, dict):
             spec = TaskSpec(
                 subagent_name=task_spec.get("subagent_name", task_spec.get("subagent", "code_engineer")),
@@ -627,158 +623,136 @@ class SubagentBackgroundDispatcher:
             )
         else:
             spec = task_spec
-
         if not spec.task_id:
             spec.task_id = f"task_{int(time.time()*1000)}_{uuid.uuid4().hex[:4]}"
+        return spec
 
-        if spec.log_file:
-            log_file_path = Path(spec.log_file)
-        else:
-            log_file_path = self.log_dir / f"{spec.task_id}.log"
+    def _spawn_bridge_process(
+        self, spec: TaskSpec, log_file_path: Path, bridge_path: str
+    ) -> tuple[Optional[subprocess.Popen], int, str]:
+        """Spawns dedicated bridge process for the target subagent."""
+        cmd = [sys.executable, bridge_path]
+        if spec.subagent_name == "open_deep_researcher":
+            cmd.extend(["--query", spec.prompt])
+        elif spec.subagent_name in ("rlm_code_engineer", "code_engineer"):
+            cmd.extend(["--prompt", spec.prompt])
+        elif spec.subagent_name == "verifier_worker":
+            cmd.extend(["--verify-smt"])
 
+        if spec.dry_run or spec.params.get("dry_run", False):
+            cmd.append("--dry-run")
+
+        try:
+            with open(log_file_path, "a", encoding="utf-8") as log_fp:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=log_fp,
+                    stderr=subprocess.STDOUT,
+                    cwd=WORKSPACE_ROOT,
+                    env=os.environ.copy(),
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                )
+            return proc, proc.pid, "RUNNING"
+        except Exception as e:
+            logger.error("[Dispatcher] Subprocess Popen failed: %s", e)
+            return None, os.getpid(), "FAILED"
+
+    def _spawn_generic_process(
+        self, spec: TaskSpec, log_file_path: Path
+    ) -> tuple[Optional[subprocess.Popen], int, str]:
+        """Spawns generic python subagent worker process."""
+        payload_json = fast_json_dumps({
+            "subagent_name": spec.subagent_name,
+            "prompt": spec.prompt,
+            "task_id": spec.task_id,
+            "params": spec.params
+        })
+        cmd = [
+            sys.executable, "-c",
+            "import sys, json; "
+            "from vazus_core.engine.subagent_framework import DeclarativeSubagentEngine; "
+            "data = json.loads(sys.argv[1]); "
+            "DeclarativeSubagentEngine().run_subagent_sync(data['subagent_name'], data['prompt'], task_id=data['task_id'], params=data.get('params', {}))",
+            payload_json
+        ]
+        try:
+            with open(log_file_path, "a", encoding="utf-8") as log_fp:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=log_fp,
+                    stderr=subprocess.STDOUT,
+                    cwd=WORKSPACE_ROOT,
+                    env=os.environ.copy(),
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+                )
+            return proc, proc.pid, "RUNNING"
+        except Exception as e:
+            logger.error("[Dispatcher] Generic subprocess Popen failed: %s", e)
+            return None, os.getpid(), "FAILED"
+
+    def _create_and_register_handle(
+        self,
+        spec: TaskSpec,
+        status: str,
+        pid: int,
+        log_file_path: Path,
+        *,
+        proc: Optional[subprocess.Popen] = None,
+        result: Optional[dict] = None
+    ) -> SubagentDispatchHandle:
+        """Constructs and registers dispatch handle in active handle registry and DB."""
+        handle = SubagentDispatchHandle(
+            task_id=spec.task_id,
+            subagent_name=spec.subagent_name,
+            status=status,
+            pid=pid,
+            log_path=str(log_file_path),
+            created_at=time.time(),
+            process=proc,
+            result=result
+        )
+        self._active_handles[spec.task_id] = handle
+        try:
+            self._log_dispatch_to_db(handle, spec.prompt)
+        except Exception as e:
+            logger.error("[Dispatcher] DB trace logging failed for task %s, terminating PID %d: %s", spec.task_id, pid, e)
+            handle.kill()
+            self._active_handles.pop(spec.task_id, None)
+            raise
+        return handle
+
+    def dispatch(self, task_spec: dict[str, Any] | TaskSpec) -> SubagentDispatchHandle:
+        """Dispatches a subagent task in the background or in-process."""
+        spec = self._normalize_task_spec(task_spec)
+        log_file_path = Path(spec.log_file) if spec.log_file else self.log_dir / f"{spec.task_id}.log"
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Check for dedicated bridge script
-        bridge_script_map = {
+        bridge_map = {
             "open_deep_researcher": "scripts/subagent_research_bridge.py",
             "rlm_code_engineer": "scripts/subagent_rlm_bridge.py",
             "code_engineer": "scripts/subagent_rlm_bridge.py",
             "verifier_worker": "scripts/subagent_verifier_bridge.py"
         }
-
-        rel_bridge = bridge_script_map.get(spec.subagent_name)
+        rel_bridge = bridge_map.get(spec.subagent_name)
         bridge_path = os.path.join(WORKSPACE_ROOT, rel_bridge) if rel_bridge else None
 
         if bridge_path and os.path.exists(bridge_path) and spec.background:
-            cmd = [sys.executable, bridge_path]
-            if spec.subagent_name == "open_deep_researcher":
-                cmd.extend(["--query", spec.prompt])
-            elif spec.subagent_name in ("rlm_code_engineer", "code_engineer"):
-                cmd.extend(["--prompt", spec.prompt])
-            elif spec.subagent_name == "verifier_worker":
-                cmd.extend(["--verify-smt"])
+            proc, pid, status = self._spawn_bridge_process(spec, log_file_path, bridge_path)
+            logger.info("[Dispatcher] Spawned background process PID=%d for task %s", pid, spec.task_id)
+            return self._create_and_register_handle(spec, status, pid, log_file_path, proc=proc)
 
-            if spec.dry_run or spec.params.get("dry_run", False):
-                cmd.append("--dry-run")
-
-            try:
-                log_fp = open(log_file_path, "a", encoding="utf-8")
-                try:
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdout=log_fp,
-                        stderr=subprocess.STDOUT,
-                        cwd=WORKSPACE_ROOT,
-                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-                    )
-                finally:
-                    log_fp.close()
-                pid = proc.pid
-                status = "RUNNING"
-            except Exception as e:
-                logger.error(f"[Dispatcher] Subprocess Popen failed: {e}")
-                proc = None
-                pid = os.getpid()
-                status = "FAILED"
-
-            handle = SubagentDispatchHandle(
-                task_id=spec.task_id,
-                subagent_name=spec.subagent_name,
-                status=status,
-                pid=pid,
-                log_path=str(log_file_path),
-                created_at=time.time(),
-                process=proc
-            )
-            self._active_handles[spec.task_id] = handle
-            try:
-                self._log_dispatch_to_db(handle, spec.prompt)
-            except Exception as e:
-                logger.error(f"[Dispatcher] DB trace logging failed for task {spec.task_id}, terminating PID {pid}: {e}")
-                handle.kill()
-                if spec.task_id in self._active_handles:
-                    del self._active_handles[spec.task_id]
-                raise
-            logger.info(f"[Dispatcher] Spawned background process PID={pid} for task {spec.task_id}")
-            return handle
-
-        # Generic Python subprocess invocation if no specific bridge script or fallback
         if spec.background:
-            payload_json = fast_json_dumps({
-                "subagent_name": spec.subagent_name,
-                "prompt": spec.prompt,
-                "task_id": spec.task_id,
-                "params": spec.params
-            })
-            cmd = [
-                sys.executable, "-c",
-                "import sys, json; "
-                "from vazus_core.engine.subagent_framework import DeclarativeSubagentEngine; "
-                "data = json.loads(sys.argv[1]); "
-                "DeclarativeSubagentEngine().run_subagent_sync(data['subagent_name'], data['prompt'], task_id=data['task_id'], params=data.get('params', {}))",
-                payload_json
-            ]
-            try:
-                log_fp = open(log_file_path, "a", encoding="utf-8")
-                try:
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdout=log_fp,
-                        stderr=subprocess.STDOUT,
-                        cwd=WORKSPACE_ROOT,
-                        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-                    )
-                finally:
-                    log_fp.close()
-                pid = proc.pid
-                status = "RUNNING"
-            except Exception as e:
-                logger.error(f"[Dispatcher] Generic subprocess Popen failed: {e}")
-                proc = None
-                pid = os.getpid()
-                status = "FAILED"
+            proc, pid, status = self._spawn_generic_process(spec, log_file_path)
+            return self._create_and_register_handle(spec, status, pid, log_file_path, proc=proc)
 
-            handle = SubagentDispatchHandle(
-                task_id=spec.task_id,
-                subagent_name=spec.subagent_name,
-                status=status,
-                pid=pid,
-                log_path=str(log_file_path),
-                created_at=time.time(),
-                process=proc
-            )
-            self._active_handles[spec.task_id] = handle
-            try:
-                self._log_dispatch_to_db(handle, spec.prompt)
-            except Exception as e:
-                logger.error(f"[Dispatcher] DB trace logging failed for task {spec.task_id}, terminating PID {pid}: {e}")
-                handle.kill()
-                if spec.task_id in self._active_handles:
-                    del self._active_handles[spec.task_id]
-                raise
-            return handle
-
-        # Synchronous in-process execution fallback
         ctx = self.engine.run_subagent_sync(
             subagent_name=spec.subagent_name,
             prompt=spec.prompt,
             task_id=spec.task_id,
             params=spec.params
         )
-
         status = "COMPLETED" if ctx.success else "FAILED"
-        handle = SubagentDispatchHandle(
-            task_id=spec.task_id,
-            subagent_name=spec.subagent_name,
-            status=status,
-            pid=os.getpid(),
-            log_path=str(log_file_path),
-            created_at=time.time(),
-            result=ctx.results
-        )
-        self._active_handles[spec.task_id] = handle
-        self._log_dispatch_to_db(handle, spec.prompt)
-        return handle
+        return self._create_and_register_handle(spec, status, os.getpid(), log_file_path, result=ctx.results)
 
     def dispatch_background_subagent(self, task_spec: dict[str, Any] | TaskSpec) -> SubagentDispatchHandle:
         """Alias method for dispatch."""
@@ -804,7 +778,8 @@ class SubagentBackgroundDispatcher:
     def _log_dispatch_to_db(self, handle: SubagentDispatchHandle, prompt: str):
         """Logs task dispatch event into vazus.db subagent_memory_traces table using canonical schema."""
         try:
-            persister = SubagentDialoguePersister()
+            target_db = os.getenv("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db")
+            persister = SubagentDialoguePersister(db_path=target_db)
             content_json = fast_json_dumps({
                 "task_id": handle.task_id,
                 "prompt": prompt,

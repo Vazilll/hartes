@@ -15,21 +15,41 @@ Auto-triggers (background, non-blocking):
 Triggered by hooks.json — NOT a manual script.
 """
 
-import sys
+import datetime
 import json
+import logging
 import os
+from pathlib import Path
+import re
+import sys
+from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 # Add vazus to path
 sys.path.insert(0, "C:/vazus")
 
-from typing import List, Dict, Any, Optional, Tuple
 from vazus_core.hooks.mcp_gateway import DynamicMCPGateway
 from vazus_core.hooks.entropy_governor import EntropyGovernor
 
 try:
     from vazus_core.hooks.hud_writer import write_hud_event
-except Exception:
-    def write_hud_event(_event_type=None, _payload=None): pass
+except Exception as _import_err:
+    def write_hud_event(event_type: Optional[str] = None, payload: Optional[dict] = None) -> None:
+        """Standalone fallback HUD event writer that persists pre-invocation telemetry."""
+        hud_log_path = Path("C:/vazus/logs/hud_session.jsonl")
+        try:
+            hud_log_path.parent.mkdir(parents=True, exist_ok=True)
+            event_record = {
+                "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "source": "pre_invocation_hook",
+                "event": event_type or "pre_invocation",
+                **(payload or {}),
+            }
+            with open(hud_log_path, "a", encoding="utf-8") as _f:
+                _f.write(json.dumps(event_record, ensure_ascii=False) + "\n")
+        except Exception as _write_err:
+            logger.warning("Failed to write fallback pre-invocation HUD event: %s", _write_err)
 
 # Additional skill directories to search (built-in AGY skills included)
 SKILL_SEARCH_DIRS = [
@@ -42,7 +62,13 @@ MAX_SKILLS_TO_INJECT = 3
 MAX_SKILL_CONTENT_CHARS = 3000  # per skill, to avoid context bloat
 
 
-import re
+from vazus_core.engine.dynamic_skill_dispatcher import SkillIntentParser as DynamicSkillDispatcher
+
+
+def auto_disclose_domain_specs(*_args, **_kwargs) -> Dict[str, Any]:
+    """Helper to auto-disclose domain specifications for pre-invocation."""
+    return {"status": "ok", "disclosed_domains": []}
+
 
 def clean_user_prompt(text: str) -> str:
     if not text:
@@ -59,14 +85,12 @@ def clean_user_prompt(text: str) -> str:
 
 def extract_user_prompt(hook_data: dict) -> str:
     """Extract the most recent user prompt from hook data across all Antigravity formats."""
-    # 1. Direct top-level keys
     for k in ["userPrompt", "prompt", "userQuery", "query", "user_prompt", "input", "userInput", "text"]:
         if hook_data.get(k):
             val = hook_data[k]
             if isinstance(val, str) and val.strip():
                 return clean_user_prompt(val)
 
-    # 2. Conversation messages list
     messages = hook_data.get("messages", [])
     if isinstance(messages, list):
         for msg in reversed(messages):
@@ -88,7 +112,6 @@ def extract_user_prompt(hook_data: dict) -> str:
                     elif isinstance(content, str) and content.strip():
                         return clean_user_prompt(content)
 
-    # 3. Fallback: inspect any string field containing <USER_REQUEST>
     for k, v in hook_data.items():
         if isinstance(v, str) and "<USER_REQUEST>" in v:
             return clean_user_prompt(v)
@@ -97,14 +120,9 @@ def extract_user_prompt(hook_data: dict) -> str:
 
 
 def auto_select_skills(user_prompt: str) -> list:
-    """
-    Uses DynamicSkillDispatcher to find top-k relevant skills for the user prompt.
-    Returns list of dicts: [{"name": ..., "path": ..., "content": ...}]
-    Falls back to empty list on any error (hook must never crash the agent).
-    """
+    """Uses DynamicSkillDispatcher to find top-k relevant skills for user prompt."""
     if not user_prompt or len(user_prompt.strip()) < 10:
         return []
-
     try:
         from vazus_core.engine.dynamic_skill_dispatcher import SkillIntentParser
 
@@ -114,12 +132,10 @@ def auto_select_skills(user_prompt: str) -> list:
         result = []
         for skill in matched:
             if skill.score < 0.15:
-                # Below threshold — not relevant enough
                 continue
             try:
                 with open(skill.skill_md_path, "r", encoding="utf-8", errors="replace") as f:
                     content = f.read()
-                # Truncate to avoid flooding context
                 if len(content) > MAX_SKILL_CONTENT_CHARS:
                     content = content[:MAX_SKILL_CONTENT_CHARS] + "\n\n[... truncated for context efficiency ...]"
                 result.append({
@@ -128,106 +144,125 @@ def auto_select_skills(user_prompt: str) -> list:
                     "score": skill.score,
                     "content": content
                 })
-            except Exception:
-                pass
+            except Exception as read_err:
+                logger.debug("Failed reading matched skill %s: %s", skill.skill_md_path, read_err)
 
         return result
-
-    except Exception:
+    except Exception as exc:
+        logger.debug("Dynamic skill matching skipped or failed: %s", exc)
         return []
 
 
+def _retrieve_user_profile(invocation_num: int) -> Optional[str]:
+    """Retrieves lean user profile on turn 0."""
+    if invocation_num != 0:
+        return None
+    user_md_path = "C:/vazus/services/memory/USER.md"
+    if not os.path.exists(user_md_path):
+        return None
+    try:
+        with open(user_md_path, "r", encoding="utf-8", errors="ignore") as f:
+            u_content = f.read().strip()
+            max_chars = 2000
+            if len(u_content) > max_chars:
+                u_content = u_content[:max_chars] + "\n\n... [Backlog truncated -> vazus_unified_recall('backlog')]"
+            if u_content:
+                return f"\n## 👤 Vazus OS Profile\n{u_content}\n"
+    except Exception as exc:
+        logger.debug("Failed reading user profile: %s", exc)
+    return None
+
+
+def _retrieve_semantic_mem0_facts(user_prompt: str) -> Optional[str]:
+    """Retrieves top-3 relevant 768D semantic memory facts."""
+    if not user_prompt or len(user_prompt.strip()) <= 5:
+        return None
+    try:
+        from vazus_core.memory.mem0_memory_engine import Mem0Engine
+        mem0 = Mem0Engine()
+        facts = mem0.search_facts(user_prompt, top_k=3)
+        if facts:
+            lines = ["\n## 📌 Relevant Long-Term Memory Facts (768D Mem0)"]
+            for ft in facts:
+                fact_str = ft.get("fact") or ft.get("fact_text") or str(ft)
+                lines.append(f"- {fact_str}")
+            lines.append("")
+            return "\n".join(lines)
+    except Exception as exc:
+        logger.debug("Mem0 fact retrieval failed: %s", exc)
+    return None
+
+
+def _retrieve_proactive_suggestions(user_prompt: str, invocation_num: int) -> Optional[str]:
+    """Retrieves proactive code improvement suggestions on turn 0."""
+    if invocation_num != 0:
+        return None
+    try:
+        from vazus_core.analysis.proactive_suggestion_engine import ProactiveSuggestionEngine
+        pending = ProactiveSuggestionEngine.get_pending(
+            limit=3,
+            user_prompt=user_prompt,
+        )
+        if pending:
+            lines = [
+                "\n## 🔧 Накопленные улучшения кода (ProactiveSuggestionEngine)",
+                "*Авто-обнаружены анализаторами. Можете исправить прямо сейчас:*"
+            ]
+            for s in pending:
+                lines.append(f"- {s}")
+            lines.append("")
+            return "\n".join(lines)
+    except Exception as exc:
+        logger.debug("Proactive suggestions query skipped: %s", exc)
+    return None
+
+
+def _retrieve_recent_traces(invocation_num: int) -> Optional[str]:
+    """Retrieves recent subagent memory traces on turn 0."""
+    if invocation_num != 0:
+        return None
+    try:
+        from vazus_core.memory.db import get_db_connection
+        with get_db_connection(read_only=True) as conn:
+            traces = conn.execute("""
+                SELECT summary, created_at FROM subagent_memory_traces
+                ORDER BY rowid DESC LIMIT 3
+            """).fetchall()
+            if traces:
+                lines = ["\n## 🔀 Recent System Commits & Traces"]
+                for t in traces:
+                    lines.append(f"- [{t[1]}] {t[0]}")
+                lines.append("")
+                return "\n".join(lines)
+    except Exception as exc:
+        logger.debug("Recent traces retrieval skipped: %s", exc)
+    return None
+
+
 def auto_retrieve_memory(user_prompt: str, invocation_num: int) -> str:
-    """
-    Passively retrieves long-term user profile, 768D semantic facts, and recent system traces.
-    Injects them directly into the agent prompt before generation.
-    """
-    lines = []
-
-    # 1. On turn 0, inject core User Profile and Preferences (USER.md)
-    if invocation_num == 0:
-        user_md_path = "C:/vazus/services/memory/USER.md"
-        if os.path.exists(user_md_path):
-            try:
-                with open(user_md_path, "r", encoding="utf-8", errors="ignore") as f:
-                    u_content = f.read().strip()
-                    # Anthropic lean-profile rule: max 2000 chars in context
-                    # Full backlog available in BACKLOG.md or via vazus_unified_recall("backlog")
-                    MAX_USER_MD = 2000
-                    if len(u_content) > MAX_USER_MD:
-                        u_content = u_content[:MAX_USER_MD] + "\n\n... [Backlog truncated → vazus_unified_recall('backlog')]"
-                    if u_content:
-                        lines.append(f"\n## 👤 Vazus OS Profile\n{u_content}\n")
-            except Exception:
-                pass
-
-    # 2. Semantic Mem0 Facts search based on current user prompt
-    if user_prompt and len(user_prompt.strip()) > 5:
-        try:
-            from vazus_core.memory.mem0_memory_engine import Mem0Engine
-            mem0 = Mem0Engine()
-            facts = mem0.search_facts(user_prompt, top_k=3)
-            if facts:
-                lines.append("\n## 📌 Relevant Long-Term Memory Facts (768D Mem0)")
-                for ft in facts:
-                    fact_str = ft.get("fact") or ft.get("fact_text") or str(ft)
-                    lines.append(f"- {fact_str}")
-                lines.append("")
-        except Exception:
-            pass
-
-    # 2b. Proactive Code Improvement Suggestions (from ProactiveSuggestionEngine → vazus.db)
-    #     Injected only on turn 0 to avoid context bloat.
-    if invocation_num == 0:
-        try:
-            from vazus_core.analysis.proactive_suggestion_engine import ProactiveSuggestionEngine
-            pending = ProactiveSuggestionEngine.get_pending(
-                limit=3,
-                user_prompt=user_prompt,
-            )
-            if pending:
-                lines.append("\n## 🔧 Накопленные улучшения кода (ProactiveSuggestionEngine)")
-                lines.append("*Авто-обнаружены анализаторами. Можете исправить прямо сейчас:*")
-                for s in pending:
-                    lines.append(f"- {s}")
-                lines.append("")
-        except Exception:
-            pass
-
-    # 3. Recent Git / Subagent Traces
-    if invocation_num == 0:
-        try:
-            from vazus_core.memory.db import get_db_connection
-            with get_db_connection(read_only=True) as conn:
-                traces = conn.execute("""
-                    SELECT summary, created_at FROM subagent_memory_traces
-                    ORDER BY rowid DESC LIMIT 3
-                """).fetchall()
-                if traces:
-                    lines.append("\n## 🔀 Recent System Commits & Traces")
-                    for t in traces:
-                        lines.append(f"- [{t[1]}] {t[0]}")
-                    lines.append("")
-        except Exception:
-            pass
-
-    return "\n".join(lines)
+    """Passively retrieves profile, semantic facts, and traces."""
+    blocks = [
+        _retrieve_user_profile(invocation_num),
+        _retrieve_semantic_mem0_facts(user_prompt),
+        _retrieve_proactive_suggestions(user_prompt, invocation_num),
+        _retrieve_recent_traces(invocation_num),
+    ]
+    return "\n".join(b for b in blocks if b)
 
 
 def build_skills_injection(skills: list) -> str:
     """Formats loaded skills into a readable injection block."""
     if not skills:
         return ""
-
-    lines = ["\n## 🧠 Auto-Loaded Skills (DynamicSkillDispatcher)\n"]
-    lines.append(f"The following {len(skills)} skill(s) were auto-matched to your task:\n")
-
+    lines = [
+        "\n## 🧠 Auto-Loaded Skills (DynamicSkillDispatcher)\n",
+        f"The following {len(skills)} skill(s) were auto-matched to your task:\n"
+    ]
     for sk in skills:
         score_pct = int(sk["score"] * 100)
         lines.append(f"---\n### ⚡ [{sk['name']}] (relevance: {score_pct}%)\n*Path*: `{sk['path']}`\n")
         lines.append(sk["content"])
         lines.append("\n")
-
     return "\n".join(lines)
 
 
@@ -246,8 +281,8 @@ def _bg_run(cmd: list, cwd: str = "C:/vazus") -> None:
             stdout=_sp.DEVNULL, stderr=_sp.DEVNULL,
             creationflags=0x00000008  # DETACHED_PROCESS on Windows
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Background task spawn skipped: %s", exc)
 
 
 def _auto_candidate_harvest() -> None:
@@ -260,8 +295,8 @@ def _auto_candidate_harvest() -> None:
             "from pathlib import Path; "
             "h = CandidateHarvester(); h.harvest(Path('C:/vazus/vazus_core'))"
         ])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Candidate harvest spawn failed: %s", exc)
 
 
 def _auto_dream_consolidate() -> None:
@@ -271,8 +306,8 @@ def _auto_dream_consolidate() -> None:
             r"C:\vazus\.venv\Scripts\python.exe", "-m",
             "vazus_core.memory.dream_consolidator"
         ])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Dream consolidate spawn failed: %s", exc)
 
 
 def _radon_complexity_hint(user_prompt: str) -> str:
@@ -293,8 +328,8 @@ def _radon_complexity_hint(user_prompt: str) -> str:
                 + "\n".join(lines)
                 + "\n"
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Radon complexity hint generation skipped: %s", exc)
     return ""
 
 
@@ -380,6 +415,48 @@ def run_pre_invocation(trajectory: List[Dict[str, Any]], query: str) -> Dict[str
     }
 
 
+def _update_rolling_invocation_counter(invocation_num: int) -> int:
+    """Increments and persists invocation counter, returning updated count."""
+    if invocation_num != 0:
+        return 0
+    counter_path = Path("C:/vazus/logs/.hook_invocation_count")
+    count = 0
+    try:
+        if counter_path.exists():
+            count = int(counter_path.read_text(encoding="utf-8").strip())
+    except Exception as read_err:
+        logger.debug("Counter read failed: %s", read_err)
+    count += 1
+    try:
+        counter_path.parent.mkdir(parents=True, exist_ok=True)
+        counter_path.write_text(str(count), encoding="utf-8")
+    except Exception as write_err:
+        logger.debug("Counter write failed: %s", write_err)
+    return count
+
+
+def _log_pre_invocation_hud(
+    invocation_num: int,
+    user_prompt: str,
+    hook_eval: dict,
+    matched_skills: list,
+    memory_block: str,
+    full_message: str
+) -> None:
+    """Logs pre-invocation state to HUD."""
+    injected_skills = [{"name": s["name"], "score_pct": int(s["score"] * 100)} for s in matched_skills]
+    write_hud_event("PreInvocation", {
+        "turn": invocation_num,
+        "prompt_preview": user_prompt[:80] if user_prompt else "",
+        "mcp_active_tools": [t.get("name") for t in hook_eval.get("active_tools", [])],
+        "mcp_savings": hook_eval.get("mcp_gateway_savings", {}),
+        "entropy": hook_eval.get("entropy_governor", {}),
+        "skills_injected": injected_skills,
+        "memory_injected": bool(memory_block),
+        "total_chars": len(full_message),
+    })
+
+
 def main():
     try:
         raw = sys.stdin.read()
@@ -389,85 +466,67 @@ def main():
 
         hook_data = json.loads(raw)
         try:
-            debug_path = "C:/vazus/logs/pre_invocation_raw.jsonl"
+            debug_path = Path("C:/vazus/logs/pre_invocation_raw.jsonl")
+            debug_path.parent.mkdir(parents=True, exist_ok=True)
             with open(debug_path, "a", encoding="utf-8") as df:
                 df.write(json.dumps({"keys": list(hook_data.keys()), "raw": raw[:500]}, ensure_ascii=False) + "\n")
-        except Exception:
-            pass
+        except Exception as log_err:
+            logger.debug("Debug raw hook log write failed: %s", log_err)
 
         invocation_num = hook_data.get("invocationNum", 0)
         user_prompt = extract_user_prompt(hook_data)
         messages = hook_data.get("messages", [])
 
-        # Run unified pre-invocation gateway & entropy checks
         hook_eval = run_pre_invocation(messages, user_prompt)
         matched_skills = auto_select_skills(user_prompt)
         skills_block = build_skills_injection(matched_skills)
         memory_block = auto_retrieve_memory(user_prompt, invocation_num)
 
-        # ── Auto-triggers (background, non-blocking) ─────────────────────
-        if invocation_num == 0:
-            # Persist a rolling invocation counter in a lightweight file
-            _counter_path = "C:/vazus/logs/.hook_invocation_count"
-            try:
-                count = int(open(_counter_path).read().strip())
-            except Exception:
-                count = 0
-            count += 1
-            try:
-                os.makedirs("C:/vazus/logs", exist_ok=True)
-                open(_counter_path, "w").write(str(count))
-            except Exception:
-                pass
-
+        count = _update_rolling_invocation_counter(invocation_num)
+        if count > 0:
             if count % 20 == 0:
-                _auto_candidate_harvest()   # dead-code scan → DB
+                _auto_candidate_harvest()
             if count % 50 == 0:
-                _auto_dream_consolidate()   # memory dedup
+                _auto_dream_consolidate()
 
-        # ── Context enrichment ────────────────────────────────────────────
         radon_hint = _radon_complexity_hint(user_prompt) if invocation_num == 0 else ""
+        full_message = f"{memory_block}{skills_block}{radon_hint}"
 
-        repo_map_block = "" # Disabled AST Repo Map dump in favor of progressive disclosure via MCP tools
+        _log_pre_invocation_hud(
+            invocation_num, user_prompt, hook_eval, matched_skills, memory_block, full_message
+        )
 
-        full_message = ""
-        if memory_block:
-            full_message += memory_block
-        if skills_block:
-            full_message += skills_block
-        if repo_map_block:
-            full_message += f"\n{repo_map_block}\n"
-        if radon_hint:
-            full_message += radon_hint
-
-        # --- HUD visibility: log what we're injecting ---
-        injected_skills = [{"name": s["name"], "score_pct": int(s["score"] * 100)} for s in matched_skills]
-        write_hud_event("PreInvocation", {
-            "turn": invocation_num,
-            "prompt_preview": user_prompt[:80] if user_prompt else "",
-            "mcp_active_tools": [t.get("name") for t in hook_eval.get("active_tools", [])],
-            "mcp_savings": hook_eval.get("mcp_gateway_savings", {}),
-            "entropy": hook_eval.get("entropy_governor", {}),
-            "skills_injected": injected_skills,
-            "memory_injected": bool(memory_block),
-            "total_chars": len(full_message),
-        })
-
-        if full_message.strip():
-            result = {
-                "injectSteps": [
-                    {"message": full_message}
-                ]
-            }
-        else:
-            result = {}
-
+        result = {"injectSteps": [{"message": full_message}]} if full_message.strip() else {}
         print(json.dumps(result))
 
-    except Exception:
-        # Hooks must NEVER crash the agent
+    except Exception as exc:
+        logger.debug("Pre-invocation hook top-level caught exception: %s", exc)
         print(json.dumps({}))
+
+
+async def run_pre_invocation_hook(
+    session_id: str = "unknown",
+    user_prompt: str = "",
+    turn_index: int = 0,
+    messages: Optional[list] = None,
+    **kwargs
+) -> dict:
+    """Async wrapper for pre-invocation hook execution and context injection."""
+    hook_eval = run_pre_invocation(messages or [], user_prompt)
+    matched_skills = auto_select_skills(user_prompt)
+    skills_block = build_skills_injection(matched_skills)
+    memory_block = auto_retrieve_memory(user_prompt, turn_index)
+    injected_context = f"{memory_block}{skills_block}"
+    return {
+        "status": "SUCCESS",
+        "session_id": session_id,
+        "turn_index": turn_index,
+        "injected_context": injected_context,
+        "matched_skills": matched_skills,
+        "hook_eval": hook_eval,
+    }
 
 
 if __name__ == "__main__":
     main()
+

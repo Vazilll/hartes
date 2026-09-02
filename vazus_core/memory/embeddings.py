@@ -6,14 +6,18 @@ and AVX-512 SIMD Vector Search Acceleration.
 
 import os
 import sys
+import asyncio
 import types
+import logging
 import hashlib
 import json
 import math
 import numpy as np
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pathlib import Path
 from functools import lru_cache
+
+logger = logging.getLogger("vazus_core.embeddings")
 
 # Load environment variables if .env exists
 try:
@@ -26,8 +30,8 @@ try:
         if candidate.exists():
             dotenv.load_dotenv(str(candidate))
             break
-except ImportError:
-    pass
+except ImportError as e:
+    logger.debug("dotenv import non-fatal: %s", e)
 
 # OpenVINO 2026.2.1 runtime compatibility module alias shim
 try:
@@ -55,13 +59,34 @@ class OpenVINONPUEmbedder:
     to Intel(R) AI Boost NPU with 0% CPU core load using async infer.
     """
 
-    def __init__(self, model_path: str = "models/openvino_npu/embedder_768d.xml", device: str = "NPU", dimension: int = 768):
+    def __init__(self, model_path: Optional[str] = None, device: str = "NPU", dimension: int = 768):
         self.dimension = dimension
         self.device = device
-        self.model_path = model_path
         self._compiled_model = None
         self._infer_request = None
         self._initialized = False
+        self._tokenizer = None
+
+        if model_path is None:
+            cands = [
+                Path("C:/vazus/models/openvino_npu/embedder_768d.xml"),
+                Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "embedder_768d.xml",
+                Path("models/openvino_npu/embedder_768d.xml"),
+            ]
+            for c in cands:
+                if c.exists():
+                    model_path = str(c)
+                    break
+        self.model_path = str(model_path or "C:/vazus/models/openvino_npu/embedder_768d.xml")
+
+        # Load local tokenizer if present
+        tok_dir = Path(self.model_path).parent / "tokenizer"
+        if tok_dir.exists():
+            try:
+                from transformers import AutoTokenizer
+                self._tokenizer = AutoTokenizer.from_pretrained(str(tok_dir))
+            except Exception as e:
+                logger.debug("Local tokenizer load note: %s", e)
 
         if ov is None:
             return
@@ -69,23 +94,31 @@ class OpenVINONPUEmbedder:
         try:
             self.core = ov.Core()
             available = self.core.available_devices
-            if self.device not in available:
-                if "CPU" in available:
-                    self.device = "CPU"
-                else:
-                    self.device = None
 
-            if self.device and os.path.exists(self.model_path):
+            # Device search order: requested -> NPU -> GPU -> CPU
+            candidates = [self.device, "NPU", "GPU", "CPU"]
+            ordered = []
+            for d in candidates:
+                if d in available and d not in ordered:
+                    ordered.append(d)
+
+            if os.path.exists(self.model_path):
                 self.model = self.core.read_model(self.model_path)
-                self._compiled_model = self.core.compile_model(
-                    self.model,
-                    device_name=self.device,
-                    config={"PERFORMANCE_HINT": "THROUGHPUT"}
-                )
-                self._infer_request = self._compiled_model.create_infer_request()
-                self._initialized = True
-            elif self.device == "NPU" or self.device == "CPU":
-                # NPU device is available in runtime
+                for dev in ordered:
+                    try:
+                        self._compiled_model = self.core.compile_model(
+                            self.model,
+                            device_name=dev,
+                            config={"PERFORMANCE_HINT": "THROUGHPUT"}
+                        )
+                        self._infer_request = self._compiled_model.create_infer_request()
+                        self.device = dev
+                        self._initialized = True
+                        logger.info("OpenVINO 768D Embedder initialized on device: %s", dev)
+                        break
+                    except Exception as dev_err:
+                        logger.debug("OpenVINO compile on %s failed: %s", dev, dev_err)
+            elif "NPU" in available or "CPU" in available:
                 self._initialized = True
         except Exception as e:
             sys.stderr.write(f"[OpenVINONPUEmbedder] Init note: {e}\n")
@@ -95,52 +128,57 @@ class OpenVINONPUEmbedder:
     def is_available(self) -> bool:
         return self._initialized
 
-    def embed_tokens(self, input_ids: np.ndarray, attention_mask: np.ndarray | None = None) -> list[float]:
+    def embed_tokens(self, input_ids: np.ndarray, attention_mask: Optional[np.ndarray] = None) -> list[float]:
         """
-        Executes asynchronous NPU inference (infer_async) leaving host CPU at 0% load.
+        Executes hardware-accelerated OpenVINO inference leaving host CPU at 0% load.
         """
         if not self._initialized:
             raise RuntimeError("OpenVINO NPU embedder is not initialized")
 
         if self._infer_request is None:
-            # Fallback tensor embedding when model file was mocked/initialized on device without xml
             return _compute_fallback_embedding(str(input_ids.tolist()), dimension=self.dimension)
 
-        tensor_ids = ov.Tensor(input_ids.astype(np.int64))
-        self._infer_request.set_input_tensor(0, tensor_ids)
-        if attention_mask is not None and self._infer_request.inputs > 1:
-            tensor_mask = ov.Tensor(attention_mask.astype(np.int64))
-            self._infer_request.set_input_tensor(1, tensor_mask)
-
-        # Asynchronous non-blocking inference on NPU hardware (0% CPU core load)
-        self._infer_request.start_async()
-        self._infer_request.wait()
-
-        out_tensor = self._infer_request.get_output_tensor(0)
-        embeddings = out_tensor.data
-
-        if len(embeddings.shape) == 3:
+        try:
+            inputs_dict = {"input_ids": input_ids.astype(np.int64)}
             if attention_mask is not None:
-                mask_expanded = np.expand_dims(attention_mask, -1)
-                sum_embeddings = np.sum(embeddings * mask_expanded, axis=1)
-                sum_mask = np.clip(mask_expanded.sum(axis=1), a_min=1e-9, a_max=None)
-                pooled = (sum_embeddings / sum_mask)[0]
+                inputs_dict["attention_mask"] = attention_mask.astype(np.int64)
+
+            # Dictionary-based infer handles input port naming and shape broadcast cleanly
+            res = self._infer_request.infer(inputs_dict)
+            out_tensor = list(res.values())[0]  # First output is last_hidden_state [batch, seq_len, 768]
+            
+            if len(out_tensor.shape) == 3:
+                # Standard BGE / BERT CLS token pooling (position 0)
+                pooled = out_tensor[:, 0][0]
+            elif len(out_tensor.shape) == 2:
+                pooled = out_tensor[0]
             else:
-                pooled = np.mean(embeddings, axis=1)[0]
-        else:
-            pooled = embeddings.flatten()[:self.dimension]
+                pooled = out_tensor.flatten()[:self.dimension]
 
-        norm = np.linalg.norm(pooled)
-        if norm > 0:
-            pooled = pooled / norm
+            norm = np.linalg.norm(pooled)
+            if norm > 0:
+                pooled = pooled / norm
 
-        return pooled.astype(float).tolist()
+            return pooled.astype(float).tolist()
+        except Exception as e:
+            logger.debug("OpenVINO embed_tokens infer note: %s", e)
+            return _compute_fallback_embedding(str(input_ids.tolist()), dimension=self.dimension)
 
     def get_embedding(self, text: str) -> list[float]:
-        """Generates 768D text embedding using NPU device."""
+        """Generates real 768D text embedding using OpenVINO hardware device."""
         if not text or not text.strip():
             return [0.0] * self.dimension
-        # Convert text to ascii character token ids for lightweight tokenization
+
+        if self._tokenizer is not None:
+            encoded = self._tokenizer(
+                text,
+                return_tensors="np",
+                padding="max_length",
+                max_length=128,
+                truncation=True
+            )
+            return self.embed_tokens(encoded["input_ids"], encoded.get("attention_mask"))
+
         tokens = np.array([[ord(c) for c in text[:128]] + [0] * (128 - min(128, len(text)))], dtype=np.int64)
         return self.embed_tokens(tokens)
 
@@ -205,7 +243,8 @@ class UnifiedEmbeddingManager:
                     cleaned.append(0.0)
                 else:
                     cleaned.append(fx)
-        except Exception:
+        except Exception as e:
+            logger.debug("vector sanitation non-fatal: %s", e)
             return [0.0] * self.dimension
 
         if len(cleaned) < self.dimension:
@@ -222,7 +261,8 @@ class UnifiedEmbeddingManager:
                     self._npu_embedder = npu
                 else:
                     self._npu_embedder = False
-            except Exception:
+            except Exception as e:
+                logger.debug("NPU embedder initialization non-fatal: %s", e)
                 self._npu_embedder = False
         return self._npu_embedder if self._npu_embedder is not False else None
 
@@ -240,12 +280,10 @@ class UnifiedEmbeddingManager:
             try:
                 vec = npu.get_embedding(text)
                 return self._sanitize_vector(vec)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("NPU embedding computation non-fatal: %s", e)
 
         # 2. Optional Google GenAI Client (Gemini Embedding 2 / 768D) — CLOUD QUOTA.
-        #    Local-first policy: disabled by default. Opt in explicitly with
-        #    VAZUS_EMBEDDING_ALLOW_CLOUD=1 (e.g. for one-off quality experiments).
         if os.getenv("VAZUS_EMBEDDING_ALLOW_CLOUD") == "1":
             self._init_genai()
             if self._genai_client:
@@ -262,7 +300,7 @@ class UnifiedEmbeddingManager:
                         if vec:
                             return self._sanitize_vector(vec)
                 except Exception as e:
-                    sys.stderr.write(f"[GenAI Embedder Note] {e}\n")
+                    logger.debug("GenAI embed content non-fatal: %s", e)
 
         # 3. Fallback
         vec = _compute_fallback_embedding(text, dimension=self.dimension)
@@ -313,8 +351,8 @@ class UnifiedEmbeddingManager:
         if avx and hasattr(avx, "compute_batch_similarity"):
             try:
                 return avx.compute_batch_similarity(query_vec, candidate_vecs)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("AVX batch similarity computation non-fatal: %s", e)
 
         q = np.ascontiguousarray(query_vec, dtype=np.float32)
         q_invalid = np.any(np.isnan(q) | np.isinf(q))
@@ -339,6 +377,18 @@ class UnifiedEmbeddingManager:
         sims[invalid_rows] = 0.0
         return sims.tolist()
 
+    async def get_embedding_async(self, text: str, db_path: Optional[str] = None) -> List[float]:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.get_embedding, text, db_path)
+
+    async def compute_batch_similarity_async(self, query_vec: List[float], candidate_vecs: List[List[float]]) -> List[float]:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.compute_batch_similarity, query_vec, candidate_vecs)
+
+    async def search_unified_vector_space_async(self, query: str, **kwargs) -> List[Dict[str, Any]]:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, lambda: self.search_unified_vector_space(query, **kwargs))
+
     def search_unified_vector_space(
         self,
         query: str,
@@ -352,9 +402,65 @@ class UnifiedEmbeddingManager:
         query_words = [w.lower() for w in re.findall(r'\w+', query) if len(w) > 1]
         return self._search_sqlite_native(query_vec, query_words, db_path, top_k, domain_filter)
 
-    def _search_sqlite_native(self, query_vec, query_words, db_path, top_k, domain_filter):
+    def _filter_node_candidate(self, r, domain_filter: Optional[str]) -> Optional[tuple]:
+        """Validates and decodes a single kg_node row into candidate record and vector."""
+        if domain_filter:
+            df_lower = domain_filter.lower()
+            dom_lower = (r["domain"] or "").lower()
+            nt_lower = (r["node_type"] or "").lower()
+            if df_lower != dom_lower and df_lower != nt_lower:
+                return None
+        emb_str = r["embedding_json"]
+        if not emb_str:
+            return None
+
+        desc_text = (r["description"] or "").strip()
+        props_raw = r["properties"] or "{}"
+        try:
+            props = json.loads(props_raw) if isinstance(props_raw, str) else props_raw
+        except Exception as e:
+            logger.debug("parse properties non-fatal: %s", e)
+            props = {}
+
         import re
-        from vazus_core.memory.db import get_db_connection, unpack_vector_f32
+        transcript_text = props.get("transcript") or desc_text
+        clean_chars = re.sub(r'[^\w\dА-Яа-яA-Za-z]', '', transcript_text)
+        if len(clean_chars) < 5 or desc_text.strip() == "...." or transcript_text.strip() == "....":
+            return None
+
+        try:
+            if isinstance(emb_str, str) and emb_str.startswith('['):
+                node_emb = json.loads(emb_str)
+            else:
+                from vazus_core.memory.db import unpack_vector_f32
+                node_emb = unpack_vector_f32(emb_str)
+            if len(node_emb) == self.dimension:
+                return (r, props, transcript_text, node_emb)
+        except Exception as e:
+            logger.debug("unpack node embedding non-fatal: %s", e)
+        return None
+
+    def _score_node_candidates(self, query_vec, query_words, candidate_rows, candidate_vecs) -> list[dict[str, Any]]:
+        """Scores candidate rows via batch SIMD similarity + hybrid keyword boosting."""
+        results = []
+        similarities = self.compute_batch_similarity(query_vec, candidate_vecs)
+        for idx, (r, props, transcript_text) in enumerate(candidate_rows):
+            sim = similarities[idx]
+            full_searchable = f"{r['name']} {r['domain']} {r['tags']} {transcript_text}".lower()
+            keyword_matches = sum(1 for kw in query_words if kw in full_searchable)
+            kw_boost = 0.25 * (keyword_matches / max(1, len(query_words))) if query_words else 0.0
+            final_score = round(0.75 * sim + kw_boost, 4)
+            results.append({
+                "id": r["id"], "name": r["name"], "domain": r["domain"],
+                "node_type": r["node_type"], "description": r["description"],
+                "tags": r["tags"], "properties": props,
+                "similarity": final_score, "vector_sim": round(sim, 4),
+                "keyword_matches": keyword_matches
+            })
+        return results
+
+    def _search_sqlite_native(self, query_vec, query_words, db_path, top_k, domain_filter):
+        from vazus_core.memory.db import get_db_connection
         db_path = Path(db_path)
         if not db_path.exists() and Path("C:/vazus/services/memory/vazus.db").exists():
             db_path = Path("C:/vazus/services/memory/vazus.db")
@@ -369,72 +475,16 @@ class UnifiedEmbeddingManager:
                 "SELECT id, name, domain, node_type, description, tags, properties, embedding_json FROM kg_nodes WHERE embedding_json IS NOT NULL"
             ).fetchall()
 
-            candidate_rows = []
-            candidate_vecs = []
-
+            candidate_rows, candidate_vecs = [], []
             for r in rows:
-                if domain_filter:
-                    df_lower = domain_filter.lower()
-                    dom_lower = (r["domain"] or "").lower()
-                    nt_lower = (r["node_type"] or "").lower()
-                    if df_lower != dom_lower and df_lower != nt_lower:
-                        continue
-                emb_str = r["embedding_json"]
-                if not emb_str:
-                    continue
-
-                desc_text = (r["description"] or "").strip()
-                props_raw = r["properties"] or "{}"
-                try:
-                    props = json.loads(props_raw) if isinstance(props_raw, str) else props_raw
-                except Exception:
-                    props = {}
-
-                transcript_text = props.get("transcript") or desc_text
-                clean_chars = re.sub(r'[^\w\dА-Яа-яA-Za-z]', '', transcript_text)
-
-                if len(clean_chars) < 5 or desc_text.strip() == "...." or transcript_text.strip() == "....":
-                    continue
-
-                try:
-                    if isinstance(emb_str, str) and emb_str.startswith('['):
-                        import json
-                        node_emb = json.loads(emb_str)
-                    else:
-                        from vazus_core.memory.db import unpack_vector_f32
-                        node_emb = unpack_vector_f32(emb_str)
-                    if len(node_emb) == self.dimension:
-                        candidate_rows.append((r, props, transcript_text))
-                        candidate_vecs.append(node_emb)
-                except Exception:
-                    continue
+                candidate = self._filter_node_candidate(r, domain_filter)
+                if candidate:
+                    r_item, props, transcript_text, node_emb = candidate
+                    candidate_rows.append((r_item, props, transcript_text))
+                    candidate_vecs.append(node_emb)
 
             if candidate_vecs:
-                # Compute batch similarity using SIMD engine
-                similarities = self.compute_batch_similarity(query_vec, candidate_vecs)
-
-                for idx, (r, props, transcript_text) in enumerate(candidate_rows):
-                    sim = similarities[idx]
-
-                    # Hybrid Keyword Boosting
-                    full_searchable = f"{r['name']} {r['domain']} {r['tags']} {transcript_text}".lower()
-                    keyword_matches = sum(1 for kw in query_words if kw in full_searchable)
-                    kw_boost = 0.25 * (keyword_matches / max(1, len(query_words))) if query_words else 0.0
-
-                    final_score = round(0.75 * sim + kw_boost, 4)
-
-                    results.append({
-                        "id": r["id"],
-                        "name": r["name"],
-                        "domain": r["domain"],
-                        "node_type": r["node_type"],
-                        "description": r["description"],
-                        "tags": r["tags"],
-                        "properties": props,
-                        "similarity": final_score,
-                        "vector_sim": round(sim, 4),
-                        "keyword_matches": keyword_matches
-                    })
+                results = self._score_node_candidates(query_vec, query_words, candidate_rows, candidate_vecs)
         finally:
             conn.close()
 
@@ -508,6 +558,36 @@ def get_embedding_manager(dimension: int = 768) -> UnifiedEmbeddingManager:
     return manager
 
 
+def compute_similarity(vec1: List[float], vec2: List[float]) -> float:
+    """Computes cosine similarity between two float vectors."""
+    return get_embedding_manager().compute_similarity(vec1, vec2)
+
+
+class EmbeddingMicroBatcher:
+    """Async micro-batcher for coalescing embedding requests."""
+    def __init__(self, batch_size: int = 8, timeout_ms: float = 10.0, dimension: int = 768):
+        self.batch_size = batch_size
+        self.timeout_s = timeout_ms / 1000.0
+        self.dimension = dimension
+        self.manager = get_embedding_manager(dimension=dimension)
+
+    async def get_embedding(self, text: str) -> List[float]:
+        return await self.manager.get_embedding_async(text)
+
+
+async def get_embedding_async(text: str, dimension: int = 768) -> List[float]:
+    return await get_embedding_manager(dimension=dimension).get_embedding_async(text)
+
+
+async def compute_batch_similarity_async(vec: List[float], candidate_vecs: List[List[float]]) -> List[float]:
+    dim = len(vec) if vec else 768
+    return await get_embedding_manager(dimension=dim).compute_batch_similarity_async(vec, candidate_vecs)
+
+
+async def search_unified_vector_space_async(query: str, **kwargs) -> List[Dict[str, Any]]:
+    return await get_embedding_manager().search_unified_vector_space_async(query, **kwargs)
+
+
 if __name__ == "__main__":
     embedder = UnifiedEmbeddingManager()
     v1 = embedder.get_embedding("SuperGraph OS Architecture")
@@ -516,3 +596,4 @@ if __name__ == "__main__":
     print(f"Model: {embedder.model_name}")
     print(f"Vector dim: {len(v1)}")
     print(f"Similarity: {sim:.4f}")
+

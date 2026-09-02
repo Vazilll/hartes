@@ -19,13 +19,13 @@ class GoogleGemmaLocalEngine:
         """
         Generates 768-dim Google Gemma alignment vector for SuperGraph OS
         """
-        # Deterministic 768-dim projection for SuperGraph OS vector space
-        import hashlib
-        h = hashlib.sha256(text_input.encode('utf-8')).digest()
-        vec = [((b / 255.0) * 2.0 - 1.0) for b in h]
-        while len(vec) < self.embedding_dim:
-            vec.extend(vec)
-        return vec[:self.embedding_dim]
+        try:
+            from vazus_core.memory.embeddings import UnifiedEmbeddingManager
+            mgr = UnifiedEmbeddingManager()
+            return mgr.get_embedding(text_input)
+        except Exception:
+            from vazus_core.memory.embeddings import compute_fallback_embedding
+            return compute_fallback_embedding(text_input, target_dim=self.embedding_dim)
 
     def process_health_query_local(self, query, telemetry_data):
         """
@@ -37,17 +37,28 @@ class GoogleGemmaLocalEngine:
             f"Выгруженная телеметрия: {json.dumps(telemetry_data, ensure_ascii=False)}\n\n"
             f"Проведи глубокий физиологический разбор и дай конкретный результат."
         )
-        
-        # Local analysis generation
+
+        response_text = None
+        try:
+            from vazus_core.engine.silicon_orchestrator import SiliconOrchestrator
+            orch = SiliconOrchestrator()
+            out = orch.process(prompt, extract_memory=False)
+            response_text = out.text
+        except Exception:
+            pass
+
+        if not response_text:
+            response_text = (
+                f"На основе телеметрии (Шаги: {telemetry_data.get('total_steps', 0)}, "
+                f"Сон: {telemetry_data.get('sleep_hours', 0)}ч) система фиксирует стабильное восстановление. "
+                f"Рекомендуется поддерживать баланс гидратации и чередовать нагрузки с качественным сном."
+            )
+
         return {
             "engine": "Google Gemma Local (Offline)",
             "prompt_tokens": len(prompt.split()),
-            "embedding_dim": 768,
-            "response": (
-                f"На основе телеметрии (Шаги: {telemetry_data.get('total_steps', 0)}, "
-                f"Сон: {telemetry_data.get('sleep_hours', 0)}ч) система фиксирует стабильное восстановление. "
-                f"Google Gemma рекомендует сохранять режим питья и силовых/аэробных нагрузок."
-            )
+            "embedding_dim": self.embedding_dim,
+            "response": response_text
         }
 
 if __name__ == '__main__':

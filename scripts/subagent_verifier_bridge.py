@@ -31,6 +31,7 @@ try:
     from vazus_core.workers.agent_handoff import handoff_manager
     from vazus_core.memory.dialogue_persister import dialogue_persister
     from vazus_core.verification.smt_z3_verifier import smt_verifier
+    from vazus_core.workers.repl_engine import _get_safe_builtins, REPLSandboxASTValidator
     from scripts.unified_supergraph_bridge import UnifiedSuperGraphBridge
 except ImportError as e:
     sys.stderr.write(f"[VerifierBridge] Core module import warning: {e}\n")
@@ -38,6 +39,8 @@ except ImportError as e:
     handoff_manager = None
     dialogue_persister = None
     smt_verifier = None
+    _get_safe_builtins = None
+    REPLSandboxASTValidator = None
     UnifiedSuperGraphBridge = None
 
 
@@ -90,7 +93,9 @@ class CodeVerifier:
             }
 
         try:
-            ast.parse(code)
+            parsed_tree = ast.parse(code)
+            if REPLSandboxASTValidator is not None:
+                REPLSandboxASTValidator().validate(parsed_tree)
         except SyntaxError as se:
             return {
                 "success": False,
@@ -99,6 +104,15 @@ class CodeVerifier:
                 "error": str(se),
                 "stdout": "",
                 "stderr": f"SyntaxError: {str(se)}",
+            }
+        except Exception as ve:
+            return {
+                "success": False,
+                "execution": "SECURITY_VIOLATION",
+                "timeout": self.timeout,
+                "error": str(ve),
+                "stdout": "",
+                "stderr": f"SecurityViolation: {str(ve)}",
             }
 
         stdout_buf, stderr_buf = io.StringIO(), io.StringIO()
@@ -109,7 +123,8 @@ class CodeVerifier:
             old_stdout, old_stderr = sys.stdout, sys.stderr
             try:
                 sys.stdout, sys.stderr = stdout_buf, stderr_buf
-                exec(code, {}, {})
+                safe_b = _get_safe_builtins() if _get_safe_builtins is not None else {}
+                exec(code, {"__builtins__": safe_b}, {})
             except Exception as e:
                 exec_exception.append(e)
                 stderr_buf.write(traceback.format_exc())

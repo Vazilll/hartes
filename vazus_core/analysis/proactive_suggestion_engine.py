@@ -180,14 +180,14 @@ class ProactiveSuggestionEngine:
                         if score >= RELEVANCE_THRESHOLD:
                             scored.append((score, item))
                     scored.sort(key=lambda x: x[0], reverse=True)
-                    result_raw = [item for _, item in scored]
-                except Exception:
-                    pass  # Fallback: unfiltered
+                except Exception as ex:
+                    logger.debug("Relevance scoring fallback: %s", ex)
 
             # Dedup + limit
             return list(dict.fromkeys(result_raw))[:limit]
 
-        except Exception:
+        except Exception as exc:
+            logger.debug("Failed to retrieve suggestions: %s", exc)
             return []
 
     # ── Checkers ──────────────────────────────────────────────────────────
@@ -228,69 +228,57 @@ class ProactiveSuggestionEngine:
             logger.debug("Complexity check failed for %s: %s", fp.name, e)
         return suggestions
 
-    def _check_with_ruff(self, fp: Path) -> list[Suggestion]:
-        """
-        Unified ruff-based checker (37× faster than pylint, replaces ast.walk hacks).
-        Covers:
-          T201 — print() statements in production code
-          F841 — unused local variables (dead vars, replaces vulture for single-file)
-          E711 — None comparison (use 'is' not '==')
-          B006 — mutable default arguments
+    def _parse_ruff_finding(self, f: dict, fp: Path, skip_names: tuple) -> Optional[Suggestion]:
+        code = f.get("code", "")
+        line = f.get("location", {}).get("row", 0)
+        msg = f.get("message", "")
 
-        Note: C901 (complexity) is handled separately by _check_complexity (radon gives
-        richer data: actual CC score, rank, function name).
-        """
+        if code == "T201":
+            if any(s in fp.name for s in skip_names):
+                return None
+            return Suggestion(
+                file_path=str(fp), line=line,
+                category="print", severity="advisory",
+                title=f"print() in production code (line {line})",
+                detail="Bypasses logging pipeline and vazus.db telemetry.",
+                context_snippet=msg, auto_fixable=True,
+                fix_hint="logger = logging.getLogger(__name__); logger.info(...)"
+            )
+        elif code == "F841":
+            return Suggestion(
+                file_path=str(fp), line=line,
+                category="dead_code", severity="advisory",
+                title=f"Unused variable (line {line}): {msg}",
+                detail="Dead assignment detected by ruff F841.",
+                context_snippet=msg, auto_fixable=True,
+                fix_hint="Remove the assignment or prefix with _ if intentional."
+            )
+        elif code in ("E711", "B006"):
+            return Suggestion(
+                file_path=str(fp), line=line,
+                category="style", severity="advisory",
+                title=f"[{code}] {msg}", detail=msg,
+                auto_fixable=True, fix_hint=f"ruff check --fix {fp.name}"
+            )
+        return None
+
+    def _check_with_ruff(self, fp: Path) -> list[Suggestion]:
+        """Unified ruff-based checker (37× faster than pylint)."""
         suggestions = []
-        skip_names = ("precommit_gate", "mirea_exporter", "mirea_student_manager",
-                      "watchdog", "hud", "cli_")
+        skip_names = ("precommit_gate", "mirea_exporter", "mirea_student_manager", "watchdog", "hud", "cli_")
         try:
             result = subprocess.run(
-                [VENV_PY, "-m", "ruff", "check",
-                 "--select=T201,F841,E711,B006",
-                 "--output-format=json",
-                 str(fp)],
+                [VENV_PY, "-m", "ruff", "check", "--select=T201,F841,E711,B006", "--output-format=json", str(fp)],
                 capture_output=True, text=True, timeout=10,
                 encoding="utf-8", errors="replace"
             )
             findings = json.loads(result.stdout) if result.stdout.strip().startswith("[") else []
             for f in findings:
-                code = f.get("code", "")
-                line = f.get("location", {}).get("row", 0)
-                msg = f.get("message", "")
-
-                if code == "T201":
-                    if any(s in fp.name for s in skip_names):
-                        continue
-                    suggestions.append(Suggestion(
-                        file_path=str(fp), line=line,
-                        category="print", severity="advisory",
-                        title=f"print() in production code (line {line})",
-                        detail="Bypasses logging pipeline and vazus.db telemetry.",
-                        context_snippet=msg,
-                        auto_fixable=True,
-                        fix_hint="logger = logging.getLogger(__name__); logger.info(...)"
-                    ))
-                elif code == "F841":
-                    suggestions.append(Suggestion(
-                        file_path=str(fp), line=line,
-                        category="dead_code", severity="advisory",
-                        title=f"Unused variable (line {line}): {msg}",
-                        detail="Dead assignment detected by ruff F841.",
-                        context_snippet=msg,
-                        auto_fixable=True,
-                        fix_hint="Remove the assignment or prefix with _ if intentional."
-                    ))
-                elif code in ("E711", "B006"):
-                    suggestions.append(Suggestion(
-                        file_path=str(fp), line=line,
-                        category="style", severity="advisory",
-                        title=f"[{code}] {msg}",
-                        detail=msg,
-                        auto_fixable=True,
-                        fix_hint=f"ruff check --fix {fp.name}"
-                    ))
-        except json.JSONDecodeError:
-            pass
+                sugg = self._parse_ruff_finding(f, fp, skip_names)
+                if sugg:
+                    suggestions.append(sugg)
+        except json.JSONDecodeError as jde:
+            logger.debug("ruff output decode error for %s: %s", fp.name, jde)
         except Exception as e:
             logger.debug("ruff check failed for %s: %s", fp.name, e)
         return suggestions
@@ -349,8 +337,8 @@ class ProactiveSuggestionEngine:
                         auto_fixable=False,
                         fix_hint="PYTHON_BIN = Path('C:/vazus/.venv/Scripts/python.exe')  # hardcoded, not from env"
                     ))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed to check tainted subprocess: %s", exc)
         return suggestions
 
     # ── Master scan ───────────────────────────────────────────────────────

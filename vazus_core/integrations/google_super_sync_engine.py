@@ -5,12 +5,15 @@ vazus_core/google_super_sync_engine.py — Master Sync Engine for Gmail, Google 
 Ecosystem: vazus SuperGraph OS v4.0
 """
 
-import os
-import sys
-import sqlite3
 import datetime
+import logging
+import os
+import sqlite3
+import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -158,70 +161,62 @@ class GoogleSuperSyncEngine:
     # -------------------------------------------------------------
     # 2. GOOGLE SHEETS SYNC MODULE
     # -------------------------------------------------------------
+    def _get_or_create_tracker_sheet(self, sheets_service: Any, drive_service: Any) -> str:
+        q = "name = 'vazus SuperGraph OS — Трекер Долгов и БАДов' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+        res = drive_service.files().list(q=q).execute()
+        files = res.get('files', [])
+        if files:
+            spreadsheet_id = files[0]['id']
+            print(f"📊 [Google Sheets] Найдена существующая таблица ID: {spreadsheet_id}")
+            return spreadsheet_id
+
+        spreadsheet_body = {
+            'properties': {'title': 'vazus SuperGraph OS — Трекер Долгов и БАДов'},
+            'sheets': [
+                {'properties': {'title': 'Долги и Учёба (МИРЭА)'}},
+                {'properties': {'title': 'Стек БАДов и Дозировки'}}
+            ]
+        }
+        sp = sheets_service.spreadsheets().create(body=spreadsheet_body).execute()
+        spreadsheet_id = sp.get('spreadsheetId')
+        print(f"✨ [Google Sheets] Создана новая таблица ID: {spreadsheet_id}")
+        return spreadsheet_id
+
+    def _populate_tracker_tabs(self, sheets_service: Any, spreadsheet_id: str) -> None:
+        debts_data = [
+            ["Категория", "Предмет / Задача", "Статус", "Дедлайн", "Детали / Источник"],
+            ["Учёба МИРЭА", "Ликвидация академических задолженностей", "В процессе", "2026-08-15", "Загружено через download_mirea_courses.py"],
+            ["Финансы", "Закрытие текущих финансовых долгов", "В процессе", "2026-08-01", "Учет в vazus.db"],
+            ["Здоровье", "Закупка активного стека БАДов", "Запланировано", "2026-07-29", "Maxler D3+K2, Boron, Креатин, Омега-3, Цинк"]
+        ]
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id, range="'Долги и Учёба (МИРЭА)'!A1",
+            valueInputOption="RAW", body={"values": debts_data}
+        ).execute()
+
+        supplements_data = [
+            ["Препарат / БАД", "Дозировка / Схема", "Периодичность", "Цель / Статус"],
+            ["Maxler D3+K2", "4 капс/день (2400 МЕ D3 + 120 мкг K2)", "Ежедневно", "Активен"],
+            ["NOW Boron 3mg", "3 капс/день (9 мг/день)", "2 нед приём / 1 нед отдых", "Активен"],
+            ["Maxler Креатин", "5г/день с водой", "Ежедневно", "Активен"],
+            ["Омега-3", "Стандартная дозировка", "Ежедневно", "Активен"],
+            ["Цинк + Селен + Магний", "По схеме в конце дня", "Ежедневно перед сном", "Активен"],
+            ["Ашваганда", "По схеме", "Курсовой приём", "Активен"]
+        ]
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=spreadsheet_id, range="'Стек БАДов и Дозировки'!A1",
+            valueInputOption="RAW", body={"values": supplements_data}
+        ).execute()
+
     def sync_sheets_tracker(self) -> Dict[str, Any]:
         """Creates or updates the master Google Sheet for Debts & Supplement Stack."""
         if 'sheets' not in self.services or 'drive' not in self.services:
             return {"status": "error", "message": "Sheets API service not initialized"}
-
         try:
-            sheets_service = self.services['sheets']
-            drive_service = self.services['drive']
-
-            # Check if Spreadsheet already exists
-            q = "name = 'vazus SuperGraph OS — Трекер Долгов и БАДов' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
-            res = drive_service.files().list(q=q).execute()
-            files = res.get('files', [])
-
-            spreadsheet_id = None
-            if files:
-                spreadsheet_id = files[0]['id']
-                print(f"📊 [Google Sheets] Найдена существующая таблица ID: {spreadsheet_id}")
-            else:
-                # Create new Spreadsheet
-                spreadsheet_body = {
-                    'properties': {'title': 'vazus SuperGraph OS — Трекер Долгов и БАДов'},
-                    'sheets': [
-                        {'properties': {'title': 'Долги и Учёба (МИРЭА)'}},
-                        {'properties': {'title': 'Стек БАДов и Дозировки'}}
-                    ]
-                }
-                sp = sheets_service.spreadsheets().create(body=spreadsheet_body).execute()
-                spreadsheet_id = sp.get('spreadsheetId')
-                print(f"✨ [Google Sheets] Создана новая таблица ID: {spreadsheet_id}")
-
-            # Populate Tab 1: Debts & Academic Tasks
-            debts_data = [
-                ["Категория", "Предмет / Задача", "Статус", "Дедлайн", "Детали / Источник"],
-                ["Учёба МИРЭА", "Ликвидация академических задолженностей", "В процессе", "2026-08-15", "Загружено через download_mirea_courses.py"],
-                ["Финансы", "Закрытие текущих финансовых долгов", "В процессе", "2026-08-01", "Учет в vazus.db"],
-                ["Здоровье", "Закупка активного стека БАДов", "Запланировано", "2026-07-29", "Maxler D3+K2, Boron, Креатин, Омега-3, Цинк"]
-            ]
-            sheets_service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id, range="'Долги и Учёба (МИРЭА)'!A1",
-                valueInputOption="RAW", body={"values": debts_data}
-            ).execute()
-
-            # Populate Tab 2: Supplement Stack
-            supplements_data = [
-                ["Препарат / БАД", "Дозировка / Схема", "Периодичность", "Цель / Статус"],
-                ["Maxler D3+K2", "4 капс/день (2400 МЕ D3 + 120 мкг K2)", "Ежедневно", "Активен"],
-                ["NOW Boron 3mg", "3 капс/день (9 мг/день)", "2 нед приём / 1 нед отдых", "Активен"],
-                ["Maxler Креатин", "5г/день с водой", "Ежедневно", "Активен"],
-                ["Омега-3", "Стандартная дозировка", "Ежедневно", "Активен"],
-                ["Цинк + Селен + Магний", "По схеме в конце дня", "Ежедневно перед сном", "Активен"],
-                ["Ашваганда", "По схеме", "Курсовой приём", "Активен"]
-            ]
-            sheets_service.spreadsheets().values().update(
-                spreadsheetId=spreadsheet_id, range="'Стек БАДов и Дозировки'!A1",
-                valueInputOption="RAW", body={"values": supplements_data}
-            ).execute()
-
+            spreadsheet_id = self._get_or_create_tracker_sheet(self.services['sheets'], self.services['drive'])
+            self._populate_tracker_tabs(self.services['sheets'], spreadsheet_id)
             sheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}"
-            return {
-                "status": "success",
-                "spreadsheet_id": spreadsheet_id,
-                "spreadsheet_url": sheet_url
-            }
+            return {"status": "success", "spreadsheet_id": spreadsheet_id, "spreadsheet_url": sheet_url}
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
@@ -260,8 +255,8 @@ class GoogleSuperSyncEngine:
                     found = re.findall(r'- \[(?: |x)\] (.*)', text)
                     for item in found:
                         tasks.append((str(p.name), item.strip()))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed reading markdown file %s for tasks: %s", p, exc)
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("PRAGMA journal_mode=WAL;")

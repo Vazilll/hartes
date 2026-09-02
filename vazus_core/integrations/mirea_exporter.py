@@ -14,17 +14,20 @@ Architecture & Authentication Flow:
 vazus SuperGraph OS Ecosystem
 """
 
-import os
-import sys
-import re
+import email
+import imaplib
 import json
+import logging
+import os
+import re
+import sys
 import time
 import urllib.parse
-import imaplib
-import email
 from email.header import decode_header
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 import requests
 from bs4 import BeautifulSoup
@@ -62,8 +65,8 @@ def load_env_credentials() -> Dict[str, Optional[str]]:
                         creds["yandex_email"] = line.split("=", 1)[1].strip().strip('"').strip("'")
                     elif line.startswith("YANDEX_APP_PASSWORD="):
                         creds["yandex_password"] = line.split("=", 1)[1].strip().strip('"').strip("'")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Failed reading .env file for credentials: %s", exc)
 
     if not creds["username"]:
         creds["username"] = os.getenv("MIREA_USERNAME")
@@ -100,6 +103,37 @@ class YandexIMAP2FAReader:
         except Exception:
             return mime_str
 
+    def _extract_code_from_msg(self, mail: imaplib.IMAP4_SSL, msg_id: bytes) -> Optional[str]:
+        res, msg_data = mail.fetch(msg_id, "(RFC822)")
+        if res != "OK":
+            return None
+
+        raw_email = msg_data[0][1]
+        msg = email.message_from_bytes(raw_email)
+        subject = ""
+        if msg["Subject"]:
+            sub_decoded, encoding = decode_header(msg["Subject"])[0]
+            subject = sub_decoded.decode(encoding or "utf-8", errors="ignore") if isinstance(sub_decoded, bytes) else str(sub_decoded)
+
+        sender = msg.get("From", "")
+        print(f"      -> Письмо от: '{sender}' | Тема: '{subject}'")
+
+        body = ""
+        if msg.is_multipart():
+            for part in msg.walk():
+                if part.get_content_type() == "text/plain":
+                    body = part.get_payload(decode=True).decode(errors="ignore")
+                    break
+        else:
+            body = msg.get_payload(decode=True).decode(errors="ignore")
+
+        m_code = (
+            re.search(r'\b(\d{6})\b', body) or re.search(r'\b(\d{6})\b', subject)
+            or re.search(r'код[:\s]+(\d{4,8})', body, re.IGNORECASE)
+            or re.search(r'пароль[:\s]+(\d{4,8})', body, re.IGNORECASE)
+        )
+        return m_code.group(1) if m_code else None
+
     def fetch_latest_2fa_code(self, timeout_sec: int = 30, target_tag: Optional[str] = None, **_kwargs) -> Optional[str]:
         """Polls Yandex Mail IMAP with transparent progress logging."""
         tag_info = f" (target: {target_tag})" if target_tag else ""
@@ -122,56 +156,21 @@ class YandexIMAP2FAReader:
                     msg_ids = messages[0].split()
                     print(f"   📫 Найдено новых писем: {len(msg_ids)}")
                     for msg_id in reversed(msg_ids[-5:]):
-                        res, msg_data = mail.fetch(msg_id, "(RFC822)")
-                        if res != "OK":
-                            continue
-
-                        raw_email = msg_data[0][1]
-                        msg = email.message_from_bytes(raw_email)
-                        subject = ""
-                        if msg["Subject"]:
-                            sub_decoded, encoding = decode_header(msg["Subject"])[0]
-                            if isinstance(sub_decoded, bytes):
-                                subject = sub_decoded.decode(encoding or "utf-8", errors="ignore")
-                            else:
-                                subject = str(sub_decoded)
-
-                        sender = msg.get("From", "")
-                        print(f"      -> Письмо от: '{sender}' | Тема: '{subject}'")
-
-                        body = ""
-                        if msg.is_multipart():
-                            for part in msg.walk():
-                                if part.get_content_type() == "text/plain":
-                                    body = part.get_payload(decode=True).decode(errors="ignore")
-                                    break
-                        else:
-                            body = msg.get_payload(decode=True).decode(errors="ignore")
-
-                        m_code = (
-                            re.search(r'\b(\d{6})\b', body)
-                            or re.search(r'\b(\d{6})\b', subject)
-                            or re.search(r'код[:\s]+(\d{4,8})', body, re.IGNORECASE)
-                            or re.search(r'пароль[:\s]+(\d{4,8})', body, re.IGNORECASE)
-                        )
-                        if m_code:
-                            code = m_code.group(1)
+                        code = self._extract_code_from_msg(mail, msg_id)
+                        if code:
                             print(f"   🎉 [2FA IMAP Reader] Успешно извлечен 2FA-код: {code}")
                             mail.logout()
                             return code
                 else:
                     print(f"   ⏳ [2FA IMAP Reader] Сканирование новых писем... ({time.time() - start_time:.0f}s)")
-
             except Exception as e:
                 sys.stderr.write(f"[2FA IMAP Warning]: {e}\n")
-
             time.sleep(4)
 
         try:
             mail.logout()
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("Failed clean IMAP logout: %s", exc)
         print(f"⚠️ [2FA IMAP Reader] Новых писем с 2FA-кодом не поступило за {timeout_sec} сек.")
         return None
 
@@ -308,6 +307,50 @@ class MoodleSessionManager:
 
         return None
 
+    def _acquire_login_action_url(self) -> Optional[str]:
+        try:
+            print(f"🌐 [HTTP GET] OIDC SSO -> {OIDC_LOGIN_URL}")
+            r_oidc = self.session.get(OIDC_LOGIN_URL, allow_redirects=True, timeout=15)
+            print(f"   Итоговый URL Keycloak: {r_oidc.url}")
+            login_action_url = self.extract_login_action_url(r_oidc.text, r_oidc.url)
+            if not login_action_url:
+                print("❌ [MIREA Auth] Не удалось извлечь точку входа Keycloak loginAction.")
+                return None
+            print(f"🔑 Точка отправки формы Keycloak SSO: {login_action_url[:90]}...")
+            return login_action_url
+        except Exception as e:
+            print(f"❌ [MIREA Auth] Ошибка подключения к OIDC SSO: {e}")
+            return None
+
+    def _handle_2fa_prompt(
+        self, res: requests.Response, soup_res: BeautifulSoup,
+        yandex_email: Optional[str], yandex_password: Optional[str]
+    ) -> requests.Response:
+        print("\n🔐 [2FA Детектор] Зафиксирован реальный запрос 2FA-кода подтверждения!")
+        code = None
+        if yandex_email and yandex_password:
+            reader = YandexIMAP2FAReader(yandex_email, yandex_password)
+            code = reader.fetch_latest_2fa_code(timeout_sec=25)
+        if not code:
+            if sys.stdin.isatty():
+                print("⚠️ Автоматический перехват 2FA не дал результата. Введите код вручную:")
+                try:
+                    code = input("🔑 2FA-код: ").strip()
+                except (KeyboardInterrupt, EOFError):
+                    code = ""
+            else:
+                print("⚠️ Автоматический перехват 2FA не дал результата, терминал неинтерактивен.")
+
+        if code:
+            form_2fa = soup_res.find("form")
+            target_url = urllib.parse.urljoin(res.url, form_2fa.get("action", res.url)) if form_2fa else res.url
+            payload_2fa = {inp.get("name"): inp.get("value", "") for inp in (form_2fa.find_all("input") if form_2fa else []) if inp.get("name")}
+            payload_2fa["code"] = code
+            payload_2fa["otp"] = code
+            res = self.session.post(target_url, data=payload_2fa, timeout=15, allow_redirects=True)
+            print(f"🌐 [HTTP POST 2FA] Status {res.status_code} | URL: {res.url}")
+        return res
+
     def login(self, username: Optional[str] = None, password: Optional[str] = None,
               yandex_email: Optional[str] = None, yandex_password: Optional[str] = None) -> bool:
         """Authenticates on RTU MIREA via Keycloak SSO with transparent diagnostics."""
@@ -325,100 +368,36 @@ class MoodleSessionManager:
             print("⚠️ [MIREA Exporter] Учетные данные РТУ МИРЭА не заданы в C:\\vazus\\.env.")
             return False
 
-        print("\n" + "=" * 70)
-        print(f"🔑 [MIREA SSO Auth] Старт входа через Единую Систему Аутентификации РТУ МИРЭА (Keycloak SSO)")
-        print(f"   Логин: {username}")
-        print("=" * 70)
-
-        # Step 1: Open OIDC SSO Login Entry Point
-        try:
-            print(f"🌐 [HTTP GET] OIDC SSO -> {OIDC_LOGIN_URL}")
-            r_oidc = self.session.get(OIDC_LOGIN_URL, allow_redirects=True, timeout=15)
-            print(f"   Итоговый URL Keycloak: {r_oidc.url}")
-
-            # Step 2: Extract dynamic Keycloak loginAction URL
-            login_action_url = self.extract_login_action_url(r_oidc.text, r_oidc.url)
-
-            if not login_action_url:
-                print("❌ [MIREA Auth] Не удалось извлечь точку входа Keycloak loginAction.")
-                return False
-
-            print(f"🔑 Точка отправки формы Keycloak SSO: {login_action_url[:90]}...")
-
-        except Exception as e:
-            print(f"❌ [MIREA Auth] Ошибка подключения к OIDC SSO: {e}")
+        print(f"\n{'='*70}\n🔑 [MIREA SSO Auth] Старт входа через Единую Систему Аутентификации РТУ МИРЭА\n   Логин: {username}\n{'='*70}")
+        login_action_url = self._acquire_login_action_url()
+        if not login_action_url:
             return False
 
-        # Step 3: POST Credentials to Keycloak SSO Action URL
-        payload = {
-            "username": username,
-            "password": password
-        }
-
         try:
-            res = self.session.post(login_action_url, data=payload, timeout=20, allow_redirects=True)
+            res = self.session.post(login_action_url, data={"username": username, "password": password}, timeout=20, allow_redirects=True)
             print(f"🌐 [HTTP POST Keycloak] Status {res.status_code} | URL: {res.url}")
 
             soup_res = BeautifulSoup(res.text, "html.parser")
             page_title = soup_res.find("title").get_text(strip=True) if soup_res.find("title") else "Без заголовка"
             print(f"📄 Заголовок ответа сервера: '{page_title}'")
 
-            # Check for Keycloak Authentication Errors
             kc_error = self.extract_keycloak_error(res.text)
             if kc_error:
                 print(f"❌ [MIREA Auth] Ошибка аутентификации Keycloak: '{kc_error}'")
                 return False
 
-            # Check if 2FA is required by Keycloak / Moodle
             otp_input = soup_res.find("input", {"name": re.compile(r'^(twofactor|authcode|otpcode|token|verification_code|totp)$', re.IGNORECASE)})
-            is_2fa_page = bool("twofactor" in res.url or "двухфакторн" in res.text.lower() or "код подтверждения" in res.text.lower() or otp_input)
+            if "twofactor" in res.url or "двухфакторн" in res.text.lower() or "код подтверждения" in res.text.lower() or otp_input:
+                res = self._handle_2fa_prompt(res, soup_res, yandex_email, yandex_password)
 
-            if is_2fa_page:
-                print("\n🔐 [2FA Детектор] Зафиксирован реальный запрос 2FA-кода подтверждения!")
-                code = None
-
-                if yandex_email and yandex_password:
-                    reader = YandexIMAP2FAReader(yandex_email, yandex_password)
-                    code = reader.fetch_latest_2fa_code(timeout_sec=25)
-
-                if not code:
-                    if sys.stdin.isatty():
-                        print("⚠️ Автоматический перехват 2FA не дал результата. Введите код вручную:")
-                        try:
-                            code = input("🔑 2FA-код: ").strip()
-                        except (KeyboardInterrupt, EOFError):
-                            code = ""
-                    else:
-                        print("⚠️ Автоматический перехват 2FA не дал результата, терминал неинтерактивен.")
-
-                if code:
-                    form_2fa = soup_res.find("form")
-                    target_url = urllib.parse.urljoin(res.url, form_2fa.get("action", res.url)) if form_2fa else res.url
-                    inputs = form_2fa.find_all("input") if form_2fa else []
-                    payload_2fa = {}
-                    for inp in inputs:
-                        name = inp.get("name")
-                        val = inp.get("value", "")
-                        if name:
-                            payload_2fa[name] = val
-                    payload_2fa["code"] = code
-                    payload_2fa["otp"] = code
-
-                    res = self.session.post(target_url, data=payload_2fa, timeout=15, allow_redirects=True)
-                    print(f"🌐 [HTTP POST 2FA] Status {res.status_code} | URL: {res.url}")
-
-            # Step 4: Bypass MAX registration modal if shown
             self.handle_max_registration_bypass(res.text, res.url)
 
-            # Step 5: Verify final authentication in Moodle
             if self.is_authenticated():
                 print("\n🎉 [MIREA Auth] ПОЛНАЯ АВТОРИЗАЦИЯ УСПЕШНА! Сессия сохранена в user_mirea_session.json.")
                 self.save_session_cookies()
                 return True
-            else:
-                print("\n❌ [MIREA Auth] Вход не завершен. Проверьте правильность пароля в C:\\vazus\\.env.")
-                return False
-
+            print("\n❌ [MIREA Auth] Вход не завершен. Проверьте правильность пароля в C:\\vazus\\.env.")
+            return False
         except Exception as err:
             print(f"❌ [MIREA Auth] Ошибка сети при аутентификации Keycloak: {err}")
             return False
@@ -432,68 +411,43 @@ class MireaCourseExporter:
         self.export_dir = Path(export_dir)
         self.export_dir.mkdir(parents=True, exist_ok=True)
 
-    def get_enrolled_courses(self) -> List[Dict[str, Any]]:
-        """Discovers enrolled courses via Moodle 4.x AJAX Service API + HTML Crawling Fallbacks."""
-        if not self.manager.is_authenticated():
-            print("⚠️ [MIREA Exporter] Требуется авторизация для сканирования предметов.")
-            return []
+    def _fetch_ajax_courses(self, seen_ids: set, courses: list) -> None:
+        if not self.manager.sesskey:
+            return
+        try:
+            ajax_url = f"{MIREA_BASE_URL}/lib/ajax/service.php?sesskey={self.manager.sesskey}&info=core_course_get_enrolled_courses_by_timeline_classification"
+            payload = [{
+                "index": 0, "methodname": "core_course_get_enrolled_courses_by_timeline_classification",
+                "args": {"offset": 0, "limit": 0, "classification": "all", "sort": "fullname"}
+            }]
+            r_ajax = self.manager.session.post(ajax_url, json=payload, timeout=12)
+            if r_ajax.status_code == 200:
+                resp_json = r_ajax.json()
+                if isinstance(resp_json, list) and len(resp_json) > 0 and not resp_json[0].get("error"):
+                    for item in resp_json[0].get("data", {}).get("courses", []):
+                        cid = item.get("id")
+                        fullname = item.get("fullname") or item.get("shortname")
+                        if cid and fullname and cid not in seen_ids:
+                            seen_ids.add(cid)
+                            courses.append({"course_id": cid, "title": fullname.strip(), "url": f"{MIREA_BASE_URL}/course/view.php?id={cid}"})
+                    if courses:
+                        print(f"   ⚡ [Moodle AJAX API] Успешно извлечено {len(courses)} дисциплин через Moodle 4 WS Service API!")
+        except Exception as ajax_err:
+            sys.stderr.write(f"[MIREA Exporter] Moodle AJAX API warning: {ajax_err}\n")
 
-        print("🔍 [MIREA Exporter] Сканирование ваших дисциплин и курсов РТУ МИРЭА...")
-        courses = []
-        seen_ids = set()
-
-        # Method 1: Moodle 4.x AJAX Service API Call (core_course_get_enrolled_courses_by_timeline_classification)
-        if self.manager.sesskey:
-            try:
-                ajax_url = f"{MIREA_BASE_URL}/lib/ajax/service.php?sesskey={self.manager.sesskey}&info=core_course_get_enrolled_courses_by_timeline_classification"
-                payload = [{
-                    "index": 0,
-                    "methodname": "core_course_get_enrolled_courses_by_timeline_classification",
-                    "args": {
-                        "offset": 0,
-                        "limit": 0,
-                        "classification": "all",
-                        "sort": "fullname"
-                    }
-                }]
-                r_ajax = self.manager.session.post(ajax_url, json=payload, timeout=12)
-                if r_ajax.status_code == 200:
-                    resp_json = r_ajax.json()
-                    if isinstance(resp_json, list) and len(resp_json) > 0 and not resp_json[0].get("error"):
-                        c_list = resp_json[0].get("data", {}).get("courses", [])
-                        for item in c_list:
-                            cid = item.get("id")
-                            fullname = item.get("fullname") or item.get("shortname")
-                            if cid and fullname and cid not in seen_ids:
-                                seen_ids.add(cid)
-                                courses.append({
-                                    "course_id": cid,
-                                    "title": fullname.strip(),
-                                    "url": f"{MIREA_BASE_URL}/course/view.php?id={cid}"
-                                })
-                        if courses:
-                            print(f"   ⚡ [Moodle AJAX API] Успешно извлечено {len(courses)} дисциплин через Moodle 4 WS Service API!")
-            except Exception as ajax_err:
-                sys.stderr.write(f"[MIREA Exporter] Moodle AJAX API warning: {ajax_err}\n")
-
-        # Method 2: HTML Page Crawling (/my/, /my/courses.php, /user/profile.php)
-        crawl_urls = [MY_URL, f"{MIREA_BASE_URL}/my/courses.php", f"{MIREA_BASE_URL}/user/profile.php"]
-        for target_url in crawl_urls:
+    def _crawl_html_courses(self, seen_ids: set, courses: list) -> None:
+        for target_url in [MY_URL, f"{MIREA_BASE_URL}/my/courses.php", f"{MIREA_BASE_URL}/user/profile.php"]:
             try:
                 r = self.manager.session.get(target_url, timeout=12)
                 self.manager.extract_sesskey(r.text)
                 soup = BeautifulSoup(r.text, "html.parser")
-
-                course_links = soup.find_all("a", href=re.compile(r'/course/view\.php\?id=\d+'))
-                for link in course_links:
-                    href = link.get("href", "")
-                    m = re.search(r'id=(\d+)', href)
+                for link in soup.find_all("a", href=re.compile(r'/course/view\.php\?id=\d+')):
+                    m = re.search(r'id=(\d+)', link.get("href", ""))
                     if not m:
                         continue
                     cid = int(m.group(1))
                     if cid in seen_ids:
                         continue
-
                     title = link.get_text(strip=True)
                     if not title or len(title) < 3 or title.lower() in ("перейти к курсу", "подробнее", "открыть"):
                         parent = link.find_parent(["div", "li", "td"])
@@ -501,113 +455,107 @@ class MireaCourseExporter:
                             h_elem = parent.find(["h3", "h4", "h5", "span"])
                             if h_elem:
                                 title = h_elem.get_text(strip=True)
-
                     if title and len(title) >= 3 and title.lower() not in ("my", "dashboard", "личный кабинет", "главная"):
                         seen_ids.add(cid)
-                        courses.append({
-                            "course_id": cid,
-                            "title": title,
-                            "url": f"{MIREA_BASE_URL}/course/view.php?id={cid}"
-                        })
+                        courses.append({"course_id": cid, "title": title, "url": f"{MIREA_BASE_URL}/course/view.php?id={cid}"})
             except Exception as crawl_err:
                 sys.stderr.write(f"[MIREA Exporter] Crawl warning for {target_url}: {crawl_err}\n")
+
+    def get_enrolled_courses(self) -> List[Dict[str, Any]]:
+        """Discovers enrolled courses via Moodle 4.x AJAX Service API + HTML Crawling Fallbacks."""
+        if not self.manager.is_authenticated():
+            print("⚠️ [MIREA Exporter] Требуется авторизация для сканирования предметов.")
+            return []
+
+        print("🔍 [MIREA Exporter] Сканирование ваших дисциплин и курсов РТУ МИРЭА...")
+        courses, seen_ids = [], set()
+        self._fetch_ajax_courses(seen_ids, courses)
+        self._crawl_html_courses(seen_ids, courses)
 
         print(f"📋 [MIREA Exporter] Найдено дисциплин и курсов РТУ МИРЭА: {len(courses)}")
         for idx, c in enumerate(courses, 1):
             print(f"   [{idx}] ID {c['course_id']}: {c['title']}")
-
         return courses
+
+    def _download_course_resource(self, resource_url: str, act_name: str, course_dir: Path) -> Optional[str]:
+        if not resource_url or not any(x in resource_url for x in ("/mod/resource/view.php", "/pluginfile.php/", "/mod/url/view.php", "/mod/folder/view.php")):
+            return None
+        try:
+            r_res = self.manager.session.get(resource_url, timeout=12, stream=True)
+            content_disp = r_res.headers.get("Content-Disposition", "")
+            content_type = r_res.headers.get("Content-Type", "")
+
+            filename = None
+            if "filename=" in content_disp:
+                m_fn = re.search(r'filename\*?=["\']?(?:UTF-8\'\')?([^"\';]+)["\']?', content_disp, re.IGNORECASE)
+                if m_fn:
+                    filename = urllib.parse.unquote(m_fn.group(1))
+            if not filename:
+                ext = ".pdf" if "pdf" in content_type else (".docx" if "word" in content_type else (".pptx" if "presentation" in content_type else ""))
+                filename = f"{act_name[:40]}{ext if ext else '.bin'}"
+
+            filename = "".join([c if c.isalnum() or c in (" ", "_", ".", "-") else "_" for c in filename]).strip()
+            save_path = course_dir / filename
+            if not save_path.exists() or save_path.stat().st_size == 0:
+                with open(save_path, "wb") as f_out:
+                    for chunk in r_res.iter_content(chunk_size=64 * 1024):
+                        if chunk:
+                            f_out.write(chunk)
+                print(f"   -> 🚀 Скачан файл: {filename}")
+            return filename
+        except Exception as file_err:
+            sys.stderr.write(f"   -> ⚠️ Ошибка загрузки ресурса {act_name}: {file_err}\n")
+            return None
 
     def export_course(self, course_id: int, course_title: str) -> Dict[str, Any]:
         """Scrapes and downloads all materials, files, and lectures for a course."""
         safe_title = "".join([char if char.isalnum() or char in (" ", "_", "-") else "_" for char in course_title]).strip()
         course_dir = self.export_dir / safe_title
         course_dir.mkdir(parents=True, exist_ok=True)
-
         course_url = f"{MIREA_BASE_URL}/course/view.php?id={course_id}"
         print(f"\n📥 [MIREA Exporter] Выгрузка материалов предмета '{course_title}' (ID: {course_id})...")
 
         downloaded_files = 0
         md_lines = [
             f"# Учебные материалы дисциплины РТУ МИРЭА: {course_title}\n",
-            f"**Курс ID**: #{course_id}\n",
-            f"**URL**: {course_url}\n",
-            f"**Дата экспорта**: {time.strftime('%Y-%m-%d %H:%M:%S')}\n",
-            "---\n\n"
+            f"**Курс ID**: #{course_id}\n", f"**URL**: {course_url}\n",
+            f"**Дата экспорта**: {time.strftime('%Y-%m-%d %H:%M:%S')}\n", "---\n\n"
         ]
 
         try:
             r = self.manager.session.get(course_url, timeout=15)
             self.manager.extract_sesskey(r.text)
             soup = BeautifulSoup(r.text, "html.parser")
-
-            sections = soup.find_all(["li", "section"], class_=re.compile(r'section|topic'))
-            if not sections:
-                sections = [soup]
+            sections = soup.find_all(["li", "section"], class_=re.compile(r'section|topic')) or [soup]
 
             for sec in sections:
                 sec_title_elem = sec.find(["h3", "h4", "span"], class_=re.compile(r'sectionname|title'))
                 sec_title = sec_title_elem.get_text(strip=True) if sec_title_elem else "Общие материалы"
                 md_lines.append(f"## 📚 {sec_title}\n\n")
 
-                activities = sec.find_all(["li", "div"], class_=re.compile(r'activity|modtype'))
-                for act in activities:
+                for act in sec.find_all(["li", "div"], class_=re.compile(r'activity|modtype')):
                     act_name_elem = act.find(["span", "a"], class_=re.compile(r'instancename|activityname'))
                     act_name = act_name_elem.get_text(strip=True) if act_name_elem else "Ресурс"
-
                     link_elem = act.find("a", href=True)
                     resource_url = link_elem["href"] if link_elem else ""
 
                     md_lines.append(f"### 📄 {act_name}\n")
                     if resource_url:
                         md_lines.append(f"- **Ссылка**: [{resource_url}]({resource_url})\n")
-
-                    if resource_url and ("/mod/resource/view.php" in resource_url or "/pluginfile.php/" in resource_url or "/mod/url/view.php" in resource_url or "/mod/folder/view.php" in resource_url):
-                        try:
-                            r_res = self.manager.session.get(resource_url, timeout=12, stream=True)
-                            content_disp = r_res.headers.get("Content-Disposition", "")
-                            content_type = r_res.headers.get("Content-Type", "")
-
-                            filename = None
-                            if "filename=" in content_disp:
-                                m_fn = re.search(r'filename\*?=["\']?(?:UTF-8\'\')?([^"\';]+)["\']?', content_disp, re.IGNORECASE)
-                                if m_fn:
-                                    filename = urllib.parse.unquote(m_fn.group(1))
-
-                            if not filename:
-                                ext = ".pdf" if "pdf" in content_type else (".docx" if "word" in content_type else (".pptx" if "presentation" in content_type else ""))
-                                filename = f"{act_name[:40]}{ext if ext else '.bin'}"
-
-                            filename = "".join([c if c.isalnum() or c in (" ", "_", ".", "-") else "_" for c in filename]).strip()
-                            save_path = course_dir / filename
-
-                            if not save_path.exists() or save_path.stat().st_size == 0:
-                                with open(save_path, "wb") as f_out:
-                                    for chunk in r_res.iter_content(chunk_size=64*1024):
-                                        if chunk:
-                                            f_out.write(chunk)
-                                downloaded_files += 1
-                                print(f"   -> 🚀 Скачан файл: {filename}")
-                                md_lines.append(f"- **Локальный файл**: `{filename}`\n")
-                        except Exception as file_err:
-                            sys.stderr.write(f"   -> ⚠️ Ошибка загрузки ресурса {act_name}: {file_err}\n")
-
+                    fname = self._download_course_resource(resource_url, act_name, course_dir)
+                    if fname:
+                        downloaded_files += 1
+                        md_lines.append(f"- **Локальный файл**: `{fname}`\n")
                     md_lines.append("\n")
                 md_lines.append("---\n\n")
 
             md_file = course_dir / f"{safe_title}_конспект.md"
             md_file.write_text("".join(md_lines), encoding="utf-8")
             print(f"   ✅ Сохранен главный конспект предмета: {md_file.name}")
-
         except Exception as e:
             sys.stderr.write(f"[MIREA Exporter] Error exporting course {course_title}: {e}\n")
 
-        return {
-            "course_id": course_id,
-            "title": course_title,
-            "downloaded_files": downloaded_files,
-            "export_dir": str(course_dir).replace("\\", "/")
-        }
+        return {"course_id": course_id, "title": course_title, "downloaded_files": downloaded_files, "export_dir": str(course_dir).replace("\\", "/")}
 
 
 if __name__ == "__main__":

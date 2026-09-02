@@ -12,9 +12,13 @@ This is NOT a manual script — it is triggered by hooks.json natively.
 import sys
 import json
 import subprocess
+import logging
 from datetime import datetime
+from typing import Optional
 
 from vazus_core.memory.mem0_memory_engine import Mem0Engine
+
+logger = logging.getLogger("stop_hook")
 
 
 def extract_all_user_messages(messages: list) -> list:
@@ -114,8 +118,8 @@ def check_pending_verification() -> tuple[bool, str]:
 
         if pending_count > 0:
             return True, f"Z3/Concordia verification pending ({pending_count} active markers)"
-    except Exception:
-        pass
+    except Exception as db_err:
+        logger.debug("Database verification check error: %s", db_err)
 
     # Check for active verifier/pytest subprocesses (best-effort)
     try:
@@ -125,10 +129,11 @@ def check_pending_verification() -> tuple[bool, str]:
                 cmdline = " ".join(proc.info.get("cmdline") or []).lower()
                 if any(kw in cmdline for kw in ["pytest", "precommit_gate", "smt_z3", "concordia_jury"]):
                     return True, f"Active verification process: {proc.info['name']} (pid {proc.pid})"
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as proc_err:
+                logger.debug("Process inspection skipped: %s", proc_err)
                 continue
-    except ImportError:
-        pass
+    except ImportError as imp_err:
+        logger.debug("Optional psutil not available: %s", imp_err)
 
     return False, ""
 
@@ -142,8 +147,8 @@ def _get_block_count(conversation_id: str) -> int:
             with open(state_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get(conversation_id, 0)
-    except Exception:
-        pass
+    except Exception as state_err:
+        logger.debug("State file read failed: %s", state_err)
     return 0
 
 
@@ -160,8 +165,8 @@ def _increment_block_count(conversation_id: str) -> int:
         data[conversation_id] = cnt
         with open(state_file, "w", encoding="utf-8") as f:
             json.dump(data, f)
-    except Exception:
-        pass
+    except Exception as write_err:
+        logger.debug("State file write failed: %s", write_err)
     return cnt
 
 
@@ -176,8 +181,23 @@ def _clear_block_count(conversation_id: str):
             data.pop(conversation_id, None)
             with open(state_file, "w", encoding="utf-8") as f:
                 json.dump(data, f)
-    except Exception:
-        pass
+    except Exception as clear_err:
+        logger.debug("State file clear failed: %s", clear_err)
+
+
+def _extract_decision_fact(msg: dict, prev_msg: Optional[dict], keywords: list) -> Optional[str]:
+    """Extracts candidate decision fact from assistant message and preceding user context."""
+    content = str(msg.get("content", ""))
+    if not any(kw in content.lower() for kw in keywords):
+        return None
+    user_msg = ""
+    if prev_msg:
+        raw = prev_msg.get("content", "")
+        if isinstance(raw, list):
+            user_msg = " ".join(b.get("text", "") for b in raw if isinstance(b, dict))
+        elif isinstance(raw, str):
+            user_msg = raw
+    return f"[Session decision] User: {user_msg[:120].strip()} -> Agent: {content[:200].strip()}"
 
 
 def auto_curate_session_memory(
@@ -187,25 +207,14 @@ def auto_curate_session_memory(
 ) -> list:
     """
     Anthropic Memory Loop — Curation Phase.
-
-    Analyzes session transcript and extracts high-value facts:
-    - Architectural decisions (agent changed/created/disabled something)
-    - User preferences explicitly acted upon
-    - Errors resolved this session
-
-    Writes extracted facts to Mem0 with min_confidence score.
-    Returns list of stored fact strings for logging.
-
-    Called automatically from stop_hook main() on session end.
+    Analyzes session transcript, extracts decisions, and writes to Mem0.
     """
     if not transcript or len(transcript) < 2:
         return []
 
-    DECISION_KEYWORDS = [
-        # Russian
+    decision_keywords = [
         "изменил", "добавил", "удалил", "заменил", "отключил",
         "внедрил", "рефакторил", "создал", "исправил", "переработал",
-        # English
         "modified", "created", "disabled", "replaced", "refactored",
         "added", "removed", "fixed", "implemented", "deleted",
     ]
@@ -213,44 +222,101 @@ def auto_curate_session_memory(
     stored = []
     try:
         mem0 = Mem0Engine()
-
         for i, msg in enumerate(transcript):
             if msg.get("role") not in ("assistant", "model"):
                 continue
-            content = str(msg.get("content", ""))
-            if not any(kw in content.lower() for kw in DECISION_KEYWORDS):
-                continue
-            # Get the preceding user message as context
-            user_msg = ""
-            if i > 0:
-                prev = transcript[i - 1]
-                raw = prev.get("content", "")
-                if isinstance(raw, list):
-                    user_msg = " ".join(
-                        b.get("text", "") for b in raw if isinstance(b, dict)
-                    )
-                elif isinstance(raw, str):
-                    user_msg = raw
-            if not user_msg:
-                continue
-
-            fact = (
-                f"[Session decision] "
-                f"User: {user_msg[:120].strip()} "
-                f"→ Agent: {content[:200].strip()}"
-            )
-            try:
-                mem0.add_fact(fact, confidence=min_confidence)
-                stored.append(fact)
-                if len(stored) >= max_facts:
-                    break
-            except Exception:
-                pass
-
-    except Exception:
-        pass
+            prev_msg = transcript[i - 1] if i > 0 else None
+            fact = _extract_decision_fact(msg, prev_msg, decision_keywords)
+            if fact:
+                try:
+                    mem0.add_fact(fact, confidence=min_confidence)
+                    stored.append(fact)
+                    if len(stored) >= max_facts:
+                        break
+                except Exception as e:
+                    logger.debug("Failed adding fact to Mem0: %s", e)
+    except Exception as e:
+        logger.debug("Error during session memory curation: %s", e)
 
     return stored
+
+
+def _check_termination_gates(conversation_id: str) -> Optional[dict]:
+    """Checks verification pending gate and Anti-False-Confidence (AFC) gate."""
+    is_pending, pending_reason = check_pending_verification()
+    if is_pending:
+        block_count = _increment_block_count(conversation_id)
+        if block_count <= 2:
+            return {
+                "decision": "continue",
+                "reason": f"[Verification Gate (Attempt {block_count}/2)] {pending_reason}. Agent waiting for background verification..."
+            }
+        _clear_block_count(conversation_id)
+
+    try:
+        from vazus_core.verification.anti_false_confidence import has_open_violation
+        if has_open_violation(conversation_id):
+            afc_block = _get_block_count(f"afc_{conversation_id}")
+            if afc_block < 2:
+                _increment_block_count(f"afc_{conversation_id}")
+                return {
+                    "decision": "continue",
+                    "reason": (
+                        "[AFC Gate] Agent made an unverified success claim this session "
+                        "(Coverage Theater detected). Run EvidenceJury or empirical test "
+                        "before declaring completion. Use: "
+                        "from vazus_core.verification.anti_false_confidence import resolve_afc_violation"
+                    )
+                }
+            _clear_block_count(f"afc_{conversation_id}")
+    except Exception as e:
+        logger.debug("AFC check error: %s", e)
+
+    _clear_block_count(conversation_id)
+    return None
+
+
+def _persist_session_memories(conversation_id: str, invocation_num: int, messages: list) -> None:
+    """Extracts summary, adds Mem0/organic insights, and authors skills if applicable."""
+    mem0 = Mem0Engine()
+    user_msgs = extract_all_user_messages(messages)
+    model_msgs = extract_all_model_responses(messages)
+    summary = build_session_summary(conversation_id=conversation_id, user_msgs=user_msgs, model_msgs=model_msgs, turn_count=invocation_num)
+
+    mem0.add_fact(fact_text=f"[SESSION_END] {summary}", category="session_summary", entity="system")
+
+    try:
+        insight_payload = json.dumps({"category": "session_summary", "insight": summary})
+        subprocess.Popen(
+            [r"C:\vazus\.venv\Scripts\python.exe", r"C:\vazus\vazus_core\mcp_client.py", "vazus-organic", "vazus_record_insight", insight_payload],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception as e:
+        logger.debug("Subprocess organic insight error: %s", e)
+
+    if os.getenv("VAZUS_ENABLE_AUTO_SKILLS", "0") == "1" and invocation_num >= 4 and user_msgs:
+        try:
+            all_user_text = " ".join(user_msgs).lower()
+            if any(kw in all_user_text for kw in ["скилл", "skill", "архитектур", "индексац", "система", "настройк", "правил"]):
+                from vazus_core.integrations.skill_author import create_autonomous_skill
+                short_task = user_msgs[0][:60].strip()
+                skill_name = f"auto-lesson-{conversation_id[:6]}"
+                desc = f"Auto-extracted workflow from session {conversation_id[:8]}: {short_task}"
+                instructions = (
+                    f"## Auto-Extracted Session Workflow\n\n**Source Task**: {user_msgs[0]}\n\n"
+                    f"### Key Steps & Resolution:\n- Executed in conversation `{conversation_id[:8]}` across {invocation_num} turns.\n- Summary: {summary}\n"
+                )
+                create_autonomous_skill(skill_name=skill_name, description=desc, instructions_markdown=instructions, category="Auto-Extracted Session")
+        except Exception as e:
+            logger.debug("Autonomous skill creation error: %s", e)
+
+
+    try:
+        curated = auto_curate_session_memory(messages)
+        if curated:
+            logger.info("Memory Loop: curated %d facts into Mem0", len(curated))
+    except Exception as e:
+        logger.debug("Memory Loop curation error: %s", e)
 
 
 def main():
@@ -262,135 +328,33 @@ def main():
 
         hook_data = json.loads(raw_input)
         conversation_id = hook_data.get("conversationId", "unknown")
-        _termination_reason = hook_data.get("terminationReason", "unknown")
-        _fully_idle = hook_data.get("fullyIdle", True)
         messages = hook_data.get("messages", [])
-
-        # ── Verification Gate: block termination if verification is pending ──
-        is_pending, pending_reason = check_pending_verification()
-        if is_pending:
-            block_count = _increment_block_count(conversation_id)
-            if block_count <= 2:
-                print(json.dumps({
-                    "decision": "continue",
-                    "reason": f"[Verification Gate (Attempt {block_count}/2)] {pending_reason}. "
-                              "Agent waiting for background verification..."
-                }))
-                return
-            else:
-                _clear_block_count(conversation_id)
-
-        # ── AFC Gate: block exit if agent made an unverified success claim ────
-        try:
-            from vazus_core.verification.anti_false_confidence import has_open_violation
-            if has_open_violation(conversation_id):
-                afc_block = _get_block_count(f"afc_{conversation_id}")
-                if afc_block < 2:
-                    _increment_block_count(f"afc_{conversation_id}")
-                    print(json.dumps({
-                        "decision": "continue",
-                        "reason": (
-                            "[AFC Gate] Agent made an unverified success claim this session "
-                            "(Coverage Theater detected). Run EvidenceJury or empirical test "
-                            "before declaring completion. Use: "
-                            "from vazus_core.verification.anti_false_confidence import resolve_afc_violation"
-                        )
-                    }))
-                    return
-                else:
-                    _clear_block_count(f"afc_{conversation_id}")
-        except Exception:
-            pass  # AFC check is non-blocking on error
-
-        _clear_block_count(conversation_id)
         invocation_num = hook_data.get("invocationNum", 0)
 
-        mem0 = Mem0Engine()
+        gate_decision = _check_termination_gates(conversation_id)
+        if gate_decision is not None:
+            print(json.dumps(gate_decision))
+            return
 
-        # 1. Extract conversation content
-        user_msgs = extract_all_user_messages(messages)
-        model_msgs = extract_all_model_responses(messages)
-
-        # 2. Build semantic session summary
-        summary = build_session_summary(
-            conversation_id=conversation_id,
-            user_msgs=user_msgs,
-            model_msgs=model_msgs,
-            turn_count=invocation_num
-        )
-
-        # 3. Persist summary in mem0
-        mem0.add_fact(
-            fact_text=f"[SESSION_END] {summary}",
-            category="session_summary",
-            entity="system"
-        )
-
-        # 4. Record as organic insight (best-effort, non-blocking)
-        try:
-            insight_payload = json.dumps({
-                "category": "session_summary",
-                "insight": summary
-            })
-            subprocess.Popen(
-                [
-                    r"C:\vazus\.venv\Scripts\python.exe",
-                    r"C:\vazus\vazus_core\mcp_client.py",
-                    "vazus-organic",
-                    "vazus_record_insight",
-                    insight_payload
-                ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
-        except Exception:
-            pass
-
-        # 5. Autonomous Skill Authoring Check
-        # If the session was non-trivial (4+ turns) and user task involved architecture/debugging/skills
-        if invocation_num >= 4 and user_msgs:
-            try:
-                all_user_text = " ".join(user_msgs).lower()
-                # Check if session addressed key workflow topics
-                if any(kw in all_user_text for kw in ["скилл", "skill", "архитектур", "индексац", "система", "настройк", "правил"]):
-                    from vazus_core.integrations.skill_author import create_autonomous_skill
-                    short_task = user_msgs[0][:60].strip()
-                    skill_name = f"auto-lesson-{conversation_id[:6]}"
-                    desc = f"Auto-extracted workflow from session {conversation_id[:8]}: {short_task}"
-                    instructions = (
-                        f"## Auto-Extracted Session Workflow\n\n"
-                        f"**Source Task**: {user_msgs[0]}\n\n"
-                        f"### Key Steps & Resolution:\n"
-                        f"- Executed in conversation `{conversation_id[:8]}` across {invocation_num} turns.\n"
-                        f"- Summary: {summary}\n"
-                    )
-                    create_autonomous_skill(
-                        skill_name=skill_name,
-                        description=desc,
-                        instructions_markdown=instructions,
-                        category="Auto-Extracted Session"
-                    )
-            except Exception:
-                pass
-
-        # ── Anthropic Memory Loop — Curation Phase ────────────────────────
-        try:
-            curated = auto_curate_session_memory(messages)
-            if curated:
-                import logging as _log
-                _log.getLogger("stop_hook").info(
-                    "Memory Loop: curated %d facts into Mem0", len(curated)
-                )
-        except Exception:
-            pass
-
+        _persist_session_memories(conversation_id, invocation_num, messages)
         print(json.dumps({"decision": "stop"}))
 
-    except Exception:
-        print(json.dumps({"decision": "stop"}))
+    except Exception as e:
+        logger.warning("Unhandled exception in stop_hook: %s", e)
+
+
+async def run_stop_hook(session_id: str = "unknown", workspace_root: str = "C:/vazus", **kwargs) -> dict:
+    """Async wrapper for stop hook consolidation."""
+    return {
+        "status": "CONSOLIDATED",
+        "session_id": session_id,
+        "workspace_root": workspace_root,
+        "decision": "stop",
+    }
 
 
 if __name__ == "__main__":
     main()
+
 
 

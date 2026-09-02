@@ -73,7 +73,8 @@ def _generate_mock_response(prompt: str, system_prompt: str = "") -> str:
         ast_valid = True
         try:
             ast.parse(code_str)
-        except Exception:
+        except Exception as exc:
+            logger.debug("[llm_client] AST parse check in mock generator failed: %s", exc)
             ast_valid = False
 
         if not ast_valid:
@@ -115,24 +116,8 @@ def _generate_mock_response(prompt: str, system_prompt: str = "") -> str:
     return "[MOCK] Mock LLM generation response (VAZUS_TEST_MODE=1)."
 
 
-async def async_generate_llm(
-    prompt: str,
-    system_prompt: str = "",
-    model: str = DEFAULT_MODEL,
-    temperature: float = 0.2,
-    timeout_seconds: float = 60.0,
-    **_kwargs
-) -> str:
-    """
-    Asynchronously invokes LLM model generation.
-    - Tier-1 (Default): Antigravity CLI binary (agy) on IDE session quota (Gemini 3.7 Thinking / Claude Sonnet 4.6 Thinking).
-    - Tier-2 (Cloud Opt-in): Gemini REST API when VAZUS_LLM_ALLOW_CLOUD=1.
-    - Tier-3 (Deterministic Fallback): Mock generator for offline / pytest execution.
-    """
-    if is_test_mode():
-        return _generate_mock_response(prompt, system_prompt)
-
-    # ── Tier-1: Official Antigravity CLI / IDE Quota Engine ─────────────────
+def _resolve_agy_binary_path() -> str | None:
+    """Resolves the Antigravity CLI binary path."""
     agy_path = shutil.which("agy")
     if not agy_path:
         for candidate in [
@@ -140,42 +125,53 @@ async def async_generate_llm(
             r"C:\Users\Vaz\AppData\Local\agy\bin\agy",
         ]:
             if os.path.isfile(candidate):
-                agy_path = candidate
-                break
+                return candidate
+    return agy_path
 
-    if agy_path and os.path.isfile(agy_path):
-        resolved_model = _resolve_agy_model_name(model)
-        combined_text = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-        cmd = [
-            agy_path,
-            "-p", combined_text,
-            "--model", resolved_model,
-            "--output-format", "text",
-            "--dangerously-skip-permissions"
-        ]
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-            if proc.returncode == 0:
-                res_text = stdout.decode("utf-8", errors="replace").strip()
-                if res_text:
-                    return res_text
-            else:
-                err_msg = stderr.decode("utf-8", errors="replace")
-                logger.warning(f"[llm_client] agy returned error code {proc.returncode}: {err_msg}")
-        except Exception as e:
-            logger.warning(f"[llm_client] agy execution notice: {e}")
 
-    # ── Tier-1 Fallback: Google Antigravity Python SDK ───────────────────────
+async def _execute_agy_subprocess_prompt(
+    agy_path: str,
+    model: str,
+    prompt: str,
+    system_prompt: str,
+    timeout_seconds: float,
+) -> str | None:
+    """Executes prompt via Antigravity CLI subprocess."""
+    resolved_model = _resolve_agy_model_name(model)
+    combined_text = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+    cmd = [
+        agy_path,
+        "-p", combined_text,
+        "--model", resolved_model,
+        "--output-format", "text",
+        "--dangerously-skip-permissions",
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+        if proc.returncode == 0:
+            res_text = stdout.decode("utf-8", errors="replace").strip()
+            if res_text:
+                return res_text
+        else:
+            err_msg = stderr.decode("utf-8", errors="replace")
+            logger.warning("[llm_client] agy returned error code %s: %s", proc.returncode, err_msg)
+    except Exception as exc:
+        logger.warning("[llm_client] agy execution notice: %s", exc)
+    return None
+
+
+async def _execute_antigravity_sdk(prompt: str, system_prompt: str) -> str | None:
+    """Invokes Google Antigravity Python SDK if available."""
     try:
         from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
         config = LocalAgentConfig(
             system_instructions=system_prompt if system_prompt else "You are an expert AI engineer in Vazus OS.",
-            capabilities=CapabilitiesConfig()
+            capabilities=CapabilitiesConfig(),
         )
         tokens = []
         async with Agent(config) as agent:
@@ -185,45 +181,84 @@ async def async_generate_llm(
         sdk_result = "".join(tokens).strip()
         if sdk_result:
             return sdk_result
-    except Exception as e:
-        logger.warning(f"[llm_client] Tier-1 Antigravity SDK notice: {e}")
+    except Exception as exc:
+        logger.debug("[llm_client] Tier-1 Antigravity SDK notice: %s", exc)
+    return None
 
-    # ── Tier-2: Opt-In Cloud Gemini REST API ─────────────────────────────────
+
+async def _execute_cloud_gemini_rest(
+    model: str,
+    prompt: str,
+    system_prompt: str,
+    temperature: float,
+    timeout_seconds: float,
+) -> str | None:
+    """Executes direct REST call to Cloud Gemini API."""
     allow_cloud = os.getenv("VAZUS_LLM_ALLOW_CLOUD") == "1"
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if allow_cloud and api_key:
-        url = f"{DEFAULT_GEMINI_ENDPOINT}/{model}:generateContent?key={api_key}"
-        payload: Dict[str, Any] = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}]
-                }
-            ],
-            "generationConfig": {
-                "temperature": temperature
-            }
-        }
-        if system_prompt:
-            payload["systemInstruction"] = {
-                "parts": [{"text": system_prompt}]
-            }
+    if not (allow_cloud and api_key):
+        return None
 
-        headers = {"Content-Type": "application/json"}
-        try:
-            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-                resp = await client.post(url, json=payload, headers=headers)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts and "text" in parts[0]:
-                            return parts[0]["text"].strip()
-                logger.warning(f"[llm_client] Gemini REST API HTTP {resp.status_code}; using deterministic fallback.")
-        except Exception as e:
-            logger.warning(f"[llm_client] Cloud Gemini REST exception: {e}")
+    url = f"{DEFAULT_GEMINI_ENDPOINT}/{model}:generateContent?key={api_key}"
+    payload: Dict[str, Any] = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": temperature},
+    }
+    if system_prompt:
+        payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
 
-    # ── Tier-3: Deterministic Fallback ────────────────────────────────────────
+    headers = {"Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and "text" in parts[0]:
+                        return parts[0]["text"].strip()
+            logger.warning("[llm_client] Gemini REST API HTTP %s; fallback.", resp.status_code)
+    except Exception as exc:
+        logger.warning("[llm_client] Cloud Gemini REST exception: %s", exc)
+    return None
+
+
+async def async_generate_llm(
+    prompt: str,
+    system_prompt: str = "",
+    model: str = DEFAULT_MODEL,
+    temperature: float = 0.2,
+    timeout_seconds: float = 60.0,
+    **_kwargs,
+) -> str:
+    """
+    Asynchronously invokes LLM model generation.
+    - Tier-1 (Default): Antigravity CLI binary (agy) or Antigravity SDK.
+    - Tier-2 (Cloud Opt-in): Gemini REST API when VAZUS_LLM_ALLOW_CLOUD=1.
+    - Tier-3 (Deterministic Fallback): Mock generator for offline / pytest execution.
+    """
+    if is_test_mode():
+        return _generate_mock_response(prompt, system_prompt)
+
+    # Tier-1a: Antigravity CLI
+    agy_path = _resolve_agy_binary_path()
+    if agy_path and os.path.isfile(agy_path):
+        res = await _execute_agy_subprocess_prompt(agy_path, model, prompt, system_prompt, timeout_seconds)
+        if res:
+            return res
+
+    # Tier-1b: Antigravity Python SDK
+    sdk_res = await _execute_antigravity_sdk(prompt, system_prompt)
+    if sdk_res:
+        return sdk_res
+
+    # Tier-2: Cloud Gemini REST API
+    cloud_res = await _execute_cloud_gemini_rest(model, prompt, system_prompt, temperature, timeout_seconds)
+    if cloud_res:
+        return cloud_res
+
+    # Tier-3: Deterministic Fallback
     logger.debug("[llm_client] Defaulting to deterministic local response.")
     return _generate_mock_response(prompt, system_prompt)
+

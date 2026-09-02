@@ -20,7 +20,8 @@ _SUBPKG_MAP = {
     "circuit_breaker": "engine", "llm_client": "engine", "config": "engine", "exceptions": "engine",
     "utils": "engine", "supergraph_master_orchestrator": "engine", "supergraph_linker": "engine",
     "dynamic_skill_dispatcher": "engine", "unified_reasoning_pipeline": "engine", "ast_repo_mapper": "engine",
-    "operator_dag": "engine",
+    "operator_dag": "engine", "silicon_orchestrator": "engine", "gemma4_npu_engine": "engine",
+    "graphify_engine": "engine", "global_j_workspace": "engine",
     # verification
     "smt_z3_verifier": "verification", "concordia_jury": "verification", "sota2027_jury": "verification",
     "ast_pruner": "verification", "git_provenance": "verification", "safety_guardrail": "verification",
@@ -31,7 +32,10 @@ _SUBPKG_MAP = {
     "organic_memory_bridge": "memory", "db": "memory",
     "mem0_memory_engine": "memory", "knowledge_engine": "memory", "multimodal_knowledge": "memory",
     "multimodal_resolver": "memory", "dialogue_persister": "memory",
-    "zettelkasten_exporter": "memory",
+    "zettelkasten_exporter": "memory", "j_space_vector_index": "memory",
+    "dream_consolidator": "memory", "agent_memory_bank": "memory",
+    "magma_graph": "memory", "whitelist_manager": "memory",
+    "unified_memory_gateway": "memory",
     # workers
     "repl_engine": "workers", "self_healing_repl": "workers", "subagent_auto_trigger": "workers",
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
@@ -39,7 +43,7 @@ _SUBPKG_MAP = {
     "jules_client": "workers", "subagent_verifier_bridge": "workers",
     "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers", "subprocess_repl": "workers",
     # evolution
-    "darwinian_evolver": "evolution",
+    "darwinian_evolver": "evolution", "synaptic_evolver": "evolution",
     # integrations
     "telegram_indexer": "integrations", "telegram_notifier": "integrations", "tinkoff_finance_manager": "integrations",
     "freelance_npd_engine": "integrations", "self_employed_order_hunter": "integrations",
@@ -52,7 +56,8 @@ _SUBPKG_MAP = {
     "statement_parser": "integrations", "storm_interviewer": "integrations",
     "gemma_local_processor": "integrations", "repo_indexer": "integrations",
     "cli_pixel_visualizer": "integrations", "tui_preview_renderer": "integrations",
-    "agy_customizations_hud": "integrations", "skill_author": "integrations"
+    "agy_customizations_hud": "integrations", "skill_author": "integrations",
+    "socratic_partner": "integrations"
 }
 
 class _VazusCoreAliasLoader(importlib.abc.InspectLoader):

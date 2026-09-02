@@ -1,9 +1,8 @@
-"""
-vazus_core.git_provenance — Git Provenance & Branch Management for vazus SuperGraph OS v4.0.
-"""
-
+import logging
 import subprocess
 from typing import Optional, Union, List
+
+logger = logging.getLogger(__name__)
 
 
 class GitProvenanceManager:
@@ -22,8 +21,8 @@ class GitProvenanceManager:
             )
             if res.returncode == 0 and res.stdout.strip():
                 return res.stdout.strip()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Git branch query failed: %s", exc)
         return "vazus-main"
 
     @staticmethod
@@ -40,8 +39,8 @@ class GitProvenanceManager:
             )
             if res.returncode == 0 and target_branch in res.stdout:
                 return target_branch
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Git ensure branch check failed: %s", exc)
         return target_branch
 
     @staticmethod
@@ -57,7 +56,8 @@ class GitProvenanceManager:
                 timeout=10,
             )
             return res.returncode == 0
-        except Exception:
+        except Exception as exc:
+            logger.warning("Git commit failed: %s", exc)
             return False
 
     @staticmethod
@@ -119,5 +119,6 @@ class GitProvenanceManager:
                     )
                     return res3.returncode == 0
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning("Git revert failed: %s", exc)
             return False

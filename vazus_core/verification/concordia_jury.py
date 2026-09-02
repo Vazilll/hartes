@@ -19,6 +19,16 @@ from vazus_core.engine.llm_client import async_generate_llm
 
 logger = logging.getLogger("ConcordiaJury")
 
+MOCK_MARKERS = ("[MOCK]", "(Test Mode)", "(test mode)", "VAZUS_TEST_MODE")
+
+
+def is_mock_response(text: str) -> bool:
+    """True when the LLM text comes from a deterministic mock, not a real model call."""
+    if not text:
+        return False
+    return any(m in text for m in MOCK_MARKERS)
+
+
 def _get_persona_prompts() -> dict[str, str]:
     """Returns persona prompt templates for 3-subagent jury members."""
     return {
@@ -338,25 +348,11 @@ class ConcordiaJury:
             pre_ast_valid=ast_valid, pre_rejections=rejection_reasons
         )
 
-    def _evaluate_verdict_sync(
-        self,
-        proposal: str,
-        agent_votes: list[dict[str, Any]],
-        file_path: str = "proposal.py",
-        orig_code: str | None = None,
-        pre_ast_valid: bool = True,
-        pre_rejections: list[str] | None = None
-    ) -> JuryVerdict:
-        rejection_reasons: list[str] = list(pre_rejections or [])
-        ast_valid = pre_ast_valid
-        if proposal and proposal.strip() and pre_ast_valid and not pre_rejections:
-            try:
-                ast.parse(proposal)
-            except SyntaxError as se:
-                ast_valid = False
-                rejection_reasons.append(f"AST SyntaxError line {se.lineno}: {se.msg}")
-
-        # 3. Analyze votes and consensus quorum
+    def _tally_deduped_votes(
+        self, agent_votes: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], float, bool, list[str]]:
+        """Tallies unique votes, calculates ratio, and checks quorum."""
+        rejection_reasons: list[str] = []
         unique_votes = {}
         for idx, vote in enumerate(agent_votes):
             agent_id = vote.get("agent") or vote.get("role") or vote.get("name") or f"agent_{idx}"
@@ -364,27 +360,36 @@ class ConcordiaJury:
 
         dedup_votes = list(unique_votes.values())
         pass_votes = [
-            v for v in dedup_votes 
+            v for v in dedup_votes
             if str(v.get("verdict", "")).upper() == "PASS" or v.get("approved") is True
         ]
         total_votes = len(dedup_votes)
-
         ratio = len(pass_votes) / max(1, total_votes) if total_votes > 0 else 0.0
         quorum_satisfied = total_votes >= self.min_quorum
 
         if not quorum_satisfied:
             rejection_reasons.append(f"Quorum insufficient: {total_votes}/{self.min_quorum}")
-
         if ratio < self.consensus_threshold:
             rejection_reasons.append(f"Consensus threshold failed: ratio {ratio:.2f} < {self.consensus_threshold:.2f}")
 
-        # 4. SMT Z3 Formal Proof Gate
+        return dedup_votes, ratio, quorum_satisfied, rejection_reasons
+
+    def _verify_smt_proof_gate(
+        self, proposal: str, orig_code: Optional[str]
+    ) -> tuple[bool, list[str]]:
+        """Verifies SMT Z3 contracts and functional equivalence."""
+        rejection_reasons: list[str] = []
         smt_satisfied = True
         try:
             smt_res = self.verifier.verify_code_contracts(proposal or "def noop(): pass")
-            smt_satisfied = getattr(smt_res, "contract_satisfied", smt_res.get("contract_satisfied", True) if isinstance(smt_res, dict) else True)
-
-            funcs_verified = getattr(smt_res, "functions_verified", smt_res.get("functions_verified", []) if isinstance(smt_res, dict) else [])
+            smt_satisfied = getattr(
+                smt_res, "contract_satisfied",
+                smt_res.get("contract_satisfied", True) if isinstance(smt_res, dict) else True
+            )
+            funcs_verified = getattr(
+                smt_res, "functions_verified",
+                smt_res.get("functions_verified", []) if isinstance(smt_res, dict) else []
+            )
             if orig_code and funcs_verified:
                 for func in funcs_verified:
                     eq_res = self.verifier.verify_functional_equivalence(orig_code, proposal, func)
@@ -398,7 +403,33 @@ class ConcordiaJury:
         if not smt_satisfied:
             rejection_reasons.append("SMT Z3 formal contract verification failed")
 
-        # 5. Final Consensus Approval Gate
+        return smt_satisfied, rejection_reasons
+
+    def _evaluate_verdict_sync(
+        self,
+        proposal: str,
+        agent_votes: list[dict[str, Any]],
+        file_path: str = "proposal.py",
+        orig_code: str | None = None,
+        *,
+        pre_ast_valid: bool = True,
+        pre_rejections: list[str] | None = None
+    ) -> JuryVerdict:
+        rejection_reasons: list[str] = list(pre_rejections or [])
+        ast_valid = pre_ast_valid
+        if proposal and proposal.strip() and pre_ast_valid and not pre_rejections:
+            try:
+                ast.parse(proposal)
+            except SyntaxError as se:
+                ast_valid = False
+                rejection_reasons.append(f"AST SyntaxError line {se.lineno}: {se.msg}")
+
+        dedup_votes, ratio, quorum_satisfied, tally_rejections = self._tally_deduped_votes(agent_votes)
+        rejection_reasons.extend(tally_rejections)
+
+        smt_satisfied, smt_rejections = self._verify_smt_proof_gate(proposal, orig_code)
+        rejection_reasons.extend(smt_rejections)
+
         approved = (
             ast_valid and
             quorum_satisfied and
@@ -481,7 +512,7 @@ class ConcordiaJury:
         return list(results)
 
     async def _call_subagent_eval_async(
-        self, agent_name: str, system_prompt: str, proposal: str, file_path: str, model: Optional[str] = None, temperature: float = 0.0
+        self, agent_name: str, system_prompt: str, proposal: str, file_path: str, *, model: Optional[str] = None, temperature: float = 0.0
     ) -> Dict[str, Any]:
         user_prompt = (
             f"Evaluate code proposal for file '{file_path}':\n"
@@ -552,7 +583,44 @@ class ConcordiaJury:
         return {"agent": agent_name, "approved": False, "verdict": "FAIL",
                 "reason": f"LLM call failed — abstaining to preserve rejection safety (Fallback: {error_msg})"}
 
+    def evaluate_proposal(
+        self,
+        code_diff: str,
+        test_results: Optional[dict] = None,
+        smt_proof: Optional[dict] = None
+    ) -> dict:
+        """Evaluates a code change proposal based on diff, test results, and formal proofs."""
+        clean_code = "\n".join([line[1:] for line in code_diff.splitlines() if line.startswith("+") and not line.startswith("+++")])
+        if not clean_code.strip():
+            clean_code = code_diff
+
+        # Check for dangerous patterns
+        is_dangerous = any(bad in clean_code for bad in ["eval(", "exec(", "__import__", "subprocess.Popen"])
+        test_pass_rate = 1.0
+        if test_results and test_results.get("total", 0) > 0:
+            test_pass_rate = test_results.get("passed", 0) / test_results.get("total", 1)
+
+        smt_ok = True
+        if smt_proof:
+            smt_ok = bool(smt_proof.get("is_valid", True) and not smt_proof.get("counterexample"))
+
+        if is_dangerous or test_pass_rate < 0.8 or not smt_ok:
+            approval_rate = 0.33 if (test_pass_rate >= 0.5 and not is_dangerous) else 0.0
+            return {
+                "approved": False,
+                "consensus_reached": False,
+                "approval_rate": approval_rate,
+                "rejection_reasons": ["Dangerous pattern" if is_dangerous else "Test failure / SMT violation"],
+            }
+
+        return {
+            "approved": True,
+            "consensus_reached": True,
+            "approval_rate": 1.0,
+            "rejection_reasons": [],
+        }
 
 
-# Alias for backward compatibility and spec alignment
+# Aliases for backward compatibility and spec alignment
 SOTA2027JuryEngine = ConcordiaJury
+ConcordiaMultiAgentJury = ConcordiaJury

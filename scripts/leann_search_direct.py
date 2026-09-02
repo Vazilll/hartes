@@ -57,8 +57,8 @@ MODEL_NAME = os.environ.get(
     "LEANN_MODEL",
     "C:/vazus/models/nomic-embed-v1.5"
 )
-# nomic requires trust_remote_code=True
-TRUST_REMOTE = os.environ.get("LEANN_TRUST_REMOTE", "1") == "1"
+# Remote code execution disabled by default for security (opt-in via LEANN_TRUST_REMOTE=1)
+TRUST_REMOTE = os.environ.get("LEANN_TRUST_REMOTE", "0") == "1"
 
 # Module-level cache so repeated calls in same process don't reload
 _model  = None

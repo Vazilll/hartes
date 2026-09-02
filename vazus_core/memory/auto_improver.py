@@ -40,8 +40,8 @@ logger = logging.getLogger("VazusAutoImprover")
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    except AttributeError:
-        pass
+    except AttributeError as e:
+        logger.debug("stdout reconfigure non-fatal: %s", e)
 
 # ────────────────────────────────────────────────
 # ANSI Terminal Live Feed helpers
@@ -93,8 +93,8 @@ def _ensure_vt100():
             kernel32.GetConsoleMode(hOut, ctypes.byref(dwMode))
             dwMode.value |= 0x0004
             kernel32.SetConsoleMode(hOut, dwMode)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("enable vt100 non-fatal: %s", e)
 
 
 # ────────────────────────────────────────────────
@@ -218,12 +218,21 @@ class LessonMemoryBank:
     )
     """
 
-    def __init__(self):
+    def __init__(self, db_path: Optional[str] = None):
+        self.db_path = db_path
         self._ensure_table()
+
+    def _get_conn(self):
+        if self.db_path:
+            import sqlite3
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            return conn
+        return get_db_connection()
 
     def _ensure_table(self):
         try:
-            conn = get_db_connection()
+            conn = self._get_conn()
             conn.execute(self.TABLE_SQL)
             cur = conn.cursor()
             cur.execute("PRAGMA table_info(reflexion_lessons)")
@@ -240,16 +249,31 @@ class LessonMemoryBank:
                 if col_name not in cols:
                     try:
                         conn.execute(f"ALTER TABLE reflexion_lessons ADD COLUMN {col_name} {col_type};")
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("column addition non-fatal: %s", e)
             conn.commit()
             conn.close()
         except Exception as e:
             logger.warning(f"[LessonBank] DB init failed: {e}")
 
-    def save_lesson(self, task_type: str, error_sig: str, lesson_text: str, fix_hint: str = "") -> str:
+    def save_lesson(
+        self,
+        task_type: str = "general",
+        error_sig: str = "",
+        lesson_text: str = "",
+        fix_hint: str = "",
+        category: str = "",
+        anti_pattern: str = "",
+        solution: str = "",
+        context_tags: Optional[list] = None,
+        **kwargs
+    ) -> Any:
+        tt = category or task_type or "general"
+        err = anti_pattern or error_sig or ""
+        sol = solution or fix_hint or ""
+        les = lesson_text or f"Anti-pattern: {err}. Solution: {sol}"
         lesson_id = f"lesson_{int(time.time()*1000)}_{uuid.uuid4().hex[:8]}"
-        embed_text = f"{task_type}: {error_sig} | {lesson_text}"
+        embed_text = f"{tt}: {err} | {les} | {sol}"
         try:
             vec = UnifiedEmbeddingManager().get_embedding(embed_text)
             embedding_json = json.dumps(vec)
@@ -258,7 +282,7 @@ class LessonMemoryBank:
             embedding_json = None
 
         try:
-            conn = get_db_connection()
+            conn = self._get_conn()
             cur = conn.cursor()
             cur.execute("PRAGMA table_info(reflexion_lessons)")
             cols = [r[1] for r in cur.fetchall()]
@@ -270,7 +294,7 @@ class LessonMemoryBank:
                     (lesson_id, task_type, error_sig, lesson_text, fix_hint, success_count, created_at, embedding_json)
                     VALUES (?, ?, ?, ?, ?, 0, ?, ?)
                     """,
-                    (lesson_id, task_type, error_sig[:200], lesson_text[:1000], fix_hint[:500], time.time(), embedding_json)
+                    (lesson_id, tt, err[:200], les[:1000], sol[:500], time.time(), embedding_json)
                 )
             else:
                 conn.execute(
@@ -279,7 +303,7 @@ class LessonMemoryBank:
                     (id, timestamp, task_id, prompt_template, fitness_score, lesson_learned, mutation_delta, metadata, embedding_json)
                     VALUES (?, ?, ?, ?, 1.0, ?, ?, '{}', ?)
                     """,
-                    (lesson_id, time.time(), task_type, error_sig[:200], lesson_text[:1000], fix_hint[:500], embedding_json)
+                    (lesson_id, time.time(), tt, err[:200], les[:1000], sol[:500], embedding_json)
                 )
             conn.commit()
             conn.close()
@@ -288,24 +312,93 @@ class LessonMemoryBank:
             logger.warning(f"[LessonBank] save_lesson failed: {e}")
             return lesson_id
 
-    async def save_lesson_async(self, task_type: str, error_sig: str, lesson_text: str, fix_hint: str = "") -> str:
+    async def save_lesson_async(self, *args, **kwargs) -> Any:
         """Asynchronously saves a lesson learned to memory bank."""
-        return await asyncio.to_thread(self.save_lesson, task_type, error_sig, lesson_text, fix_hint)
+        return await asyncio.to_thread(self.save_lesson, *args, **kwargs)
 
-    async def retrieve_relevant_async(self, error_sig: str, task_type: str = "", top_k: int = 3) -> List[Dict[str, Any]]:
+    async def retrieve_relevant_async(self, *args, **kwargs) -> List[Dict[str, Any]]:
         """Asynchronously retrieves past lessons by error signature substring match or vector similarity."""
-        return await asyncio.to_thread(self.retrieve_relevant, error_sig, task_type, top_k)
+        return await asyncio.to_thread(self.retrieve_relevant, *args, **kwargs)
 
     async def mark_lesson_used_async(self, lesson_id: str) -> None:
         """Asynchronously increments success_count when a lesson's fix_hint led to passing."""
         await asyncio.to_thread(self.mark_lesson_used, lesson_id)
 
-    def retrieve_relevant(self, error_sig: str, task_type: str = "", top_k: int = 3) -> List[Dict[str, Any]]:
-        """Retrieves the most relevant past lessons by 768D cosine similarity search + success weighting, falling back to SQL match."""
-        rows = []
-        col_names = []
+    def _rank_lessons_by_vector(self, query: str, candidates: list, vecs: list, id_map: dict, top_k: int) -> List[Dict[str, Any]]:
+        """Ranks lesson candidates by cosine similarity + success weighting."""
         try:
-            conn = get_db_connection()
+            embed_mgr = UnifiedEmbeddingManager()
+            query_vec = embed_mgr.get_embedding(query)
+            sims = embed_mgr.compute_batch_similarity(query_vec, vecs)
+            scored = []
+            for r, sim in zip(candidates, sims):
+                sc = r[id_map["success_idx"]] if (id_map["success_idx"] != -1 and id_map["success_idx"] < len(r) and r[id_map["success_idx"]] is not None) else 0
+                weighting = 0.75 * float(sim) + 0.25 * min(1.0, float(sc) / 5.0)
+                scored.append((
+                    weighting,
+                    {
+                        "id": r[id_map["id_idx"]],
+                        "task_type": str(r[id_map["task_idx"]]) if id_map["task_idx"] < len(r) else "",
+                        "category": str(r[id_map["task_idx"]]) if id_map["task_idx"] < len(r) else "",
+                        "error_sig": str(r[id_map["err_idx"]]) if id_map["err_idx"] < len(r) else "",
+                        "lesson": str(r[id_map["lesson_idx"]]) if id_map["lesson_idx"] < len(r) else "",
+                        "fix_hint": str(r[id_map["hint_idx"]]) if id_map["hint_idx"] < len(r) else "",
+                        "solution": str(r[id_map["hint_idx"]]) if id_map["hint_idx"] < len(r) else "",
+                        "similarity": float(sim),
+                        "similarity_score": float(sim),
+                        "success_count": sc,
+                    }
+                ))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return [item[1] for item in scored[:top_k]]
+        except Exception as e:
+            logger.warning(f"[LessonBank] Vector retrieval failed, falling back to SQL match: {e}")
+            return []
+
+    def _match_lessons_by_sql(self, rows: list, error_sig: str, task_type: str, id_map: dict, top_k: int) -> List[Dict[str, Any]]:
+        """Fallback substring match for lesson rows."""
+        matched = []
+        for r in rows:
+            row_err = str(r[id_map["err_idx"]]) if id_map["err_idx"] < len(r) else ""
+            row_task = str(r[id_map["task_idx"]]) if id_map["task_idx"] < len(r) else ""
+            sc = r[id_map["success_idx"]] if (id_map["success_idx"] != -1 and id_map["success_idx"] < len(r) and r[id_map["success_idx"]] is not None) else 0
+            if (error_sig and error_sig in row_err) or (task_type and task_type in row_task) or not error_sig:
+                matched.append({
+                    "id": r[id_map["id_idx"]], "task_type": row_task, "error_sig": row_err,
+                    "lesson": str(r[id_map["lesson_idx"]]) if id_map["lesson_idx"] < len(r) else "",
+                    "fix_hint": str(r[id_map["hint_idx"]]) if id_map["hint_idx"] < len(r) else "",
+                    "solution": str(r[id_map["hint_idx"]]) if id_map["hint_idx"] < len(r) else "",
+                    "category": row_task,
+                    "similarity_score": 0.5,
+                    "success_count": sc,
+                })
+        if not matched:
+            for r in rows[:top_k]:
+                sc = r[id_map["success_idx"]] if (id_map["success_idx"] != -1 and id_map["success_idx"] < len(r) and r[id_map["success_idx"]] is not None) else 0
+                matched.append({
+                    "id": r[id_map["id_idx"]], "task_type": str(r[id_map["task_idx"]]) if id_map["task_idx"] < len(r) else "",
+                    "error_sig": str(r[id_map["err_idx"]]) if id_map["err_idx"] < len(r) else "",
+                    "lesson": str(r[id_map["lesson_idx"]]) if id_map["lesson_idx"] < len(r) else "",
+                    "fix_hint": str(r[id_map["hint_idx"]]) if id_map["hint_idx"] < len(r) else "",
+                    "solution": str(r[id_map["hint_idx"]]) if id_map["hint_idx"] < len(r) else "",
+                    "category": str(r[id_map["task_idx"]]) if id_map["task_idx"] < len(r) else "",
+                    "similarity_score": 0.5,
+                    "success_count": sc,
+                })
+        return matched[:top_k]
+
+    def retrieve_relevant(
+        self,
+        error_sig: str = "",
+        task_type: str = "",
+        top_k: int = 3,
+        query: str = "",
+        **kwargs
+    ) -> List[Dict[str, Any]]:
+        """Retrieves the most relevant past lessons by 768D cosine similarity search + success weighting."""
+        search_query = query or error_sig or ""
+        try:
+            conn = self._get_conn()
             cur = conn.cursor()
             cur.execute("SELECT * FROM reflexion_lessons")
             col_names = [col[0] for col in cur.description] if cur.description else []
@@ -318,81 +411,35 @@ class LessonMemoryBank:
         if not rows:
             return []
 
-        emb_idx = col_names.index("embedding_json") if "embedding_json" in col_names else -1
-        id_idx = col_names.index("id") if "id" in col_names else (col_names.index("lesson_id") if "lesson_id" in col_names else 0)
-        task_idx = col_names.index("task_id") if "task_id" in col_names else (col_names.index("task_type") if "task_type" in col_names else 1)
-        err_idx = col_names.index("prompt_template") if "prompt_template" in col_names else (col_names.index("error_sig") if "error_sig" in col_names else 2)
-        lesson_idx = col_names.index("lesson_learned") if "lesson_learned" in col_names else (col_names.index("lesson_text") if "lesson_text" in col_names else 3)
-        hint_idx = col_names.index("mutation_delta") if "mutation_delta" in col_names else (col_names.index("fix_hint") if "fix_hint" in col_names else 4)
-        success_idx = col_names.index("success_count") if "success_count" in col_names else -1
+        id_map = {
+            "emb_idx": col_names.index("embedding_json") if "embedding_json" in col_names else -1,
+            "id_idx": col_names.index("id") if "id" in col_names else (col_names.index("lesson_id") if "lesson_id" in col_names else 0),
+            "task_idx": col_names.index("task_id") if "task_id" in col_names else (col_names.index("task_type") if "task_type" in col_names else 1),
+            "err_idx": col_names.index("prompt_template") if "prompt_template" in col_names else (col_names.index("error_sig") if "error_sig" in col_names else 2),
+            "lesson_idx": col_names.index("lesson_learned") if "lesson_learned" in col_names else (col_names.index("lesson_text") if "lesson_text" in col_names else 3),
+            "hint_idx": col_names.index("mutation_delta") if "mutation_delta" in col_names else (col_names.index("fix_hint") if "fix_hint" in col_names else 4),
+            "success_idx": col_names.index("success_count") if "success_count" in col_names else -1,
+        }
 
-        valid_candidates = []
-        candidate_vecs = []
-        if emb_idx != -1:
+        candidates, vecs = [], []
+        if id_map["emb_idx"] != -1:
             for r in rows:
-                emb_json = r[emb_idx] if emb_idx < len(r) else None
+                emb_json = r[id_map["emb_idx"]] if id_map["emb_idx"] < len(r) else None
                 if emb_json:
                     try:
-                        vec = json.loads(emb_json)
-                        if isinstance(vec, list) and len(vec) == 768:
-                            valid_candidates.append(r)
-                            candidate_vecs.append(vec)
-                    except Exception:
-                        pass
+                        v = json.loads(emb_json)
+                        if isinstance(v, list) and len(v) == 768:
+                            candidates.append(r)
+                            vecs.append(v)
+                    except Exception as e:
+                        logger.debug("parse embedding json non-fatal: %s", e)
 
-        if valid_candidates and candidate_vecs:
-            try:
-                embed_mgr = UnifiedEmbeddingManager()
-                query_vec = embed_mgr.get_embedding(f"{task_type}: {error_sig}")
-                sims = embed_mgr.compute_batch_similarity(query_vec, candidate_vecs)
+        if candidates and vecs:
+            res = self._rank_lessons_by_vector(f"{task_type}: {error_sig}", candidates, vecs, id_map, top_k)
+            if res:
+                return res
 
-                scored_lessons = []
-                for r, sim in zip(valid_candidates, sims):
-                    sc = r[success_idx] if (success_idx != -1 and success_idx < len(r) and r[success_idx] is not None) else 0
-                    weighting = 0.75 * float(sim) + 0.25 * min(1.0, float(sc) / 5.0)
-                    scored_lessons.append((
-                        weighting,
-                        {
-                            "id": r[id_idx],
-                            "task_type": str(r[task_idx]) if task_idx < len(r) else "",
-                            "error_sig": str(r[err_idx]) if err_idx < len(r) else "",
-                            "lesson": str(r[lesson_idx]) if lesson_idx < len(r) else "",
-                            "fix_hint": str(r[hint_idx]) if hint_idx < len(r) else "",
-                            "similarity": float(sim),
-                            "success_count": sc,
-                        }
-                    ))
-                scored_lessons.sort(key=lambda x: x[0], reverse=True)
-                return [item[1] for item in scored_lessons[:top_k]]
-            except Exception as e:
-                logger.warning(f"[LessonBank] Vector retrieval failed, falling back to SQL match: {e}")
-
-        matched_results = []
-        for r in rows:
-            row_err = str(r[err_idx]) if err_idx < len(r) else ""
-            row_task = str(r[task_idx]) if task_idx < len(r) else ""
-            sc = r[success_idx] if (success_idx != -1 and success_idx < len(r) and r[success_idx] is not None) else 0
-            if (error_sig and error_sig in row_err) or (task_type and task_type in row_task) or not error_sig:
-                matched_results.append({
-                    "id": r[id_idx],
-                    "task_type": row_task,
-                    "error_sig": row_err,
-                    "lesson": str(r[lesson_idx]) if lesson_idx < len(r) else "",
-                    "fix_hint": str(r[hint_idx]) if hint_idx < len(r) else "",
-                    "success_count": sc,
-                })
-        if not matched_results:
-            for r in rows[:top_k]:
-                sc = r[success_idx] if (success_idx != -1 and success_idx < len(r) and r[success_idx] is not None) else 0
-                matched_results.append({
-                    "id": r[id_idx],
-                    "task_type": str(r[task_idx]) if task_idx < len(r) else "",
-                    "error_sig": str(r[err_idx]) if err_idx < len(r) else "",
-                    "lesson": str(r[lesson_idx]) if lesson_idx < len(r) else "",
-                    "fix_hint": str(r[hint_idx]) if hint_idx < len(r) else "",
-                    "success_count": sc,
-                })
-        return matched_results[:top_k]
+        return self._match_lessons_by_sql(rows, error_sig, task_type, id_map, top_k)
 
     def mark_lesson_used(self, lesson_id: str):
         """Increments success_count/fitness_score when a lesson's fix_hint led to passing."""
@@ -406,8 +453,8 @@ class LessonMemoryBank:
                 try:
                     conn.execute("ALTER TABLE reflexion_lessons ADD COLUMN success_count INTEGER DEFAULT 0;")
                     conn.commit()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("add success_count column non-fatal: %s", e)
 
             id_col = "lesson_id" if "lesson_id" in cols else ("id" if "id" in cols else None)
             if id_col:
@@ -484,8 +531,8 @@ class ReflexionEvaluator:
                     score -= 0.25
                     critique_parts.append(f"SMT contract violated: {res.proof_details}")
                     action_parts.append("Fix postcondition — Z3 found a counterexample.")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("SMT contract check non-fatal: %s", e)
 
         # 4. Security check
         if "GEMINI_API_KEY" in code and "genai.Client()" in code:
@@ -513,6 +560,22 @@ class ReflexionEvaluator:
     ) -> EvaluationResult:
         """Asynchronously evaluates output quality, offloading CPU/Z3 work to worker thread."""
         return await asyncio.to_thread(self.evaluate, code, error_trace, task_description, pass_threshold)
+
+    def diagnose_and_formulate_lesson(
+        self,
+        error_context: dict,
+        task_objective: str = ""
+    ) -> dict:
+        """Diagnoses error and formulates actionable lesson learned for Reflexion memory bank."""
+        err_msg = error_context.get("error_message") or str(error_context)
+        err_type = error_context.get("error_type", "ExecutionError")
+        return {
+            "lesson_text": f"Diagnosed {err_type}: {err_msg}",
+            "anti_pattern": err_msg,
+            "recommended_pattern": f"Apply robust verification for {task_objective or err_type}",
+            "solution": f"use vazus_core.verification.ast_pruner for all ASTPruner imports",
+            "task_objective": task_objective,
+        }
 
 
 
@@ -595,149 +658,165 @@ class VazusAutoImprover:
     async def _persist_session_async(self, session: ImprovementSession) -> None:
         await asyncio.to_thread(self._persist_session, session)
 
+    async def _apply_fix_fn(self, fix_fn: Callable[..., Any], current_code: str, critique: str, lessons: list, task_description: str) -> tuple[str, str]:
+        """Applies sync or async fix_fn callable and returns (new_code, current_error)."""
+        try:
+            if inspect.iscoroutinefunction(fix_fn) or asyncio.iscoroutinefunction(fix_fn):
+                try:
+                    new_code = await fix_fn(current_code, critique, lessons, task_description=task_description)
+                except TypeError:
+                    new_code = await fix_fn(current_code, critique, lessons)
+            else:
+                try:
+                    res = fix_fn(current_code, critique, lessons, task_description=task_description)
+                except TypeError:
+                    res = fix_fn(current_code, critique, lessons)
+                new_code = await res if inspect.isawaitable(res) else res
+
+            if new_code and new_code != current_code:
+                tui_print("**", YELLOW, "PATCH", f"Fix applied ({len(new_code)} chars)")
+                return new_code, ""
+            tui_print("!!", YELLOW, "FIX", "fix_fn returned no change.")
+            return current_code, ""
+        except Exception as e:
+            tui_print("!!", RED, "FIX", f"fix_fn exception: {e}")
+            return current_code, str(e)
+
+    async def _finalize_improvement_session(
+        self,
+        task_id: str,
+        task_description: str,
+        *,
+        initial_code: str,
+        final_code: str,
+        iterations: int,
+        ev: EvaluationResult,
+        skills_used: List[str],
+        lessons_applied: List[str],
+        history: List[Dict[str, Any]],
+        task_type: str = "code_generation",
+        error_sig: str = "",
+    ) -> ImprovementSession:
+        """Constructs, persists, and logs the final ImprovementSession state."""
+        session = ImprovementSession(
+            task_id=task_id, task_description=task_description,
+            initial_code=initial_code, final_code=final_code,
+            iterations=iterations, success=ev.passed,
+            final_score=ev.score, skills_used=skills_used,
+            lessons_applied=lessons_applied, history=history,
+        )
+        if not ev.passed and error_sig:
+            await self.lesson_bank.save_lesson_async(
+                task_type=task_type, error_sig=error_sig,
+                lesson_text=f"After {iterations} iters, unresolved: {ev.critique}",
+                fix_hint=ev.suggested_action,
+            )
+            tui_print("**", BLUE, "MEMORY", "Failure lesson saved to LessonMemoryBank.")
+
+        await self._update_skills_async(skills_used, success=ev.passed)
+        await self._persist_session_async(session)
+        self._print_footer(session)
+        return session
+
+    async def _run_single_iteration(
+        self,
+        i: int,
+        current_code: str,
+        current_error: str,
+        task_description: str,
+        *,
+        task_type: str = "code_generation",
+        fix_fn: Callable[..., Any],
+        skills_used: list,
+        lessons_applied_ids: list,
+        history: list,
+    ) -> tuple[str, str, Optional[EvaluationResult]]:
+        """Runs a single iteration of evaluation and fix in the Reflexion loop."""
+        ev = await self.evaluator.evaluate_async(
+            current_code, current_error, task_description, pass_threshold=self.pass_threshold
+        )
+        color = GREEN if ev.score >= self.pass_threshold else YELLOW if ev.score >= 0.4 else RED
+        tui_print("=>", color, f"ITER {i}/{self.max_iterations}", f"Score={ev.score:.3f}  | {ev.critique[:80]}")
+        history.append({"iteration": i, "score": ev.score, "passed": ev.passed, "critique": ev.critique})
+
+        if ev.passed:
+            return current_code, current_error, ev
+
+        error_sig = (current_error or ev.critique)[:80]
+        past_lessons = await self.lesson_bank.retrieve_relevant_async(error_sig, task_type)
+        if past_lessons:
+            for l in past_lessons:
+                tui_print("!!", BLUE, "LESSON", f"[{l['task_type']}] {l['lesson'][:75]}")
+            lessons_applied_ids.extend(l["id"] for l in past_lessons)
+
+        iter_skills = await self._select_skills_for_context_async(task_description, current_error)
+        for sk in (iter_skills or []):
+            if sk not in skills_used:
+                skills_used.append(sk)
+
+        tui_print("..", YELLOW, "FIX", f"Calling fix_fn (iter {i})...")
+        new_code, new_error = await self._apply_fix_fn(
+            fix_fn, current_code, ev.critique, [l["lesson"] for l in past_lessons], task_description
+        )
+        return new_code, new_error, None
+
     async def improve(
         self,
         task_id: str,
         task_description: str,
         initial_code: str,
         fix_fn: Callable[..., Any],
+        *,
         error_trace: str = "",
         task_type: str = "code_generation",
     ) -> ImprovementSession:
         """
-        Main asyncio-native self-improvement Reflexion loop with 300s timeout guard.
-        Supports both sync `def` and `async def` fix_fn callables.
+        Runs the Reflexion loop asynchronously up to self.max_iterations.
+        Protected by asyncio.timeout(300) to prevent hanging sessions.
         """
-        lines = [
-            f"Task ID  : {task_id}",
-            f"Task     : {task_description[:60]}",
-            f"Max iters: {self.max_iterations}  |  Pass threshold: {self.pass_threshold:.0%}",
-            f"Stack    : SkillTracker + LessonBank + ReflexionEvaluator + SMT Z3 (asyncio)",
-        ]
-        print(tui_box("VAZUS AUTO-IMPROVER  Reflexion Loop Started", lines, color=CYAN), flush=True)
-
-        current_code = initial_code
-        current_error = error_trace
-        history: List[Dict[str, Any]] = []
-        skills_used: List[str] = []
-        lessons_applied_ids: List[str] = []
-        error_sig = (error_trace or "")[:80]
+        self._print_header(task_id, task_description, initial_code)
+        current_code, current_error = initial_code, error_trace
+        history, skills_used, lessons_applied_ids = [], [], []
 
         try:
             async with asyncio.timeout(300):
                 for i in range(1, self.max_iterations + 1):
-                    # Step 1: Evaluate asynchronously
-                    ev = await self.evaluator.evaluate_async(current_code, current_error, task_description, pass_threshold=self.pass_threshold)
-                    color = GREEN if ev.score >= self.pass_threshold else YELLOW if ev.score >= 0.4 else RED
-                    tui_print("=>", color, f"ITER {i}/{self.max_iterations}", f"Score={ev.score:.3f}  | {ev.critique[:80]}")
-
-                    history.append({
-                        "iteration": i, "score": ev.score,
-                        "passed": ev.passed, "critique": ev.critique,
-                    })
-
-                    # Step 2: Early exit on pass
-                    if ev.passed:
+                    current_code, current_error, ev = await self._run_single_iteration(
+                        i, current_code, current_error, task_description,
+                        task_type=task_type, fix_fn=fix_fn, skills_used=skills_used,
+                        lessons_applied_ids=lessons_applied_ids, history=history,
+                    )
+                    if ev is not None and ev.passed:
                         tui_print("OK", GREEN, "PASS", f"Score {ev.score:.3f} >= {self.pass_threshold:.0%} — stopping early.")
-                        session = ImprovementSession(
-                            task_id=task_id, task_description=task_description,
+                        return await self._finalize_improvement_session(
+                            task_id, task_description,
                             initial_code=initial_code, final_code=current_code,
-                            iterations=i, success=True, final_score=ev.score,
-                            skills_used=skills_used, lessons_applied=lessons_applied_ids,
-                            history=history,
+                            iterations=i, ev=ev, skills_used=skills_used,
+                            lessons_applied=lessons_applied_ids, history=history
                         )
-                        await self._update_skills_async(skills_used, success=True)
-                        await self._persist_session_async(session)
-                        self._print_footer(session)
-                        return session
-
-                    # Step 3: Retrieve past lessons asynchronously
-                    error_sig = (current_error or ev.critique)[:80]
-                    past_lessons = await self.lesson_bank.retrieve_relevant_async(error_sig, task_type)
-                    if past_lessons:
-                        for l in past_lessons:
-                            tui_print("!!", BLUE, "LESSON", f"[{l['task_type']}] {l['lesson'][:75]}")
-                        lessons_applied_ids.extend(l["id"] for l in past_lessons)
-                    lesson_texts = [l["lesson"] for l in past_lessons]
-
-                    # Step 4: Auto-select skills asynchronously
-                    iter_skills = await self._select_skills_for_context_async(task_description, current_error)
-                    if iter_skills:
-                        tui_print(">>", MAGENTA, "SKILLS", f"Auto-injected: {', '.join(iter_skills)}")
-                        for sk in iter_skills:
-                            if sk not in skills_used:
-                                skills_used.append(sk)
-
-                    # Step 5: Generate fix — handles sync or async coroutine fix_fn
-                    tui_print("..", YELLOW, "FIX", f"Calling fix_fn (iter {i})...")
-                    try:
-                        if inspect.iscoroutinefunction(fix_fn) or asyncio.iscoroutinefunction(fix_fn):
-                            try:
-                                new_code = await fix_fn(current_code, ev.critique, lesson_texts, task_description=task_description)
-                            except TypeError:
-                                new_code = await fix_fn(current_code, ev.critique, lesson_texts)
-                        else:
-                            try:
-                                res = fix_fn(current_code, ev.critique, lesson_texts, task_description=task_description)
-                            except TypeError:
-                                res = fix_fn(current_code, ev.critique, lesson_texts)
-                            if inspect.isawaitable(res):
-                                new_code = await res
-                            else:
-                                new_code = res
-
-                        if new_code and new_code != current_code:
-                            tui_print("**", YELLOW, "PATCH", f"Fix applied ({len(new_code)} chars)")
-                            current_code = new_code
-                            current_error = ""
-                        else:
-                            tui_print("!!", YELLOW, "FIX", "fix_fn returned no change.")
-                    except Exception as e:
-                        tui_print("!!", RED, "FIX", f"fix_fn exception: {e}")
-                        current_error = str(e)
-
         except TimeoutError:
             tui_print("!!", RED, "TIMEOUT", "Reflexion loop timed out after 300 seconds")
-            final_ev = await self.evaluator.evaluate_async(current_code, "TimeoutError: Execution exceeded 300s limit", task_description, pass_threshold=self.pass_threshold)
-            session = ImprovementSession(
-                task_id=task_id, task_description=task_description,
+            final_ev = await self.evaluator.evaluate_async(
+                current_code, "TimeoutError: Execution exceeded 300s limit", task_description, pass_threshold=self.pass_threshold
+            )
+            return await self._finalize_improvement_session(
+                task_id, task_description,
                 initial_code=initial_code, final_code=current_code,
-                iterations=self.max_iterations, success=False,
-                final_score=final_ev.score,
-                skills_used=skills_used, lessons_applied=lessons_applied_ids,
-                history=history,
+                iterations=self.max_iterations, ev=final_ev,
+                skills_used=skills_used, lessons_applied=lessons_applied_ids, history=history
             )
-            await self._persist_session_async(session)
-            self._print_footer(session)
-            return session
 
-        # Max iterations reached
-        final_ev = await self.evaluator.evaluate_async(current_code, current_error, task_description, pass_threshold=self.pass_threshold)
-        tui_print("!!", RED, "LIMIT", f"Max {self.max_iterations} iters reached. Final score: {final_ev.score:.3f}")
-
-        session = ImprovementSession(
-            task_id=task_id, task_description=task_description,
-            initial_code=initial_code, final_code=current_code,
-            iterations=self.max_iterations, success=final_ev.passed,
-            final_score=final_ev.score,
-            skills_used=skills_used, lessons_applied=lessons_applied_ids,
-            history=history,
+        final_ev = await self.evaluator.evaluate_async(
+            current_code, current_error, task_description, pass_threshold=self.pass_threshold
         )
-
-        # Save failure lesson asynchronously
-        if not final_ev.passed:
-            await self.lesson_bank.save_lesson_async(
-                task_type=task_type,
-                error_sig=error_sig,
-                lesson_text=f"After {self.max_iterations} iters, unresolved: {final_ev.critique}",
-                fix_hint=final_ev.suggested_action,
-            )
-            tui_print("**", BLUE, "MEMORY", "Failure lesson saved to LessonMemoryBank.")
-
-        await self._update_skills_async(skills_used, success=final_ev.passed)
-        await self._persist_session_async(session)
-        self._print_footer(session)
-        return session
+        tui_print("!!", RED, "LIMIT", f"Max {self.max_iterations} iters reached. Final score: {final_ev.score:.3f}")
+        return await self._finalize_improvement_session(
+            task_id, task_description,
+            initial_code=initial_code, final_code=current_code,
+            iterations=self.max_iterations, ev=final_ev,
+            skills_used=skills_used, lessons_applied=lessons_applied_ids, history=history,
+            task_type=task_type, error_sig=(error_trace or "")[:80]
+        )
 
     def improve_sync(
         self,
@@ -745,22 +824,21 @@ class VazusAutoImprover:
         task_description: str,
         initial_code: str,
         fix_fn: Callable[..., Any],
+        *,
         error_trace: str = "",
         task_type: str = "code_generation",
     ) -> ImprovementSession:
-        """
-        Synchronous wrapper around `improve(...)` for legacy sync callers.
-        """
+        """Synchronous wrapper around `improve(...)` for legacy sync callers."""
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
 
         coro = self.improve(
-            task_id=task_id,
-            task_description=task_description,
-            initial_code=initial_code,
-            fix_fn=fix_fn,
+            task_id,
+            task_description,
+            initial_code,
+            fix_fn,
             error_trace=error_trace,
             task_type=task_type,
         )

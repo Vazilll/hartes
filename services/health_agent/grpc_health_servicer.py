@@ -179,5 +179,7 @@ async def serve_grpc_health_server(port=50051):
     await server.start()
     await server.wait_for_termination()
 
+HealthTelemetryServicer = AsyncHealthTelemetryServicer
+
 if __name__ == '__main__':
     asyncio.run(serve_grpc_health_server())

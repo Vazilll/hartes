@@ -175,105 +175,100 @@ async def default_db_logging_hook(ctx: SubagentContext):
 global_hook_registry.register_on_complete(default_db_logging_hook)
 
 
-async def auto_improver_on_complete_hook(ctx: SubagentContext):
-    """
-    Automatically triggers the VazusAutoImprover reflexion loop when a subagent task fails.
-    On success, just shows live stats. Visible in terminal in real-time.
-    """
-    if ctx.success:
-        # On success: quick stats line (non-blocking)
-        try:
-            from vazus_core.memory.auto_improver import get_auto_improver
-            improver = get_auto_improver()
-            top_res = improver.skill_tracker.get_top_skills(3)
-            top = await top_res if inspect.isawaitable(top_res) else top_res
-            if top:
-                skills_str = ", ".join(f"{s['name']}={s['score']:.2f}" for s in top)
-                ctx.logs.append(f"[AutoImprover] Top skills: {skills_str}")
-        except Exception:
-            pass
-        return
-
-    # On failure: run improvement loop with simple AST-level fix attempt
-    code_output = ctx.results.get("code", "") or ctx.results.get("output", "")
-    error_trace = ctx.error or ""
-    if not code_output or len(code_output) < 10:
-        return  # Nothing to improve
-
+async def _report_top_skills_on_success(ctx: SubagentContext) -> None:
+    """Queries top skill statistics on task success."""
     try:
         from vazus_core.memory.auto_improver import get_auto_improver
+        improver = get_auto_improver()
+        top_res = improver.skill_tracker.get_top_skills(3)
+        top = await top_res if inspect.isawaitable(top_res) else top_res
+        if top:
+            skills_str = ", ".join(f"{s['name']}={s['score']:.2f}" for s in top)
+            ctx.logs.append(f"[AutoImprover] Top skills: {skills_str}")
+    except Exception as exc:
+        logger.debug("[AutoImprover] Top skills query failed: %s", exc)
 
-        async def _llm_fix_fn(code: str, critique: str, lessons: list, task_description: str = "") -> str:
-            """
-            LLM-powered Reflexion code repair function querying Gemini 3.6 Flash.
-            Formats error critiques, historical failure lessons, and task description into a structured prompt,
-            queries Gemini 3.6 Flash, parses response code blocks, and sanitizes banned imports.
-            """
-            import re
-            if not code or len(code.strip()) == 0:
-                return code
 
-            lessons_formatted = "\n".join(f"- {lesson}" for lesson in lessons) if lessons else "- None recorded"
-            task_desc_str = task_description or (ctx.prompt[:200] if 'ctx' in locals() else "")
+def _build_reflexion_prompt(code: str, critique: str, lessons: list, task_desc_str: str) -> str:
+    """Constructs prompt for Reflexion code repair."""
+    lessons_formatted = "\n".join(f"- {lesson}" for lesson in lessons) if lessons else "- None recorded"
+    return (
+        "SYSTEM: You are the Vazus OS Reflexion Code Repair Engineer (powered by Gemini 3.6 Flash).\n"
+        "Your objective is to fix broken Python code based on evaluation critique and past failure lessons.\n\n"
+        "CONSTRAINTS:\n"
+        "1. Do NOT import google.genai directly or instantiate genai.Client() with external GEMINI_API_KEY.\n"
+        "2. Ensure valid Python AST syntax and satisfy all contract preconditions/postconditions.\n"
+        "3. Output ONLY valid Python code inside a ```python ``` codeblock or raw Python code without narrative commentary.\n\n"
+        f"CONTEXT:\n"
+        f"Task Description: {task_desc_str[:500]}\n\n"
+        f"Failing Code:\n```python\n{code}\n```\n\n"
+        f"Evaluation Critique & Error Traceback:\n{critique}\n\n"
+        f"Past Failure Lessons (Episodic Memory):\n{lessons_formatted}\n\n"
+        "INSTRUCTION:\n"
+        "Analyze the error root cause and past failure lessons, and generate the corrected, complete Python code snippet."
+    )
 
-            prompt = (
-                "SYSTEM: You are the Vazus OS Reflexion Code Repair Engineer (powered by Gemini 3.6 Flash).\n"
-                "Your objective is to fix broken Python code based on evaluation critique and past failure lessons.\n\n"
-                "CONSTRAINTS:\n"
-                "1. Do NOT import google.genai directly or instantiate genai.Client() with external GEMINI_API_KEY.\n"
-                "2. Ensure valid Python AST syntax and satisfy all contract preconditions/postconditions.\n"
-                "3. Output ONLY valid Python code inside a ```python ``` codeblock or raw Python code without narrative commentary.\n\n"
-                f"CONTEXT:\n"
-                f"Task Description: {task_desc_str[:500]}\n\n"
-                f"Failing Code:\n```python\n{code}\n```\n\n"
-                f"Evaluation Critique & Error Traceback:\n{critique}\n\n"
-                f"Past Failure Lessons (Episodic Memory):\n{lessons_formatted}\n\n"
-                "INSTRUCTION:\n"
-                "Analyze the error root cause and past failure lessons, and generate the corrected, complete Python code snippet."
-            )
 
-            sys_prompt = "You are the Vazus OS Reflexion Code Repair Engineer (powered by Gemini 3.6 Flash)."
+def _extract_and_sanitize_repaired_code(response_text: str, original_code: str) -> str:
+    """Parses, sanitizes, and verifies syntax of repaired code."""
+    import re
+    import ast as _ast
 
-            try:
-                from vazus_core.engine.llm_client import async_generate_llm
-                response_text = await async_generate_llm(
-                    prompt=prompt,
-                    system_prompt=sys_prompt,
-                    model="gemini-3.6-flash"
-                )
-            except Exception as _llm_err:
-                logger.warning(f"[AutoImprover] LLM generation error in _llm_fix_fn: {_llm_err}")
-                response_text = ""
+    match = re.search(r"```python\s*(.*?)\s*```", response_text, re.DOTALL)
+    if match:
+        repaired_code = match.group(1).strip()
+    else:
+        match_gen = re.search(r"```\s*(.*?)\s*```", response_text, re.DOTALL)
+        repaired_code = match_gen.group(1).strip() if match_gen else response_text.strip()
 
-            # Offline / Mock Fallback Heuristic
-            if not response_text:
-                import ast as _ast
-                try:
-                    _ast.parse(code)
-                    response_text = code
-                except SyntaxError:
-                    lines = [l for l in code.splitlines() if l.strip()]
-                    response_text = "\n".join(lines[:-1]) if len(lines) > 1 else code
+    sanitized = "\n".join(
+        l for l in repaired_code.splitlines()
+        if "import google.genai" not in l and "from google import genai" not in l
+    )
 
-            match = re.search(r"```python\s*(.*?)\s*```", response_text, re.DOTALL)
-            if match:
-                repaired_code = match.group(1).strip()
-            else:
-                match_gen = re.search(r"```\s*(.*?)\s*```", response_text, re.DOTALL)
-                repaired_code = match_gen.group(1).strip() if match_gen else response_text.strip()
+    try:
+        _ast.parse(sanitized)
+        return sanitized
+    except SyntaxError as exc:
+        logger.debug("[AutoImprover] Repaired code AST invalid, reverting to original: %s", exc)
+        return original_code
 
-            sanitized = "\n".join(
-                l for l in repaired_code.splitlines()
-                if "import google.genai" not in l and "from google import genai" not in l
-            )
 
-            import ast as _ast
-            try:
-                _ast.parse(sanitized)
-                return sanitized
-            except SyntaxError:
-                return code
+async def _llm_fix_fn(code: str, critique: str, lessons: list, task_description: str = "") -> str:
+    """LLM-powered Reflexion code repair function querying Gemini 3.6 Flash."""
+    if not code or len(code.strip()) == 0:
+        return code
 
+    prompt = _build_reflexion_prompt(code, critique, lessons, task_description)
+    sys_prompt = "You are the Vazus OS Reflexion Code Repair Engineer (powered by Gemini 3.6 Flash)."
+
+    try:
+        from vazus_core.engine.llm_client import async_generate_llm
+        response_text = await async_generate_llm(
+            prompt=prompt,
+            system_prompt=sys_prompt,
+            model="gemini-3.6-flash",
+        )
+    except Exception as _llm_err:
+        logger.warning("[AutoImprover] LLM generation error in _llm_fix_fn: %s", _llm_err)
+        response_text = ""
+
+    if not response_text:
+        import ast as _ast
+        try:
+            _ast.parse(code)
+            response_text = code
+        except SyntaxError:
+            lines = [l for l in code.splitlines() if l.strip()]
+            response_text = "\n".join(lines[:-1]) if len(lines) > 1 else code
+
+    return _extract_and_sanitize_repaired_code(response_text, code)
+
+
+async def _execute_auto_improver_reflexion(ctx: SubagentContext, code_output: str, error_trace: str) -> None:
+    """Executes VazusAutoImprover reflexion loop on failed subagent task."""
+    try:
+        from vazus_core.memory.auto_improver import get_auto_improver
         improver = get_auto_improver(max_iterations=2)
         improve_res = improver.improve(
             task_id=ctx.task_id,
@@ -288,8 +283,26 @@ async def auto_improver_on_complete_hook(ctx: SubagentContext):
             ctx.results["code"] = session.final_code
             ctx.results["auto_improved"] = True
             ctx.logs.append(f"[AutoImprover] Self-corrected in {session.iterations} iterations. Score: {session.final_score:.3f}")
-    except Exception as e:
-        ctx.logs.append(f"[AutoImprover Hook Warning] {e}")
+    except Exception as exc:
+        logger.warning("[AutoImprover Hook Error] %s", exc)
+        ctx.logs.append(f"[AutoImprover Hook Warning] {exc}")
+
+
+async def auto_improver_on_complete_hook(ctx: SubagentContext):
+    """
+    Automatically triggers the VazusAutoImprover reflexion loop when a subagent task fails.
+    On success, just shows live stats. Visible in terminal in real-time.
+    """
+    if ctx.success:
+        await _report_top_skills_on_success(ctx)
+        return
+
+    code_output = ctx.results.get("code", "") or ctx.results.get("output", "")
+    error_trace = ctx.error or ""
+    if not code_output or len(code_output) < 10:
+        return
+
+    await _execute_auto_improver_reflexion(ctx, code_output, error_trace)
 
 
 global_hook_registry.register_on_complete(auto_improver_on_complete_hook)
@@ -402,12 +415,58 @@ class DeclarativeSubagentEngine:
         self.registry = registry or subagent_registry
         self.hooks = hooks or global_hook_registry
 
+    async def _execute_template_body(
+        self,
+        template: DeclarativeSubagentTemplate,
+        ctx: SubagentContext,
+        prompt: str,
+    ) -> None:
+        """Executes subagent body including Hermes initialization and custom executor."""
+        if template.hermes_protocol:
+            from vazus_core.hermes_agent_engine import HermesAgentEngine, HermesToolRegistry
+            hermes_registry = HermesToolRegistry()
+            hermes_engine = HermesAgentEngine(registry=hermes_registry)
+            ctx.state["hermes_system_prompt"] = hermes_engine.build_system_prompt(template.system_prompt)
+            ctx.logs.append("[Hermes Protocol Enabled] System prompt built with <tools> XML tags.")
+
+        if template.executor_fn:
+            if inspect.iscoroutinefunction(template.executor_fn):
+                exec_results = await template.executor_fn(ctx)
+            else:
+                exec_results = template.executor_fn(ctx)
+                if inspect.isawaitable(exec_results):
+                    exec_results = await exec_results
+            if exec_results:
+                ctx.results.update(exec_results)
+        else:
+            ctx.results["output"] = f"Executed generic prompt: {prompt[:100]}..."
+
+    async def _verify_template_execution(
+        self,
+        template: DeclarativeSubagentTemplate,
+        ctx: SubagentContext,
+    ) -> None:
+        """Runs template-specific and global verification hooks."""
+        is_verified = True
+        if template.verifier_fn:
+            if inspect.iscoroutinefunction(template.verifier_fn):
+                is_verified = await template.verifier_fn(ctx)
+            else:
+                is_verified = template.verifier_fn(ctx)
+                if inspect.isawaitable(is_verified):
+                    is_verified = await is_verified
+
+        global_verified = await self.hooks.trigger_on_verify(ctx)
+        if not is_verified or not global_verified:
+            ctx.success = False
+            ctx.error = "Subagent output verification failed."
+
     async def run_subagent(
         self,
         subagent_name: str,
         prompt: str,
         task_id: Optional[str] = None,
-        params: Optional[Dict[str, Any]] = None
+        params: Optional[Dict[str, Any]] = None,
     ) -> SubagentContext:
         """Executes a subagent by name using standardized lifecycle hooks asynchronously with a 300s timeout guard."""
         t_start = time.time()
@@ -415,7 +474,7 @@ class DeclarativeSubagentEngine:
             subagent_name=subagent_name,
             task_id=task_id or f"task_{int(t_start*1000)}",
             prompt=prompt,
-            params=params or {}
+            params=params or {},
         )
 
         template = self.registry.get(subagent_name)
@@ -426,64 +485,24 @@ class DeclarativeSubagentEngine:
 
         try:
             async with asyncio.timeout(300):
-                # 1. Trigger ON_START lifecycle hooks
                 await self.hooks.trigger_on_start(ctx)
-
-                # 2. Trigger ON_STEP (Execution phase)
                 await self.hooks.trigger_on_step(ctx, "execution")
-                
-                # If Hermes 3 Protocol is enabled for template, initialize Hermes Engine
-                if template.hermes_protocol:
-                    from vazus_core.hermes_agent_engine import HermesAgentEngine, HermesToolRegistry
-                    hermes_registry = HermesToolRegistry()
-                    
-                    hermes_engine = HermesAgentEngine(registry=hermes_registry)
-                    ctx.state["hermes_system_prompt"] = hermes_engine.build_system_prompt(template.system_prompt)
-                    ctx.logs.append(f"[Hermes Protocol Enabled] System prompt built with <tools> XML tags.")
-
-                if template.executor_fn:
-                    if inspect.iscoroutinefunction(template.executor_fn):
-                        exec_results = await template.executor_fn(ctx)
-                    else:
-                        exec_results = template.executor_fn(ctx)
-                        if inspect.isawaitable(exec_results):
-                            exec_results = await exec_results
-                    if exec_results:
-                        ctx.results.update(exec_results)
-                else:
-                    ctx.results["output"] = f"Executed generic prompt: {prompt[:100]}..."
-
-                # 3. Trigger ON_VERIFY (Verification phase)
+                await self._execute_template_body(template, ctx, prompt)
                 await self.hooks.trigger_on_step(ctx, "verification")
-                is_verified = True
-                if template.verifier_fn:
-                    if inspect.iscoroutinefunction(template.verifier_fn):
-                        is_verified = await template.verifier_fn(ctx)
-                    else:
-                        is_verified = template.verifier_fn(ctx)
-                        if inspect.isawaitable(is_verified):
-                            is_verified = await is_verified
-                
-                global_verified = await self.hooks.trigger_on_verify(ctx)
-                if not is_verified or not global_verified:
-                    ctx.success = False
-                    ctx.error = "Subagent output verification failed."
-
+                await self._verify_template_execution(template, ctx)
         except TimeoutError:
             ctx.success = False
             ctx.error = "Subagent execution timed out after 300 seconds."
             ctx.logs.append("[Timeout Error] Execution exceeded 300 seconds.")
-        except Exception as e:
+        except Exception as exc:
             ctx.success = False
-            ctx.error = str(e)
-            ctx.logs.append(f"[Execution Error] {e}")
+            ctx.error = str(exc)
+            ctx.logs.append(f"[Execution Error] {exc}")
 
-        # 4. Trigger ON_COMPLETE / ON_FAIL lifecycle hooks
         ctx.results["elapsed_seconds"] = round(time.time() - t_start, 4)
         if not ctx.success:
             await self.hooks.trigger_on_fail(ctx)
         await self.hooks.trigger_on_complete(ctx)
-        
         return ctx
 
     def run_subagent_sync(
