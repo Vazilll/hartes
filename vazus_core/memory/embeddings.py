@@ -88,6 +88,7 @@ class OpenVINONPUEmbedder:
             except Exception as e:
                 logger.debug("Local tokenizer load note: %s", e)
 
+        self.max_seq_len = 128
         if ov is None:
             return
 
@@ -104,6 +105,15 @@ class OpenVINONPUEmbedder:
 
             if os.path.exists(self.model_path):
                 self.model = self.core.read_model(self.model_path)
+                try:
+                    # Intel NPU VPUX compiler requires static input dimensions
+                    self.model.reshape({
+                        "input_ids": [1, self.max_seq_len],
+                        "attention_mask": [1, self.max_seq_len]
+                    })
+                except Exception as reshape_err:
+                    logger.debug("Model reshape for NPU notice: %s", reshape_err)
+
                 for dev in ordered:
                     try:
                         self._compiled_model = self.core.compile_model(
@@ -139,9 +149,28 @@ class OpenVINONPUEmbedder:
             return _compute_fallback_embedding(str(input_ids.tolist()), dimension=self.dimension)
 
         try:
-            inputs_dict = {"input_ids": input_ids.astype(np.int64)}
+            cur_ids = input_ids.astype(np.int64)
+            if cur_ids.ndim == 1:
+                cur_ids = cur_ids.reshape(1, -1)
+            if cur_ids.shape[1] < self.max_seq_len:
+                pad = np.zeros((1, self.max_seq_len - cur_ids.shape[1]), dtype=np.int64)
+                cur_ids = np.hstack([cur_ids, pad])
+            elif cur_ids.shape[1] > self.max_seq_len:
+                cur_ids = cur_ids[:, :self.max_seq_len]
+
+            inputs_dict = {"input_ids": cur_ids}
             if attention_mask is not None:
-                inputs_dict["attention_mask"] = attention_mask.astype(np.int64)
+                cur_mask = attention_mask.astype(np.int64)
+                if cur_mask.ndim == 1:
+                    cur_mask = cur_mask.reshape(1, -1)
+                if cur_mask.shape[1] < self.max_seq_len:
+                    pad = np.zeros((1, self.max_seq_len - cur_mask.shape[1]), dtype=np.int64)
+                    cur_mask = np.hstack([cur_mask, pad])
+                elif cur_mask.shape[1] > self.max_seq_len:
+                    cur_mask = cur_mask[:, :self.max_seq_len]
+                inputs_dict["attention_mask"] = cur_mask
+            else:
+                inputs_dict["attention_mask"] = (cur_ids != 0).astype(np.int64)
 
             # Dictionary-based infer handles input port naming and shape broadcast cleanly
             res = self._infer_request.infer(inputs_dict)

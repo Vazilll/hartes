@@ -32,6 +32,9 @@ services/memory/_archive/qdrant_db-old/
 token*.json
 credentials*.json
 tokens/
+*token*.txt
+*secret*
+
 
 # Multimedia & Video Artifacts
 *.mp4
