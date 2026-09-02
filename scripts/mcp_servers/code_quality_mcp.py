@@ -16,11 +16,24 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from typing import Optional
+
+def _resolve_sg_binary() -> str:
+    resolved = shutil.which("ast-grep") or shutil.which("sg")
+    if resolved:
+        return resolved
+    for candidate in [
+        r"C:\Users\Vaz\AppData\Roaming\npm\ast-grep.cmd",
+        r"C:\Users\Vaz\AppData\Roaming\npm\sg.cmd",
+    ]:
+        if os.path.exists(candidate):
+            return candidate
+    return "ast-grep"
 
 # ── FastMCP ──────────────────────────────────────────────────────────────────
 try:
@@ -57,7 +70,7 @@ def ast_grep_search(
     Returns:
         JSON list of matches with file, line, text.
     """
-    sg = "ast-grep"
+    sg = _resolve_sg_binary()
     try:
         result = subprocess.run(
             [sg, "run", "--pattern", pattern, "--lang", language,
@@ -109,7 +122,7 @@ def ast_grep_rewrite(
         path: Root directory or file
         dry_run: If True (default), only show what would change — do NOT modify files
     """
-    sg = "ast-grep"
+    sg = _resolve_sg_binary()
     cmd = [sg, "run", "--pattern", pattern, "--rewrite", replacement,
            "--lang", language, "--json"]
     if not dry_run:
