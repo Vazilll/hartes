@@ -31,5 +31,30 @@ services/memory/_archive/qdrant_db-old/
 .adapter_key
 token*.json
 credentials*.json
-*.token
 tokens/
+
+# Multimedia & Video Artifacts
+*.mp4
+*.mkv
+*.avi
+*.mov
+*.webm
+*.wav
+*.mp3
+webinar_hock_training/
+webinar_hock_training*
+
+# Heavy Model Weights & Backups
+*.bak*
+*.bin
+*.onnx
+*.safetensors
+*.pt
+models/
+pyenv/leann-indexes/
+
+# Caches & Test Artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+

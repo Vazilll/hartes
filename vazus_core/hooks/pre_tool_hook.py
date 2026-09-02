@@ -33,12 +33,14 @@ FORBIDDEN_PATTERNS = [
     "C:\\vazus\\AGENTS.md",
 ]
 
-DANGEROUS_COMMANDS = [
-    "format ",
-    "rmdir /s /q c:\\",
-    "del /f /s /q c:\\windows",
-    "reg delete",
-    "diskpart",
+import re
+
+DANGEROUS_COMMAND_PATTERNS = [
+    re.compile(r"(?i)\bformat\s+[a-z]:"),          # e.g. format c:
+    re.compile(r"(?i)\brmdir\s+/[sq]\s+c:\\"),      # e.g. rmdir /s /q c:\
+    re.compile(r"(?i)\bdel\s+/[fsq\s]+c:\\windows"), # e.g. del /f /s /q c:\windows
+    re.compile(r"(?i)\breg\s+delete\s+hklm"),       # e.g. reg delete HKLM
+    re.compile(r"(?i)\bdiskpart\b"),                # disk partitioning tool
 ]
 
 logger = logging.getLogger("vazus.pre_tool_hook")
@@ -65,11 +67,10 @@ def _is_forbidden_path(path_str: str) -> bool:
 
 
 def _is_dangerous_command(command_str: str) -> bool:
-    """Detects destructive system commands."""
+    """Detects destructive system commands with precise argument boundaries."""
     if not command_str:
         return False
-    cmd_lower = command_str.lower()
-    return any(danger in cmd_lower for danger in DANGEROUS_COMMANDS)
+    return any(pat.search(command_str) for pat in DANGEROUS_COMMAND_PATTERNS)
 
 
 def run_pre_tool(tool_name: str, args: dict) -> dict:
