@@ -160,9 +160,22 @@ class Mem0Engine:
         dense_scored = []
         lexical_scored = []
 
+        import numpy as np
+
         for r in rows:
             fid, cat, ent, text, emb_str = r[0], r[1], r[2], r[3], r[4]
-            emb = json.loads(emb_str) if emb_str else []
+            emb = []
+            if emb_str:
+                if isinstance(emb_str, (bytes, bytearray, memoryview)):
+                    try:
+                        emb = np.frombuffer(bytes(emb_str), dtype=np.float32).tolist()
+                    except Exception:
+                        emb = []
+                elif isinstance(emb_str, str):
+                    try:
+                        emb = json.loads(emb_str)
+                    except Exception:
+                        emb = []
             sim = self.emb_mgr.compute_similarity(q_vec, emb)
             dense_scored.append((fid, cat, ent, text, sim))
 

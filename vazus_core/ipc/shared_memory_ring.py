@@ -102,12 +102,16 @@ class SharedMemoryRingBuffer:
         name: str = "Local\\VazusSuperGraphRingBuffer",
         num_slots: int = 64,
         slot_size_kb: int = 512,
-        create_new: bool = True
+        create_new: bool = True,
+        size_mb: Optional[int] = None,
     ):
         self.name = name
         self.tag_name = name.replace("\\", "_").replace("/", "_")
         self.num_slots = max(4, num_slots)
-        self.slot_size = slot_size_kb * 1024
+        if size_mb is not None:
+            self.slot_size = max(65536, (size_mb * 1024 * 1024) // self.num_slots)
+        else:
+            self.slot_size = slot_size_kb * 1024
         self.max_payload_size = self.slot_size - SLOT_HEADER_SIZE
 
         self.total_size = CONTROL_HEADER_SIZE + (self.num_slots * self.slot_size)
