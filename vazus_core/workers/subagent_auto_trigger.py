@@ -758,6 +758,35 @@ class SubagentBackgroundDispatcher:
         """Alias method for dispatch."""
         return self.dispatch(task_spec)
 
+    def generate_antigravity_invoke_manifest(self, task_spec: dict[str, Any] | TaskSpec) -> dict[str, Any]:
+        """
+        Generates canonical payload for Antigravity native `invoke_subagent` tool.
+        Enforces execution inside active Antigravity session using internal model quota.
+        """
+        spec = self._normalize_task_spec(task_spec)
+        try:
+            from vazus_core.roles.system_personas import get_native_invoke_spec
+            subagent_entry = get_native_invoke_spec(
+                role_name=spec.subagent_name,
+                task_prompt=spec.prompt,
+                model="inherit",
+                workspace="inherit",
+            )
+        except Exception:
+            subagent_entry = {
+                "TypeName": f"vazus-{spec.subagent_name}",
+                "Role": spec.subagent_name,
+                "Prompt": spec.prompt,
+                "Model": "inherit",
+                "Workspace": "inherit",
+            }
+        return {
+            "tool": "invoke_subagent",
+            "args": {
+                "Subagents": [subagent_entry]
+            }
+        }
+
     def get_handle(self, task_id: str) -> SubagentDispatchHandle | None:
         """Retrieves active handle by task ID."""
         return self._active_handles.get(task_id)

@@ -68,10 +68,11 @@ def _get_persona_prompts() -> dict[str, str]:
     }
 
 
-_PROMPTS = _get_persona_prompts()
-PLANNER_PERSONA_PROMPT = _PROMPTS["Planner"]
-RLM_CODER_PERSONA_PROMPT = _PROMPTS["RLM_Coder"]
-VERIFIER_WORKER_PERSONA_PROMPT = _PROMPTS["Verifier_Worker"]
+from vazus_core.roles.system_personas import (
+    PLANNER_PERSONA_PROMPT,
+    RLM_CODER_PERSONA_PROMPT,
+    VERIFIER_WORKER_PERSONA_PROMPT,
+)
 
 
 @dataclass(slots=True)

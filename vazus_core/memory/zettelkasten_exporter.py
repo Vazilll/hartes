@@ -400,9 +400,13 @@ def export_all_zettelkasten_notes(
 
     if auto_reindex and exported_filepaths and SuperGraphLinker is not None:
         try:
-            target_db = Path(db_path) if db_path else Path(DEFAULT_DB_PATH)
-            linker = SuperGraphLinker(db_path=target_db, wiki_dirs=[out_path])
-            linker.run_supergraph_integration()
+            target_db_str = str(db_path or os.environ.get("VAZUS_DB_PATH") or DEFAULT_DB_PATH)
+            if os.environ.get("VAZUS_TEST_ISOLATION") == "1" and "session_vazus.db" not in target_db_str and "temp" not in target_db_str.lower():
+                logger.debug("Test isolation guard: skipping SuperGraphLinker canonical DB mutation.")
+            else:
+                target_db = Path(target_db_str)
+                linker = SuperGraphLinker(db_path=target_db, wiki_dirs=[out_path])
+                linker.run_supergraph_integration()
         except Exception as ex:
             logger.debug("SuperGraph re-indexing non-fatal: %s", ex)
 
@@ -414,9 +418,10 @@ class ZettelkastenExporter:
     Object-oriented wrapper for Zettelkasten Obsidian Wiki Export.
     """
 
-    def __init__(self, wiki_dir: Union[Path, str] = DEFAULT_WIKI_DIR, db_path: Union[Path, str] = DEFAULT_DB_PATH):
+    def __init__(self, wiki_dir: Union[Path, str] = DEFAULT_WIKI_DIR, db_path: Optional[Union[Path, str]] = None):
         self.wiki_dir = Path(wiki_dir)
-        self.db_path = Path(db_path)
+        env_db = os.environ.get("VAZUS_DB_PATH")
+        self.db_path = Path(db_path or env_db or DEFAULT_DB_PATH)
         self.wiki_dir.mkdir(parents=True, exist_ok=True)
         (self.wiki_dir / "Commits").mkdir(exist_ok=True)
         (self.wiki_dir / "Insights").mkdir(exist_ok=True)
