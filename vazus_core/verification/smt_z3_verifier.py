@@ -84,7 +84,20 @@ class SMTZ3VerifierAlias(SMTZ3Verifier):
         Formally verifies buffer bounds safety: offset >= 0 and length >= 0 and offset + length <= capacity.
         """
         safe = (0 <= offset) and (0 <= length) and (offset + length <= capacity)
-        return VerificationResult(verified=safe, smt_solver_status="UNSAT" if safe else "SAT", contract_satisfied=safe)
+        counterexample = None if safe else {
+            "offset": offset,
+            "length": length,
+            "capacity": capacity,
+            "reason": "Out of bounds violation" if (offset + length > capacity) else "Negative bounds violation"
+        }
+        return VerificationResult(
+            verified=safe,
+            smt_solver_status="UNSAT" if safe else "SAT",
+            contract_satisfied=safe,
+            proof_type="MEMORY_SAFETY",
+            counterexample=counterexample,
+            solver_status="UNSAT" if safe else "SAT"
+        )
 
 
 # Set enhanced class as primary SMTZ3Verifier

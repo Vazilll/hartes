@@ -82,7 +82,7 @@ def _generate_mock_response(prompt: str, system_prompt: str = "") -> str:
                 "agent": agent_name,
                 "approved": False,
                 "verdict": "FAIL",
-                "reason": "AST syntax error detected in proposal."
+                "reason": "AST syntax error detected in proposal (Test Mode)."
             })
 
         if "smt contract failed" in combined_prompt or ("requires" in combined_prompt and "fail" in combined_prompt):
@@ -90,7 +90,7 @@ def _generate_mock_response(prompt: str, system_prompt: str = "") -> str:
                 "agent": agent_name,
                 "approved": False,
                 "verdict": "FAIL",
-                "reason": "SMT Z3 contract precondition violation."
+                "reason": "SMT Z3 contract precondition violation (Test Mode)."
             })
 
         return json.dumps({
@@ -259,6 +259,7 @@ async def async_generate_llm(
         return cloud_res
 
     # Tier-3: Deterministic Fallback
-    logger.debug("[llm_client] Defaulting to deterministic local response.")
+    logger.warning("[llm_client] Tier-1 and Tier-2 LLM providers unavailable; falling back to deterministic local mock response.")
     return _generate_mock_response(prompt, system_prompt)
+
 

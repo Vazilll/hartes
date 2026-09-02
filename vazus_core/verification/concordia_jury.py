@@ -84,6 +84,11 @@ class JuryVerdict:
     smt_satisfied: bool
     votes: list[dict[str, Any]] = field(default_factory=list)
     rejection_reasons: list[str] = field(default_factory=list)
+    mock_count: int = 0
+
+    @property
+    def is_all_mock(self) -> bool:
+        return len(self.votes) > 0 and self.mock_count == len(self.votes)
 
     @property
     def contract_satisfied(self) -> bool:
@@ -104,6 +109,8 @@ class JuryVerdict:
             "smt_satisfied": self.smt_satisfied,
             "votes": self.votes,
             "rejection_reasons": self.rejection_reasons,
+            "mock_count": self.mock_count,
+            "is_all_mock": self.is_all_mock,
         }
 
 
@@ -430,11 +437,19 @@ class ConcordiaJury:
         smt_satisfied, smt_rejections = self._verify_smt_proof_gate(proposal, orig_code)
         rejection_reasons.extend(smt_rejections)
 
+        # Mock vote tracking and strict production enforcement
+        mock_votes = [v for v in dedup_votes if v.get("is_mock", False)]
+        mock_count = len(mock_votes)
+        strict_prod = os.getenv("VAZUS_STRICT_PRODUCTION", "0") in ("1", "true", "True")
+        if strict_prod and mock_count > 0:
+            rejection_reasons.append(f"Strict production policy: {mock_count} synthetic mock vote(s) rejected.")
+
         approved = (
             ast_valid and
             quorum_satisfied and
             (ratio >= self.consensus_threshold) and
-            smt_satisfied
+            smt_satisfied and
+            (not (strict_prod and mock_count > 0))
         )
 
         return JuryVerdict(
@@ -445,6 +460,7 @@ class ConcordiaJury:
             smt_satisfied=smt_satisfied,
             votes=dedup_votes,
             rejection_reasons=rejection_reasons,
+            mock_count=mock_count,
         )
 
     def evaluate_code_proposal(
@@ -528,6 +544,17 @@ class ConcordiaJury:
 
     def _parse_subagent_vote_json(self, agent_name: str, raw_text: str) -> Dict[str, Any]:
         clean_text = raw_text.strip()
+        is_mock = is_mock_response(clean_text)
+
+        if is_mock:
+            return {
+                "agent": agent_name,
+                "approved": False,
+                "verdict": "FAIL",
+                "reason": f"Mock/fallback response detected — {agent_name} abstains (Fail-Closed Safety Gate).",
+                "is_mock": True,
+            }
+
         match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, re.DOTALL)
         if match:
             json_str = match.group(1)
@@ -549,6 +576,7 @@ class ConcordiaJury:
                 "approved": approved,
                 "verdict": "PASS" if approved else "FAIL",
                 "reason": str(data.get("reason", "Evaluation completed.")),
+                "is_mock": False,
             }
         except Exception as e:
             logger.warning(f"[ConcordiaJury] Failed to parse JSON from {agent_name}: {e}")
@@ -562,7 +590,7 @@ class ConcordiaJury:
             except SyntaxError:
                 ast_valid = False
         if not ast_valid:
-            return {"agent": agent_name, "approved": False, "verdict": "FAIL", "reason": "AST SyntaxError (Fallback)"}
+            return {"agent": agent_name, "approved": False, "verdict": "FAIL", "reason": "AST SyntaxError (Fallback)", "is_mock": True}
 
         if agent_name == "Verifier_Worker":
             try:
@@ -572,16 +600,17 @@ class ConcordiaJury:
                     "agent": agent_name,
                     "approved": smt_satisfied,
                     "verdict": "PASS" if smt_satisfied else "FAIL",
-                    "reason": "SMT contract check (Fallback)"
+                    "reason": "SMT contract check (Fallback)",
+                    "is_mock": True
                 }
             except Exception as smt_exc:
                 return {"agent": agent_name, "approved": False, "verdict": "FAIL",
-                        "reason": f"SMT check exception — abstaining (Fallback: {smt_exc})"}
+                        "reason": f"SMT check exception — abstaining (Fallback: {smt_exc})", "is_mock": True}
 
         # CVE-V3: LLM call failure is not a vote of confidence. Returning PASS on error would
         # allow 2 failed agents to push 66% consensus on broken code. FAIL = safe default.
         return {"agent": agent_name, "approved": False, "verdict": "FAIL",
-                "reason": f"LLM call failed — abstaining to preserve rejection safety (Fallback: {error_msg})"}
+                "reason": f"LLM call failed — abstaining to preserve rejection safety (Fallback: {error_msg})", "is_mock": True}
 
     def evaluate_proposal(
         self,
