@@ -54,8 +54,13 @@ webinar_hock_training*
 *.onnx
 *.safetensors
 *.pt
+*.gguf
 models/
 pyenv/leann-indexes/
+.whisper_cache/
+services/memory/knowledge/.whisper_cache/
+services/memory/_archive/
+knowledge/telegram_courses/
 
 # Caches & Test Artefacts
 .pytest_cache/
