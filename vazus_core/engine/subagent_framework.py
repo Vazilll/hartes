@@ -293,9 +293,32 @@ async def auto_improver_on_complete_hook(ctx: SubagentContext):
     Automatically triggers the VazusAutoImprover reflexion loop when a subagent task fails.
     On success, just shows live stats. Visible in terminal in real-time.
     """
-    if ctx.success:
+    if ctx.success and not ctx.error:
         await _report_top_skills_on_success(ctx)
         return
+
+    # Record failure lesson and Mem0 fact for subagent failure
+    try:
+        from vazus_core.memory.auto_improver import LessonMemoryBank
+        from vazus_core.memory.mem0_memory_engine import Mem0Engine
+
+        err_msg = ctx.error or "Subagent task execution failed"
+        prompt_snippet = (ctx.prompt or "")[:120]
+        subagent_name = ctx.subagent_name or "subagent"
+
+        Mem0Engine().add_fact(
+            fact_text=f"[subagent_failure] {subagent_name}: {err_msg} (prompt: {prompt_snippet})",
+            category="task_failure",
+            entity=subagent_name
+        )
+        LessonMemoryBank().save_lesson(
+            task_type=subagent_name,
+            error_sig=f"{subagent_name}: {str(err_msg)[:60]}",
+            lesson_text=f"Subagent {subagent_name} failed: {err_msg}. Task: {prompt_snippet}",
+            fix_hint=f"Review parameters, tool calls, and invariants for {subagent_name}."
+        )
+    except Exception as mem_err:
+        logger.debug("Subagent failure memory routing non-fatal: %s", mem_err)
 
     code_output = ctx.results.get("code", "") or ctx.results.get("output", "")
     error_trace = ctx.error or ""

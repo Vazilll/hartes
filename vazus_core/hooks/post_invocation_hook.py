@@ -121,6 +121,13 @@ def main():
                     except Exception as exc:
                         logger.debug("Zettelkasten note export skipped: %s", exc)
 
+        # Self-Sustaining Protocol: Auto-sync block SPEC.md and index on turn end
+        try:
+            from vazus_core.maintenance.auto_index_runner import run_maintenance
+            run_maintenance()
+        except Exception as maint_err:
+            logger.debug("AutoIndex post-invocation maintenance non-fatal: %s", maint_err)
+
         print(json.dumps({}))
 
     except Exception as exc:

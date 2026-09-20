@@ -341,7 +341,14 @@ class SMTZ3Verifier:
         try:
             tree = ast.parse(actual_code)
         except SyntaxError as se:
-            return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True, ast_valid=False, error_message=f"Syntax Error: {se}", proof_type="SMT_Z3_CONTRACT")
+            return VerificationResult(
+                verified=False,
+                smt_solver_status="SYNTAX_ERROR",
+                contract_satisfied=False,
+                ast_valid=False,
+                error_message=f"Syntax Error: {se}",
+                proof_type="SMT_Z3_CONTRACT"
+            )
 
         if not self.z3_available:
             return VerificationResult(verified=True, smt_solver_status="SKIPPED", contract_satisfied=True, proof_details="Z3 solver not installed; syntax verified.", proof_type="SMT_Z3_CONTRACT")
@@ -350,8 +357,8 @@ class SMTZ3Verifier:
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 docstring = ast.get_docstring(node) or ""
-                requires = re.findall(r":requires:\s*(.+)", docstring)
-                ensures = re.findall(r":ensures:\s*(.+)", docstring)
+                requires = re.findall(r"[@:]requires:?\s*(.+)", docstring)
+                ensures = re.findall(r"[@:]ensures:?\s*(.+)", docstring)
 
                 if requires or ensures:
                     contracts_checked += 1
@@ -787,7 +794,14 @@ def verify_no_external_api_quota(code_str: str) -> VerificationResult:
                         error_message="Prohibited direct google.genai import detected."
                     )
     except SyntaxError as se:
-        logger.debug("AST syntax error in verify_no_direct_gemini_api: %s", se)
+        return VerificationResult(
+            verified=False,
+            smt_solver_status="SYNTAX_ERROR",
+            contract_satisfied=False,
+            ast_valid=False,
+            error_message=f"Syntax error: {se}",
+            proof_type="AST_PARSER"
+        )
     
     if "genai.Client()" in code_str and "GEMINI_API_KEY" in code_str:
         return VerificationResult(

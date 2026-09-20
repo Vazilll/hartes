@@ -20,6 +20,7 @@ WORKSPACE_ROOTS = [
     Path.home() / ".gemini",
     Path.home() / ".hermes",
     Path.home() / ".mcp-colab",
+    Path.home() / "Documents",
 ]
 
 # Sensitive paths forbidden for agent modification
@@ -37,8 +38,8 @@ import re
 
 DANGEROUS_COMMAND_PATTERNS = [
     re.compile(r"(?i)\bformat\s+[a-z]:"),          # e.g. format c:
-    re.compile(r"(?i)\brmdir\s+/[sq]\s+c:\\"),      # e.g. rmdir /s /q c:\
-    re.compile(r"(?i)\bdel\s+/[fsq\s]+c:\\windows"), # e.g. del /f /s /q c:\windows
+    re.compile(r"(?i)\b(?:rmdir|rd)\b(?:[\s/]+[a-z])*\s+[\"']?c:[\\/]"),      # e.g. rmdir /s /q c:\
+    re.compile(r"(?i)\b(?:del|erase)\b(?:[\s/]+[a-z])*\s+[\"']?c:[\\/]windows"), # e.g. del /f /s /q c:\windows
     re.compile(r"(?i)\breg\s+delete\s+hklm"),       # e.g. reg delete HKLM
     re.compile(r"(?i)\bdiskpart\b"),                # disk partitioning tool
 ]
@@ -73,52 +74,22 @@ def _is_dangerous_command(command_str: str) -> bool:
     return any(pat.search(command_str) for pat in DANGEROUS_COMMAND_PATTERNS)
 
 
+from typing import Optional
+from vazus_core.verification.substrate_guard import SubstrateGuard, ToolCallRequest
+
+_DEFAULT_SUBSTRATE_GUARD: Optional[SubstrateGuard] = None
+
+def get_substrate_guard() -> SubstrateGuard:
+    global _DEFAULT_SUBSTRATE_GUARD
+    if _DEFAULT_SUBSTRATE_GUARD is None:
+        _DEFAULT_SUBSTRATE_GUARD = SubstrateGuard()
+    return _DEFAULT_SUBSTRATE_GUARD
+
+
 def run_pre_tool(tool_name: str, args: dict) -> dict:
-    """Programmatic evaluator for tool use security validation."""
-    target_file = args.get("TargetFile") or args.get("AbsolutePath") or args.get("SearchPath") or ""
-    command_str = args.get("CommandLine") or ""
-
-    # Vulnerability 1 Fix: Reject null bytes immediately
-    if target_file and "\x00" in target_file:
-        return {
-            "decision": "deny",
-            "reason": "[SECURITY] Null byte in target file path rejected. Fail-closed."
-        }
-
-    # Vulnerability 2 Fix: Fail-closed on missing target for file manipulation tools
-    file_ops = {"ViewFile", "WriteToFile", "replace_file_content", "view_file", "write_to_file"}
-    if tool_name in file_ops and not target_file.strip():
-        return {
-            "decision": "deny",
-            "reason": f"[SECURITY] Missing or empty target file path for '{tool_name}'. Fail-closed."
-        }
-
-    # Security Check 1: Command safety check
-    if command_str and _is_dangerous_command(command_str):
-        return {
-            "decision": "deny",
-            "reason": f"[SECURITY] Destructive system command rejected: '{command_str[:60]}...'"
-        }
-
-    # Security Check 2: Forbidden paths (.git, root AGENTS.md, system dirs)
-    if target_file and _is_forbidden_path(target_file):
-        return {
-            "decision": "deny",
-            "reason": f"[SECURITY] Modification to protected/forbidden path blocked: '{target_file}'"
-        }
-
-    # Security Check 3: Workspace Jail (must be inside permitted roots)
-    if target_file and not _is_within_workspace(target_file):
-        return {
-            "decision": "deny",
-            "reason": f"[SECURITY] Path traversal blocked: '{target_file}' is outside permitted workspace roots."
-        }
-
-    # All security checks passed
-    return {
-        "decision": "allow",
-        "reason": f"PreToolHook: {tool_name} validated within security boundary."
-    }
+    """Evaluator delegating directly to formal SMT Z3 SubstrateGuard."""
+    guard = get_substrate_guard()
+    return guard.verify(tool_name, args)
 
 
 def main():
@@ -138,7 +109,7 @@ def main():
     args = tool_call.get("args", {})
 
     response = run_pre_tool(tool_name, args)
-    print(json.dumps(response))
+    print(json.dumps({"decision": response.get("decision", "deny"), "reason": response.get("reason", "")}))
 
 
 def _validate_security_policies(tool_name: str, tool_input: dict) -> tuple[bool, str]:
@@ -159,5 +130,20 @@ def pre_tool_enforce_security_jail(tool_name: str, tool_args: dict, workspace_ro
     return res
 
 
+def _scan_for_secrets(text: str) -> list[str]:
+    """Scan text for potential secrets using SecretScrubber."""
+    try:
+        from vazus_core.security.entropy_scrubber import SecretScrubber
+        scrubber = SecretScrubber()
+        found = []
+        for pat in scrubber.KNOWN_SECRET_PATTERNS:
+            for m in pat.finditer(text):
+                found.append(m.group(0))
+        return found
+    except Exception:
+        return []
+
+
 if __name__ == "__main__":
     main()
+

@@ -760,6 +760,20 @@ class VazusAutoImprover:
         )
         return new_code, new_error, None
 
+    def _print_header(self, task_id: str, task_description: str, initial_code: str) -> None:
+        """Prints a visual header for the Reflexion improvement session."""
+        lines = [
+            f"Task ID:     {task_id}",
+            f"Description: {task_description[:60]}",
+            f"Code Size:   {len(initial_code)} chars ({len(initial_code.splitlines())} lines)",
+            f"Max Iters:   {self.max_iterations} (Pass Threshold: {self.pass_threshold:.0%})",
+        ]
+        box = tui_box("VAZUS REFLEXION AUTO-IMPROVER", lines, color=CYAN)
+        try:
+            print(box, flush=True)
+        except Exception:
+            pass
+
     async def improve(
         self,
         task_id: str,

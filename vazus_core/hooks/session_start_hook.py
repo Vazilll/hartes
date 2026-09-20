@@ -5,6 +5,8 @@ Warms AsyncDatabasePool on vazus.db, checks CKB connectivity, and initializes sy
 
 import json
 import os
+import time
+import shutil
 import asyncio
 import logging
 from pathlib import Path
@@ -13,22 +15,33 @@ from typing import Dict, Any
 from vazus_core.memory.async_db import AsyncDatabasePool, async_db_pool
 from vazus_core.engine.gc_governor import runtime_gc_governor
 from vazus_core.storage.schema_migrator import SchemaMigrator
+from vazus_core.engine.system_discovery_engine import SystemDiscoveryEngine
 
 logger = logging.getLogger("vazus.session_start_hook")
 
 
+_CODE_INTEL_CACHE = None
+_CODE_INTEL_TIME = 0.0
+
+
 def check_code_intelligence_readiness() -> Dict[str, Any]:
     """Checks cbm (Codebase Memory) and ast-grep readiness with zero network delay."""
-    import shutil
-    has_cbm = bool(shutil.which("cbm") or Path("C:/vazus/bin/cbm.exe").exists() or Path("C:/Users/Vaz/.gemini/antigravity/mcp/cbm").exists())
-    has_ast_grep = bool(shutil.which("ast-grep") or shutil.which("sg") or Path("C:/Users/Vaz/AppData/Roaming/npm/sg.cmd").exists())
+    global _CODE_INTEL_CACHE, _CODE_INTEL_TIME
+    now = time.time()
+    if _CODE_INTEL_CACHE is not None and (now - _CODE_INTEL_TIME) < 60.0:
+        return _CODE_INTEL_CACHE
+
+    has_cbm = bool(Path("C:/vazus/bin/cbm.exe").exists() or Path("C:/Users/Vaz/.gemini/antigravity/mcp/cbm").exists() or shutil.which("cbm"))
+    has_ast_grep = bool(Path("C:/Users/Vaz/AppData/Roaming/npm/sg.cmd").exists() or shutil.which("sg") or shutil.which("ast-grep"))
     
-    return {
+    _CODE_INTEL_CACHE = {
         "engine": "cbm+ast-grep",
         "has_cbm_graph": has_cbm,
         "has_ast_grep": has_ast_grep,
         "status": "ready" if (has_cbm and has_ast_grep) else "degraded",
     }
+    _CODE_INTEL_TIME = now
+    return _CODE_INTEL_CACHE
 
 
 def check_ckb_connectivity(port: int = 9999, timeout: float = 0.1, **kwargs) -> Dict[str, Any]:
@@ -45,18 +58,29 @@ def check_ckb_connectivity(port: int = 9999, timeout: float = 0.1, **kwargs) -> 
 
 
 async def warm_database_pool(db_pool: AsyncDatabasePool) -> Dict[str, Any]:
-    """Warms the async connection pool and executes integrity and metrics checks."""
+    """Warms the async connection pool and executes integrity and metrics checks in single thread dispatch."""
+    loop = asyncio.get_running_loop()
+
+    def _sync_warm():
+        conn = db_pool._open_read_conn()
+        try:
+            cur = conn.cursor()
+            jm_row = cur.execute("PRAGMA journal_mode;").fetchone()
+            jm = jm_row[0] if jm_row else "unknown"
+            counts = cur.execute("SELECT (SELECT count(*) FROM kg_nodes), (SELECT count(*) FROM kg_edges);").fetchone()
+            node_cnt = counts[0] if counts else 0
+            edge_cnt = counts[1] if counts else 0
+            return {
+                "status": "ok",
+                "journal_mode": jm,
+                "kg_nodes": node_cnt,
+                "kg_edges": edge_cnt,
+            }
+        finally:
+            conn.close()
+
     try:
-        journal_mode = await db_pool.execute_query("PRAGMA journal_mode;")
-        node_count = await db_pool.execute_query("SELECT count(*) FROM kg_nodes;")
-        edge_count = await db_pool.execute_query("SELECT count(*) FROM kg_edges;")
-        
-        return {
-            "status": "ok",
-            "journal_mode": journal_mode[0][0] if journal_mode else "unknown",
-            "kg_nodes": node_count[0][0] if node_count else 0,
-            "kg_edges": edge_count[0][0] if edge_count else 0,
-        }
+        return await loop.run_in_executor(db_pool._executor, _sync_warm)
     except Exception as e:
         return {
             "status": "error",
@@ -101,15 +125,26 @@ async def run_session_start(workspace_path: str = "C:/vazus") -> Dict[str, Any]:
 
     # 5. Proactive Cleanup (Purge shadow directories and dummy artifacts)
     try:
-        from vazus_core.engine.system_discovery_engine import SystemDiscoveryEngine
         discovery = SystemDiscoveryEngine(workspace_root=Path(workspace_path))
         cleanup_stats = discovery.run_proactive_cleanup()
     except Exception as e:
         logger.warning(f"Proactive cleanup warning: {e}")
         cleanup_stats = {"total_purged": 0, "error": str(e)}
 
+    system_state_data = {
+        "system_name": "Vazus SuperGraph OS",
+        "health_status": "HEALTHY" if db_health.get("status") == "ok" else "DEGRADED",
+    }
+    state_file = Path(workspace_path) / "SYSTEM_STATE.json"
+    if state_file.exists():
+        try:
+            system_state_data = json.loads(state_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
     payload = {
         "session_start": True,
+        "system_state": system_state_data,
         "gc": {
             "frozen_objects": frozen_count,
             "stats": gc_stats,

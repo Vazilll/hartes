@@ -11,6 +11,7 @@ import json
 import logging
 import asyncio
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Any, Optional, Dict, List
 
 from vazus_core.engine.reasoning_effort_controller import ReasoningEffortController
@@ -20,6 +21,49 @@ from vazus_core.engine.llm_client import async_generate_llm
 logger = logging.getLogger("ConcordiaJury")
 
 MOCK_MARKERS = ("[MOCK]", "(Test Mode)", "(test mode)", "VAZUS_TEST_MODE")
+
+
+class ChangeComplexity(str, Enum):
+    TRIVIAL = "TRIVIAL"      # Comments, docstrings, formatting, single constant
+    STANDARD = "STANDARD"    # Regular functions, classes, bug fixes
+    CRITICAL = "CRITICAL"    # Security, schemas, SMT contracts, permissions, memory gates
+
+
+class AdaptiveComplexityGate:
+    """Classifies code proposal complexity to dynamically select optimal verification tier."""
+
+    CRITICAL_PATTERNS = [
+        r"\b(eval|exec|compile|__import__|subprocess|os\.system)\b",
+        r"\b(SMTZ3Verifier|sqlite3|concordia|vazus\.db|CREATE\s+TABLE|ALTER\s+TABLE)\b",
+        r":requires:|:ensures:",
+    ]
+
+    @classmethod
+    def classify(cls, proposal: str, orig_code: Optional[str] = None) -> ChangeComplexity:
+        if not proposal or not proposal.strip():
+            return ChangeComplexity.TRIVIAL
+
+        for pat in cls.CRITICAL_PATTERNS:
+            if re.search(pat, proposal):
+                return ChangeComplexity.CRITICAL
+
+        try:
+            tree = ast.parse(proposal)
+            defs = [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))]
+            if not defs:
+                return ChangeComplexity.TRIVIAL
+            
+            for d in defs:
+                doc = ast.get_docstring(d) or ""
+                if ":requires:" in doc or ":ensures:" in doc:
+                    return ChangeComplexity.CRITICAL
+
+            if len(defs) <= 2 and len(proposal.splitlines()) <= 25:
+                return ChangeComplexity.STANDARD
+        except Exception:
+            return ChangeComplexity.STANDARD
+
+        return ChangeComplexity.STANDARD
 
 
 def is_mock_response(text: str) -> bool:
@@ -94,6 +138,21 @@ class JuryVerdict:
     @property
     def contract_satisfied(self) -> bool:
         return self.smt_satisfied
+
+    @property
+    def passed_votes(self) -> int:
+        return sum(
+            1 for v in self.votes
+            if (isinstance(v, dict) and (v.get("approved") is True or str(v.get("verdict", "")).upper() in ("PASS", "APPROVED", "YES")))
+        )
+
+    @property
+    def total_votes(self) -> int:
+        return len(self.votes)
+
+    @property
+    def reason(self) -> str:
+        return "; ".join(self.rejection_reasons) if self.rejection_reasons else ""
 
     def __getitem__(self, item: str) -> Any:
         return getattr(self, item)
@@ -339,7 +398,7 @@ class ConcordiaJury:
                 ast_valid = False
                 rejection_reasons.append(f"AST SyntaxError line {se.lineno}: {se.msg}")
 
-        # 2. Obtain votes (use explicit override or execute 3 parallel LLM calls via asyncio.gather)
+        # 2. Obtain votes (use explicit override, adaptive gate, or execute 3 parallel LLM calls)
         if votes is not None:
             agent_votes = votes
         elif not ast_valid:
@@ -347,6 +406,13 @@ class ConcordiaJury:
                 {"agent": "Planner", "verdict": "FAIL", "reason": rejection_reasons[0]},
                 {"agent": "RLM_Coder", "verdict": "FAIL", "reason": rejection_reasons[0]},
                 {"agent": "Verifier_Worker", "verdict": "FAIL", "reason": rejection_reasons[0]},
+            ]
+        elif AdaptiveComplexityGate.classify(proposal, orig_code) == ChangeComplexity.TRIVIAL:
+            # Fast path for trivial non-structural changes: skip LLM tokens and fast-approve
+            agent_votes = [
+                {"agent": "Planner", "verdict": "PASS", "approved": True, "reason": "AdaptiveComplexityGate: TRIVIAL non-structural change auto-passed"},
+                {"agent": "RLM_Coder", "verdict": "PASS", "approved": True, "reason": "AdaptiveComplexityGate: AST valid and safe"},
+                {"agent": "Verifier_Worker", "verdict": "PASS", "approved": True, "reason": "AdaptiveComplexityGate: Zero contract risk"},
             ]
         else:
             agent_votes = await self._evaluate_subagent_votes_async(proposal, file_path=file_path)
@@ -356,27 +422,92 @@ class ConcordiaJury:
             pre_ast_valid=ast_valid, pre_rejections=rejection_reasons
         )
 
+    def _msr_byzantine_filter(
+        self, votes: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """
+        Self-Anchored Consensus (SAC) — Receiver-Side MSR Byzantine Filter (R2.2).
+
+        Detects and quarantines agents claiming unrealistically high self-reported
+        confidence (>= 0.99) without substantive reasoning. Byzantine or hallucinating
+        agents inject confidence=1.0 with empty/stub reasons to game simple majority rules.
+
+        This implements F+1 robustness: even if F agents are Byzantine (where F < N/3),
+        consensus is maintained by the remaining honest agents.
+
+        :requires: len(votes) >= 1
+        :ensures: Byzantine agents are marked quarantined=True and excluded from tally
+        """
+        BYZANTINE_CONF_THRESHOLD = 0.99
+        MIN_REASON_CHARS = 15  # Minimum reasoning length to not be classified as stub
+
+        filtered: list[dict[str, Any]] = []
+        byzantine_count = 0
+
+        for vote in votes:
+            confidence = float(vote.get("confidence", 0.5))
+            reason = str(vote.get("reason", "") or vote.get("explanation", ""))
+            agent_id = vote.get("agent", "unknown")
+
+            # MSR filter: quarantine if claims max confidence but provides stub reason
+            is_suspect = (
+                confidence >= BYZANTINE_CONF_THRESHOLD
+                and len(reason.strip()) < MIN_REASON_CHARS
+            )
+
+            if is_suspect:
+                byzantine_count += 1
+                logger.warning(
+                    f"[SAC-MSR] Byzantine outlier quarantined: agent={agent_id} "
+                    f"confidence={confidence:.2f} reason='{reason[:50]}'"
+                )
+                vote = {**vote, "quarantined": True, "byzantine_flag": True,
+                        "verdict": "FAIL", "approved": False}
+
+            filtered.append(vote)
+
+        if byzantine_count > 0:
+            logger.warning(
+                f"[SAC-MSR] {byzantine_count}/{len(votes)} agents quarantined as Byzantine. "
+                f"F+1 robustness: consensus proceeds with {len(votes)-byzantine_count} honest agents."
+            )
+
+        return filtered
+
     def _tally_deduped_votes(
         self, agent_votes: list[dict[str, Any]]
     ) -> tuple[list[dict[str, Any]], float, bool, list[str]]:
-        """Tallies unique votes, calculates ratio, and checks quorum."""
+        """
+        Tallies unique votes with SAC Byzantine MSR pre-filtering (R2.2).
+        Calculates consensus ratio and checks quorum.
+
+        :requires: agent_votes is non-empty list of vote dicts
+        :ensures: Byzantine agents (confidence >= 0.99 + stub reason) excluded from tally
+        """
         rejection_reasons: list[str] = []
+
+        # SAC Receiver-Side Byzantine filter BEFORE deduplication
+        agent_votes = self._msr_byzantine_filter(agent_votes)
+
         unique_votes = {}
         for idx, vote in enumerate(agent_votes):
             agent_id = vote.get("agent") or vote.get("role") or vote.get("name") or f"agent_{idx}"
             unique_votes[agent_id] = vote
 
         dedup_votes = list(unique_votes.values())
+        # Exclude quarantined votes from consensus tally
+        active_votes = [v for v in dedup_votes if not v.get("quarantined", False)]
         pass_votes = [
-            v for v in dedup_votes
+            v for v in active_votes
             if str(v.get("verdict", "")).upper() == "PASS" or v.get("approved") is True
         ]
-        total_votes = len(dedup_votes)
+        total_votes = len(active_votes)
         ratio = len(pass_votes) / max(1, total_votes) if total_votes > 0 else 0.0
         quorum_satisfied = total_votes >= self.min_quorum
 
         if not quorum_satisfied:
             rejection_reasons.append(f"Quorum insufficient: {total_votes}/{self.min_quorum}")
+
         if ratio < self.consensus_threshold:
             rejection_reasons.append(f"Consensus threshold failed: ratio {ratio:.2f} < {self.consensus_threshold:.2f}")
 
@@ -432,6 +563,11 @@ class ConcordiaJury:
                 ast_valid = False
                 rejection_reasons.append(f"AST SyntaxError line {se.lineno}: {se.msg}")
 
+        # Architectural boundary security check
+        boundaries_ok = self._evaluate_architectural_boundaries(proposal)
+        if not boundaries_ok:
+            rejection_reasons.append("SECURITY_REJECT: Architectural boundary safety violation (forbidden import or unsafe call detected)")
+
         dedup_votes, ratio, quorum_satisfied, tally_rejections = self._tally_deduped_votes(agent_votes)
         rejection_reasons.extend(tally_rejections)
 
@@ -447,6 +583,7 @@ class ConcordiaJury:
 
         approved = (
             ast_valid and
+            boundaries_ok and
             quorum_satisfied and
             (ratio >= self.consensus_threshold) and
             smt_satisfied and

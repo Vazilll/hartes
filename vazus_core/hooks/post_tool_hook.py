@@ -58,6 +58,22 @@ def _run_targeted_tdd_test(target_path: Path) -> Optional[str]:
         last_line = res.stdout.strip().splitlines()[-1] if res.stdout.strip() else "error"
         fail_msg = f"FAILED: {last_line}"
         sys.stderr.write(f"[Vazus OS TDD Gate] {test_file.name} {fail_msg}\n")
+        try:
+            from vazus_core.memory.mem0_memory_engine import Mem0Engine
+            from vazus_core.memory.auto_improver import LessonMemoryBank
+            Mem0Engine().add_fact(
+                fact_text=f"[tdd_failure] {test_file.name} against {target_path.name}: {fail_msg}",
+                category="test_failure",
+                entity="tdd_gate"
+            )
+            LessonMemoryBank().save_lesson(
+                task_type="tdd_gate",
+                error_sig=f"{test_file.name} {fail_msg[:60]}",
+                lesson_text=f"Targeted test {test_file.name} failed after editing {target_path.name}: {fail_msg}",
+                fix_hint="Inspect failing test assertions and restore invariants before commit."
+            )
+        except Exception as tdd_mem_err:
+            logger.debug("TDD failure memory routing non-fatal: %s", tdd_mem_err)
         return fail_msg
     except Exception as exc:
         logger.debug("Targeted test execution skipped or failed: %s", exc)
@@ -93,6 +109,15 @@ def _process_target_file(target_file: str, tool_name: str) -> None:
                 code_content = target_path.read_text(encoding="utf-8", errors="ignore")
                 ast.parse(code_content)
                 test_res = _run_targeted_tdd_test(target_path)
+                
+                # Self-Sustaining Protocol: Auto-sync block SPEC.md on completion
+                # Decoupled: trigger_indexer=False so micro-edits do NOT spawn SCIP indexing
+                try:
+                    from vazus_core.maintenance.auto_index_runner import run_maintenance
+                    run_maintenance(paths=[target_file], trigger_indexer=False)
+                except Exception as maint_err:
+                    logger.debug("AutoIndex maintenance non-fatal: %s", maint_err)
+
                 write_hud_event("PostToolUse", {
                     "tool": tool_name,
                     "file": target_file,

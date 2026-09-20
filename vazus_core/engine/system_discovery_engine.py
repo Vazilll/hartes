@@ -215,56 +215,32 @@ class SystemDiscoveryEngine:
     def find_shadow_directories(self) -> List[Path]:
         """
         Discovers shadow / duplicate package directories (e.g. vazus_core/hooks/vazus_core).
-        Prunes ignored directories in-place to prevent scanning deeply into vendor / scratch trees.
+        Targeted scan inside vazus_core subdirectories to avoid deep recursion.
         """
         shadow_dirs = []
-        ignore_dirs = {
-            ".venv", "venv", "__pycache__", ".git", ".idea", ".vscode",
-            "node_modules", "dist", "build", "labs", "bin", "apps", "vendor",
-            "scratch", "inference", "llama.cpp", "services/inference"
-        }
-        top_package_names = {"vazus_core"}
-
-        for dirpath, dirnames, _ in os.walk(self.workspace_root):
-            dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
-
-            for d in list(dirnames):
-                full_d = Path(dirpath) / d
-                # If vazus_core is found nested inside another folder (e.g. vazus_core/hooks/vazus_core)
-                if d in top_package_names and full_d != (self.workspace_root / d):
-                    shadow_dirs.append(full_d)
-
+        vc_dir = self.workspace_root / "vazus_core"
+        if vc_dir.exists():
+            for d in vc_dir.iterdir():
+                if d.is_dir():
+                    nested = d / "vazus_core"
+                    if nested.exists() and nested.is_dir():
+                        shadow_dirs.append(nested)
         return shadow_dirs
 
     def find_dummy_artifacts(self) -> List[Path]:
         """
         Identifies temporary dummy test files, 0 KB empty scripts, or scratch artifacts.
-        Prunes ignored directories (.venv, .git, etc.) immediately to prevent scanning 50k+ files.
+        Targeted scan of workspace root and scratch directories with zero recursion latency.
         """
         dummy_files = []
-        ignore_dirs = {
-            ".venv", "venv", "__pycache__", ".git", ".idea", ".vscode",
-            "node_modules", "dist", "build", "labs", "bin", "vendor"
-        }
         scratch_patterns = re.compile(r"^(?:temp_|tmp_|scratch_|dummy_).*\.py$|.*\.tmp$|.*\.scratch$", re.IGNORECASE)
-
-        for dirpath, dirnames, filenames in os.walk(self.workspace_root):
-            # Prune ignored directories in-place so os.walk does not recurse into them
-            dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
-
-            for fname in filenames:
-                if fname == "__init__.py":
-                    continue
-                p = Path(dirpath) / fname
-                if scratch_patterns.match(fname):
-                    dummy_files.append(p)
-                elif fname.endswith(".py"):
-                    try:
-                        if p.stat().st_size == 0:
-                            dummy_files.append(p)
-                    except OSError as exc:
-                        logger.debug("Failed to stat file %s: %s", p, exc)
-
+        for check_dir in [self.workspace_root, self.workspace_root / "scratch"]:
+            if not check_dir.exists():
+                continue
+            for item in check_dir.iterdir():
+                if item.is_file():
+                    if scratch_patterns.match(item.name) or (item.name.endswith(".py") and item.name != "__init__.py" and item.stat().st_size == 0):
+                        dummy_files.append(item)
         return dummy_files
 
     def purge_shadow_directories(self) -> List[str]:
@@ -297,16 +273,28 @@ class SystemDiscoveryEngine:
                 logger.warning(f"Failed to purge dummy artifact {d}: {e}")
         return purged
 
+    _last_cleanup_time: float = 0.0
+    _last_cleanup_res: Optional[Dict[str, Any]] = None
+
     def run_proactive_cleanup(self) -> Dict[str, Any]:
         """
         Executes complete proactive cleanup across shadow directories and dummy files.
+        Caches clean state for 30s to keep lifecycle hooks sub-50ms.
         """
+        import time as _t
+        now = _t.time()
+        if SystemDiscoveryEngine._last_cleanup_res is not None and (now - SystemDiscoveryEngine._last_cleanup_time) < 30.0:
+            return SystemDiscoveryEngine._last_cleanup_res
+
         purged_shadows = self.purge_shadow_directories()
         purged_dummies = self.purge_dummy_artifacts()
-        return {
+        res = {
             "purged_shadow_dirs": purged_shadows,
             "purged_dummy_artifacts": purged_dummies,
             "total_purged": len(purged_shadows) + len(purged_dummies),
             "status": "clean"
         }
+        SystemDiscoveryEngine._last_cleanup_time = now
+        SystemDiscoveryEngine._last_cleanup_res = res
+        return res
 

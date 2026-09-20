@@ -38,6 +38,7 @@ class SuperGraphMasterOrchestrator:
         self.self_employed_mgr = SelfEmployedManager(db_path=self.db_path)
         self.mirea_mgr = MireaStudentManager()
         self.mirea_mgr.db_path = self.db_path
+        self.gemma_engine = GoogleGemmaLocalEngine()
         self.langgraph_wf = LangGraphHealthMultiAgentWorkflow()
         self.self_healing_mgr = SelfHealingREPLManager()
 

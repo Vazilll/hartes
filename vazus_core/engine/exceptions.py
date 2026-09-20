@@ -25,3 +25,11 @@ class SMTVerificationError(VazusBaseException):
 class SubagentExecutionError(VazusBaseException):
     """Raised when a subagent REPL or bridge execution fails."""
     pass
+
+class SessionRequiredError(VazusBaseException):
+    """Raised when authentication session tokens are absent or expired (Fail-Closed)."""
+    pass
+
+class ScheduleFetchError(VazusBaseException):
+    """Raised when schedule fetching fails from authoritative endpoint (Fail-Closed)."""
+    pass

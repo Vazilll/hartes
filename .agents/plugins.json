@@ -1,8 +1,0 @@
-{
-  "plugins": {
-    "vazus-supergraph": {
-      "enabled": true,
-      "path": "C:\\vazus\\.agents\\plugins\\vazus-supergraph"
-    }
-  }
-}

@@ -141,7 +141,7 @@ def _check_hardcoded_secrets(content: str, fpath: Optional[Path] = None) -> list
     leaks = []
     for pat in SECRET_PATTERNS:
         if pat and pat.search(content):
-            leaks.append("Hardcoded API secret token detected")
+            leaks.append("Hardcoded secret token / Hardcoded API key detected")
     return leaks
 
 
@@ -160,9 +160,24 @@ def _extract_file_imports(filepath: Path) -> list[str]:
     return imports
 
 
-def _check_ast_syntax(filepath: Path) -> tuple[bool, str]:
-    errs = _audit_file_gate_1(filepath)
-    return (len(errs) == 0, errs[0] if errs else "")
+def _check_ast_syntax(content_or_path: Union[str, Path], fpath: Optional[Path] = None) -> Optional[str]:
+    if isinstance(content_or_path, Path):
+        path = content_or_path
+        src = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+    elif fpath is not None:
+        src = str(content_or_path)
+        path = Path(fpath)
+    else:
+        src = str(content_or_path)
+        path = Path("unknown.py")
+
+    try:
+        ast.parse(src, filename=str(path))
+        return None
+    except SyntaxError as e:
+        return f"[AST Syntax Error] in {path.name} line {e.lineno}: {e.msg}"
+    except Exception as e:
+        return f"[AST Syntax Error] in {path.name}: {e}"
 
 
 _TAINT_SOURCES = {"input", "sys_argv", "argv", "environ", "request_args"}
@@ -225,14 +240,31 @@ def _check_taint_sinks(content_or_path: Union[str, Path], fpath: Optional[Path] 
 
 
 def _resolve_vazus_module_path(module_name: str) -> Optional[Path]:
-    p = VAZUS_ROOT / (module_name.replace(".", "/") + ".py")
+    rel = module_name.replace(".", "/")
+    p = VAZUS_ROOT / (rel + ".py")
     if p.exists():
         return p
+    p_init = VAZUS_ROOT / rel / "__init__.py"
+    if p_init.exists():
+        return p_init
+    p_dir = VAZUS_ROOT / rel
+    if p_dir.is_dir():
+        return p_dir
     return None
 
 
-def _check_reward_hacking(_code: str) -> list[str]:
-    return []
+def _check_reward_hacking(content_or_path: Union[str, Path], fpath: Optional[Path] = None) -> list[str]:
+    """Inspects test functions for dummy stubs or tautological assert True statements."""
+    if isinstance(content_or_path, Path):
+        path = content_or_path
+        src = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+    elif fpath is not None:
+        src = str(content_or_path)
+        path = Path(fpath)
+    else:
+        src = str(content_or_path)
+        path = Path("test_module.py")
+    return _audit_test_anti_patterns(path, src)
 
 
 def _has_tautological_assert(node: ast.AST) -> bool:
@@ -283,19 +315,52 @@ def _ast_has_import_match(tree_or_path: Union[ast.AST, Path, str], target_names:
     return False
 
 
-def _has_top_level_symbol(filepath: Path, symbol_name: str) -> bool:
+def _has_top_level_symbol(filepath_or_tree: Union[Path, str, ast.AST], symbol_name: str) -> bool:
     try:
-        tree = ast.parse(filepath.read_text(encoding="utf-8", errors="replace"))
-        for node in tree.body:
+        if isinstance(filepath_or_tree, ast.AST):
+            tree = filepath_or_tree
+        else:
+            p = Path(filepath_or_tree)
+            if p.is_dir():
+                p_init = p / "__init__.py"
+                if p_init.exists():
+                    p = p_init
+                else:
+                    return False
+            tree = ast.parse(p.read_text(encoding="utf-8", errors="replace"))
+
+        for node in getattr(tree, "body", []):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 if node.name == symbol_name:
                     return True
             elif isinstance(node, ast.Assign):
                 for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == symbol_name:
+                    if isinstance(target, ast.Name):
+                        if target.id == symbol_name:
+                            return True
+                        if target.id == "__all__" and isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
+                            for elt in node.value.elts:
+                                if isinstance(elt, ast.Constant) and elt.value == symbol_name:
+                                    return True
+                    elif isinstance(target, (ast.Tuple, ast.List)):
+                        for elt in target.elts:
+                            if isinstance(elt, ast.Name) and elt.id == symbol_name:
+                                return True
+            elif isinstance(node, ast.AnnAssign):
+                if isinstance(node.target, ast.Name) and node.target.id == symbol_name:
+                    return True
+            elif isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    alias_name = alias.asname or alias.name
+                    if alias_name == symbol_name:
+                        return True
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    alias_name = alias.asname or alias.name
+                    if alias_name == symbol_name:
                         return True
     except Exception as exc:
-        logger.debug("Symbol extraction failed for %s (%s): %s", filepath, symbol_name, exc)
+        logger.debug("Symbol extraction failed for %s (%s): %s", filepath_or_tree, symbol_name, exc)
     return False
 
 
@@ -379,7 +444,47 @@ def run_gate_10_cc_complexity(files: list[Path]) -> tuple[bool, list[str]]:
 
 
 def run_gate_11_graph_invariants(files: list[Path]) -> tuple[bool, list[str]]:
-    """Gate 11: Graph structural invariants check."""
+    """Gate 11: Graph structural invariants and phantom import/symbol check."""
+    filtered = _filter_own_python_files(files)
+    if not filtered:
+        return True, []
+
+    errors: list[str] = []
+    for f in filtered:
+        try:
+            content = f.read_text(encoding="utf-8", errors="replace")
+            tree = ast.parse(content, filename=str(f))
+        except Exception as exc:
+            logger.debug("Gate 11 AST parse skipped for %s: %s", f, exc)
+            continue
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    mod_name = alias.name
+                    if mod_name == "vazus_core" or mod_name.startswith("vazus_core."):
+                        resolved = _resolve_vazus_module_path(mod_name)
+                        if not resolved:
+                            errors.append(f"[Phantom Import] Module '{mod_name}' in {f.name} does not exist.")
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                mod_name = node.module
+                if mod_name == "vazus_core" or mod_name.startswith("vazus_core."):
+                    resolved = _resolve_vazus_module_path(mod_name)
+                    if not resolved:
+                        errors.append(f"[Phantom Import] Module '{mod_name}' in {f.name} does not exist.")
+                    else:
+                        for alias in node.names:
+                            sym_name = alias.name
+                            if sym_name == "*":
+                                continue
+                            submod = f"{mod_name}.{sym_name}"
+                            if _resolve_vazus_module_path(submod) is not None:
+                                continue
+                            if not _has_top_level_symbol(resolved, sym_name):
+                                errors.append(f"[Phantom Symbol] Symbol '{sym_name}' not found in '{mod_name}' (imported in {f.name})")
+
+    if errors:
+        return False, errors
     return True, []
 
 

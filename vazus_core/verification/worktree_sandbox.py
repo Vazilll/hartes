@@ -35,8 +35,15 @@ class WorktreeTaskResult:
     stdout: str = ""
     stderr: str = ""
     error: str = ""
+    error_message: Optional[str] = None
     duration_s: float = 0.0
+    duration_sec: float = 0.0
     task_id: str = ""
+    branch_name: str = ""
+    worktree_path: str = ""
+    ast_valid: bool = False
+    tests_passed: bool = False
+    promoted: bool = False
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -59,7 +66,7 @@ class AntigravityWorktreeSandbox:
         self.snapshot_items = snapshot_items or []
 
     @contextmanager
-    def create_sandbox(self, prefix: str = "mutation") -> Generator[Path, None, None]:
+    def create_sandbox(self, prefix: str = "mutation", mode: str = "worktree", **kwargs) -> Generator[Path, None, None]:
         """
         Context manager creating an isolated worktree and automatically cleaning up on exit.
         Yields Path to sandbox worktree directory.
@@ -68,18 +75,20 @@ class AntigravityWorktreeSandbox:
         branch_name = f"sandbox/{prefix}-{sandbox_id}"
         worktree_path = self.scratch_dir / f"worktree_{sandbox_id}"
 
-        # 1. Create Worktree on isolated sandbox branch, with fallback if git index is locked
-        cmd_add = [
-            "git", "worktree", "add", "-b", branch_name,
-            str(worktree_path), "HEAD"
-        ]
+        # 1. Create Worktree on isolated sandbox branch, with fallback if git index is locked or tempdir requested
         is_worktree = False
-        res = subprocess.run(cmd_add, cwd=str(self.repo_root), capture_output=True, text=True)
-        if res.returncode == 0:
-            is_worktree = True
-            logger.info(f"[WorktreeSandbox] Created isolated worktree at {worktree_path} on branch {branch_name}")
-        else:
-            # Resilient isolated directory snapshot fallback (e.g. during pre-commit hook locks)
+        if mode == "worktree":
+            cmd_add = [
+                "git", "worktree", "add", "-b", branch_name,
+                str(worktree_path), "HEAD"
+            ]
+            res = subprocess.run(cmd_add, cwd=str(self.repo_root), capture_output=True, text=True)
+            if res.returncode == 0:
+                is_worktree = True
+                logger.info(f"[WorktreeSandbox] Created isolated worktree at {worktree_path} on branch {branch_name}")
+
+        if not is_worktree:
+            # Resilient isolated directory snapshot fallback (e.g. mode='tempdir' or during pre-commit hook locks)
             worktree_path.mkdir(parents=True, exist_ok=True)
             for item in ["vazus_core", "tests", "pyproject.toml", "pytest.ini"]:
                 src = self.repo_root / item

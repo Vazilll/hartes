@@ -20,12 +20,20 @@ sys.path.append(r"C:\vazus")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
 TOKEN_PATH = r"C:\vazus\tinkoff_token.txt"
 TINKOFF_API_BASE = "https://invest-public-api.tinkoff.ru/rest/"
 
+def _get_effective_db_path(db_path=None):
+    if db_path is not None:
+        return db_path
+    vazus_tfm = sys.modules.get("vazus_core.tinkoff_finance_manager")
+    if vazus_tfm and hasattr(vazus_tfm, "DB_PATH") and vazus_tfm.DB_PATH != r"C:\vazus\services\memory\vazus.db":
+        return vazus_tfm.DB_PATH
+    return os.getenv("VAZUS_DB_PATH") or DB_PATH
+
 def init_finance_db(db_path=None):
-    target_db = db_path if db_path is not None else DB_PATH
+    target_db = _get_effective_db_path(db_path)
     conn = sqlite3.connect(target_db)
     cur = conn.cursor()
     
@@ -112,7 +120,7 @@ class TinkoffFinanceManager:
         Writing/purchasing endpoints are strictly disallowed and technically impossible.
         """
         self.api_token = api_token or self._load_read_only_token()
-        self.db_path = db_path or DB_PATH
+        self.db_path = _get_effective_db_path(db_path)
         init_finance_db(self.db_path)
 
     def _load_read_only_token(self):

@@ -244,7 +244,15 @@ class SuperGraphLinker:
             target_note_raw = match.group(1).strip()
             target_sec_raw = match.group(2).strip() if match.group(2) else None
             label_raw = match.group(3).strip() if match.group(3) else None
-            target_stem = target_note_raw.replace(" ", "_")
+
+            # Sanitize path-style wikilinks (e.g. [[C:/vazus/...]] to file stem)
+            cleaned_target = target_note_raw.replace("\\", "/")
+            if "/" in cleaned_target or ":" in cleaned_target:
+                target_stem = Path(cleaned_target).stem
+            else:
+                target_stem = target_note_raw
+
+            target_stem = target_stem.replace(" ", "_")
             edges.append({
                 "source_id": note_id,
                 "target_id": f"wiki:{target_stem}",
@@ -282,6 +290,108 @@ class SuperGraphLinker:
         link_edges = self._extract_wiki_links(note_id, content)
         return main_node, section_nodes, section_edges + link_edges
 
+    def parse_wiki_canvas_content(
+        self, fpath: Path, data: Dict[str, Any], existing_node_ids: Optional[set] = None
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Parses an Obsidian *.canvas JSON file into CanvasBoard node(s) and CANVAS_NODE edges."""
+        stem = fpath.stem
+        canvas_nodes_list = []
+        canvas_edges = []
+        rel_path = str(fpath).replace("\\", "/")
+
+        canvas_data_nodes = data.get("nodes", []) if isinstance(data, dict) else []
+        canvas_data_edges = data.get("edges", []) if isinstance(data, dict) else []
+
+        text_snippets = []
+        file_targets = []
+
+        primary_id = f"wiki:{stem}"
+        name_id = f"wiki:{fpath.name}"
+
+        description = f"Interactive Obsidian Canvas Board mapping {stem.replace('_', ' ')} with {len(canvas_data_nodes)} nodes and {len(canvas_data_edges)} edges."
+
+        for cnode in canvas_data_nodes:
+            ntype = cnode.get("type", "")
+            if ntype == "file":
+                cfile = cnode.get("file", "")
+                if cfile:
+                    target_stem = Path(cfile).stem.replace(" ", "_")
+                    file_targets.append(target_stem)
+                    for b_id in [primary_id, name_id]:
+                        canvas_edges.append({
+                            "source_id": b_id,
+                            "target_id": f"wiki:{target_stem}",
+                            "relation": "CANVAS_NODE",
+                            "strength": 1.0,
+                            "properties": {
+                                "canvas_id": b_id,
+                                "target_file": cfile,
+                                "canvas_node_id": cnode.get("id"),
+                                "color": cnode.get("color")
+                            }
+                        })
+            elif ntype == "text":
+                ctext = cnode.get("text", "")
+                if ctext:
+                    text_snippets.append(ctext)
+
+        for cedge in canvas_data_edges:
+            label = cedge.get("label", "")
+            if label:
+                text_snippets.append(label)
+
+        content_parts = [description]
+        if file_targets:
+            content_parts.append("Referenced nodes: " + ", ".join(file_targets))
+        if text_snippets:
+            content_parts.extend(text_snippets)
+        full_content = "\n\n".join(content_parts)
+
+        existing = existing_node_ids or set()
+        if primary_id in existing:
+            # Primary id is already registered as WikiNote; register CanvasBoard as name_id
+            c_node = {
+                "id": name_id,
+                "name": f"{stem.replace('_', ' ')} (Canvas)",
+                "domain": "memory_wiki",
+                "node_type": "CanvasBoard",
+                "description": description[:500],
+                "content": full_content,
+                "source_file": rel_path,
+                "community": 1,
+                "_origin": "wiki",
+                "tags": f"wiki,canvas,{stem}"
+            }
+            canvas_nodes_list.append(c_node)
+            canvas_edges.append({
+                "source_id": primary_id,
+                "target_id": name_id,
+                "relation": "CANVAS_NODE",
+                "strength": 1.0,
+                "properties": {"canvas_id": name_id}
+            })
+        else:
+            # Primary id is available, register as CanvasBoard
+            c_node = {
+                "id": primary_id,
+                "name": stem.replace("_", " "),
+                "domain": "memory_wiki",
+                "node_type": "CanvasBoard",
+                "description": description[:500],
+                "content": full_content,
+                "source_file": rel_path,
+                "community": 1,
+                "_origin": "wiki",
+                "tags": f"wiki,canvas,{stem}"
+            }
+            canvas_nodes_list.append(c_node)
+            if name_id != primary_id:
+                alias_node = dict(c_node)
+                alias_node["id"] = name_id
+                canvas_nodes_list.append(alias_node)
+
+        return canvas_nodes_list, canvas_edges
+
     def load_memory_wiki_nodes_and_edges(self) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Loads Layer B Wiki notes, sections, containment edges, and [[Note]] wikilinks across configured wiki dirs."""
         wiki_nodes = []
@@ -304,6 +414,16 @@ class SuperGraphLinker:
                     wiki_edges.extend(edges)
                 except Exception as e:
                     sys.stderr.write(f"[SuperGraphLinker] Warning reading wiki note {fpath}: {e}\n")
+
+            for fpath in wdir.glob("*.canvas"):
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    c_nodes, c_edges = self.parse_wiki_canvas_content(fpath, data, existing_node_ids={n["id"] for n in wiki_nodes})
+                    wiki_nodes.extend(c_nodes)
+                    wiki_edges.extend(c_edges)
+                except Exception as e:
+                    sys.stderr.write(f"[SuperGraphLinker] Warning reading wiki canvas {fpath}: {e}\n")
 
         return wiki_nodes, wiki_edges
 
@@ -530,6 +650,11 @@ class SuperGraphLinker:
 
         self.persist_nodes_and_edges(all_nodes, all_edges)
 
+        # Prune orphaned edges where target_id is not in kg_nodes
+        with self._get_connection() as conn:
+            conn.execute("DELETE FROM kg_edges WHERE target_id NOT IN (SELECT id FROM kg_nodes)")
+            conn.commit()
+
         stats = self.get_supergraph_stats()
 
         wikilinks_count = sum(1 for e in wiki_edges if e.get("relation") == "WIKILINK")
@@ -537,12 +662,14 @@ class SuperGraphLinker:
 
         wiki_notes_cnt = sum(1 for n in wiki_nodes if n.get("node_type") == "WikiNote")
         wiki_sections_cnt = sum(1 for n in wiki_nodes if n.get("node_type") == "WikiSection")
+        canvas_boards_cnt = sum(1 for n in wiki_nodes if n.get("node_type") == "CanvasBoard")
 
         return {
             "ast_nodes_count": len(ast_nodes),
             "wiki_notes_count": wiki_notes_cnt,
             "wiki_nodes_count": wiki_notes_cnt,
             "wiki_sections_count": wiki_sections_cnt,
+            "canvas_boards_count": canvas_boards_cnt,
             "wikilinks_count": wikilinks_count,
             "section_edges_count": section_edges_count,
             "edges_created": len(all_edges),

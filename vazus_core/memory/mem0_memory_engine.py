@@ -140,9 +140,25 @@ class Mem0Engine:
         
         return {"status": "ADDED", "fact_id": fact_id, "fact_text": fact_text, "category": category}
 
-    def search_facts(self, query: str, top_k: int = 5, rrf_k: int = 60) -> List[Dict[str, Any]]:
+    def _compute_adaptive_weights(self, query: str) -> tuple[float, float]:
+        """Dynamically balances dense vs lexical RRF weights based on query signals."""
+        has_code_signals = bool(re.search(r"[_./\\]|[a-z][A-Z]|\b(def|class|SELECT|FROM|PRAGMA|API)\b", query))
+        has_quotes = '"' in query or "'" in query or '`' in query
+        if has_code_signals or has_quotes:
+            return 0.8, 1.4
+        return 1.4, 0.7
+
+    def search_facts(
+        self,
+        query: str,
+        top_k: int = 5,
+        rrf_k: int = 60,
+        dense_weight: Optional[float] = None,
+        lexical_weight: Optional[float] = None
+    ) -> List[Dict[str, Any]]:
         """
-        Searches active facts using Hybrid Reciprocal Rank Fusion (Dense 768D + Lexical Matching).
+        Searches active facts using Adaptive Hybrid Reciprocal Rank Fusion (Dense 768D + Lexical Matching).
+        Dynamically adjusts dense vs lexical weighting based on query signals.
         """
         conn = get_db_connection(self.db_path, read_only=True)
         cur = conn.cursor()
@@ -154,6 +170,10 @@ class Mem0Engine:
         
         if not rows:
             return []
+
+        auto_dense, auto_lex = self._compute_adaptive_weights(query)
+        dense_w = dense_weight if dense_weight is not None else auto_dense
+        lex_w = lexical_weight if lexical_weight is not None else auto_lex
 
         q_vec = np.array(self.emb_mgr.get_embedding(query), dtype=np.float32)
         q_norm = float(np.linalg.norm(q_vec))
@@ -202,18 +222,18 @@ class Mem0Engine:
         dense_scored.sort(key=lambda x: x[4], reverse=True)
         lexical_scored.sort(key=lambda x: x[4], reverse=True)
 
-        # Reciprocal Rank Fusion (RRF)
+        # Adaptive Reciprocal Rank Fusion (RRF)
         rrf_map: Dict[str, float] = {}
         meta_map = {}
 
         for rank, item in enumerate(dense_scored, 1):
             fid = item[0]
-            rrf_map[fid] = rrf_map.get(fid, 0.0) + (1.0 / (rrf_k + rank))
+            rrf_map[fid] = rrf_map.get(fid, 0.0) + (dense_w / (rrf_k + rank))
             meta_map[fid] = item
 
         for rank, item in enumerate(lexical_scored, 1):
             fid = item[0]
-            rrf_map[fid] = rrf_map.get(fid, 0.0) + (1.0 / (rrf_k + rank))
+            rrf_map[fid] = rrf_map.get(fid, 0.0) + (lex_w / (rrf_k + rank))
             meta_map[fid] = item
 
         sorted_fids = sorted(rrf_map.items(), key=lambda x: x[1], reverse=True)

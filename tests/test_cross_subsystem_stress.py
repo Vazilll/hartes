@@ -256,7 +256,7 @@ def test_stress_r3_r4_orchestrator_integration(tmp_stress_db):
 
 def test_stress_r1_r5_high_readiness_recommendation(tmp_stress_db):
     """Stress Test 2.1: High readiness score (85.0) yields HIGH study intensity."""
-    mirea_mgr = MireaStudentManager("ИКБО-01-23", db_path=tmp_stress_db)
+    mirea_mgr = MireaStudentManager("ИВБО-22-25", db_path=tmp_stress_db)
     rec = mirea_mgr.generate_study_recommendation(readiness_score=85.0)
 
     assert rec["readiness_score"] == 85.0
@@ -267,7 +267,7 @@ def test_stress_r1_r5_high_readiness_recommendation(tmp_stress_db):
 
 def test_stress_r1_r5_moderate_readiness_recommendation(tmp_stress_db):
     """Stress Test 2.2: Moderate readiness score (60.0) yields MODERATE study intensity."""
-    mirea_mgr = MireaStudentManager("ИКБО-01-23", db_path=tmp_stress_db)
+    mirea_mgr = MireaStudentManager("ИВБО-22-25", db_path=tmp_stress_db)
     rec = mirea_mgr.generate_study_recommendation(readiness_score=60.0)
 
     assert rec["readiness_score"] == 60.0
@@ -278,7 +278,7 @@ def test_stress_r1_r5_moderate_readiness_recommendation(tmp_stress_db):
 
 def test_stress_r1_r5_low_readiness_recommendation(tmp_stress_db):
     """Stress Test 2.3: Low readiness score (35.0) yields LOW study intensity with sleep advice."""
-    mirea_mgr = MireaStudentManager("ИКБО-01-23", db_path=tmp_stress_db)
+    mirea_mgr = MireaStudentManager("ИВБО-22-25", db_path=tmp_stress_db)
     rec = mirea_mgr.generate_study_recommendation(readiness_score=35.0)
 
     assert rec["readiness_score"] == 35.0
@@ -289,7 +289,7 @@ def test_stress_r1_r5_low_readiness_recommendation(tmp_stress_db):
 
 def test_stress_r1_r5_boundary_readiness_scores(tmp_stress_db):
     """Stress Test 2.4: Boundary readiness scores (0.0, 100.0, None, out-of-bounds)."""
-    mirea_mgr = MireaStudentManager("ИКБО-01-23", db_path=tmp_stress_db)
+    mirea_mgr = MireaStudentManager("ИВБО-22-25", db_path=tmp_stress_db)
 
     rec_zero = mirea_mgr.generate_study_recommendation(0.0)
     assert rec_zero["study_intensity"] == "LOW"

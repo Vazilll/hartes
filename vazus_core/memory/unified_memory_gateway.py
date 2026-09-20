@@ -101,43 +101,72 @@ class UnifiedMemoryGateway:
                     "category": f.get("category", "general")
                 })
 
-        # 2. Search organic insights SQLite ledger
+        # 2. Search organic insights SQLite ledger with dynamic relevance scoring
         with self.pool.connection() as conn:
             cursor = conn.cursor()
             try:
-                cursor.execute("""
-                    SELECT category, insight FROM organic_insights
-                    WHERE insight LIKE ? OR category LIKE ?
-                    ORDER BY id DESC LIMIT ?
-                """, (f"%{query}%", f"%{query}%", top_k))
+                q_words = [w.strip() for w in re.findall(r"\w+", query.lower()) if len(w.strip()) > 2]
+                if q_words:
+                    conditions = " OR ".join(["insight LIKE ? OR category LIKE ?" for _ in q_words])
+                    params = []
+                    for w in q_words:
+                        params.extend([f"%{w}%", f"%{w}%"])
+                    cursor.execute(f"""
+                        SELECT category, insight FROM organic_insights
+                        WHERE {conditions}
+                        ORDER BY id DESC LIMIT 50
+                    """, params)
+                else:
+                    cursor.execute("""
+                        SELECT category, insight FROM organic_insights
+                        ORDER BY id DESC LIMIT 10
+                    """)
+
+                q_token_set = set(q_words)
                 for row in cursor.fetchall():
+                    cat, ins = row[0], row[1]
+                    ins_tokens = set(re.findall(r"\w+", (ins or "").lower()))
+                    overlap = len(q_token_set & ins_tokens) / max(1, len(q_token_set)) if q_token_set else 0.5
+                    # Dynamic score based on lexical overlap
+                    relevance_score = 0.5 + (0.5 * overlap)
                     results.append({
                         "source": "sqlite_organic",
-                        "content": row[1],
-                        "score": 0.9,
-                        "category": row[0]
+                        "content": ins,
+                        "score": round(relevance_score, 3),
+                        "category": cat
                     })
             except Exception as e:
                 logger.warning(f"[MemoryGateway] SQLite recall warning: {e}")
 
-
-        # 3. Search Karpathy Markdown Wiki notes
+        # 3. Search Karpathy Markdown Wiki notes (title + full text content)
         try:
             wiki_matches = []
             q_lower = query.lower()
+            q_token_set = set(re.findall(r"\w+", q_lower))
             if self.wiki_root.exists():
                 for md_file in self.wiki_root.glob("*.md"):
                     fname = md_file.stem.lower()
-                    if q_lower in fname:
-                        snippet = md_file.read_text(encoding="utf-8", errors="ignore")[:300].strip()
+                    title_match = any(tok in fname for tok in q_token_set) if q_token_set else False
+                    try:
+                        content = md_file.read_text(encoding="utf-8", errors="ignore")
+                    except Exception:
+                        content = ""
+
+                    file_tokens = set(re.findall(r"\w+", content.lower()))
+                    overlap = len(q_token_set & file_tokens) / max(1, len(q_token_set)) if q_token_set else 0.0
+
+                    if title_match or overlap >= 0.25:
+                        snippet = content[:350].strip()
+                        # Higher score for title matches + content overlap
+                        wiki_score = 0.7 + (0.5 * overlap) + (0.2 if title_match else 0.0)
                         wiki_matches.append({
                             "source": "karpathy_wiki",
                             "content": f"[[{md_file.stem}]]: {snippet}",
                             "file_path": str(md_file),
-                            "score": 1.1,
+                            "score": round(min(1.5, wiki_score), 3),
                             "category": "wiki_article"
                         })
-                        if len(wiki_matches) >= 3:
+                        if len(wiki_matches) >= 5:
                             break
             results.extend(wiki_matches)
         except Exception as wiki_err:
@@ -146,10 +175,12 @@ class UnifiedMemoryGateway:
         # 4. Check for matching code symbols in Graphify
         code_context = self.graphify.get_compact_subgraph_context(query)
         if "# Symbol" not in code_context and "not found" not in code_context:
+            is_exact = query in code_context
+            sym_score = 1.3 if is_exact else 1.05
             results.append({
                 "source": "graphify_code_topology",
                 "content": code_context,
-                "score": 1.2,
+                "score": sym_score,
                 "category": "code_symbol"
             })
 

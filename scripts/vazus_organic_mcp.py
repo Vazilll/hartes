@@ -26,7 +26,11 @@ from fastmcp import FastMCP
 from vazus_core.memory.organic_memory_bridge import search_memory, record_insight
 from vazus_core.memory.embeddings import get_embedding_manager
 from vazus_core.verification.ast_pruner import ASTPruner
-from vazus_core.evolution.darwinian_evolver import run_evolution_cycle
+def run_evolution_cycle(target_module: str = "vazus_core", generations: int = 2) -> dict:
+    return {
+        "status": "deprecated",
+        "message": "Darwinian evolution has been deprecated in favor of native Antigravity 2.0 reasoning and subagents."
+    }
 from vazus_core.verification.smt_z3_verifier import SMTZ3Verifier
 
 MCP = FastMCP("vazus-organic")

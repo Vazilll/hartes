@@ -5,6 +5,7 @@ Generates interactive Obsidian .canvas JSON files connecting academic courses,
 voice thought streams, and 768D semantic memory facts.
 """
 
+import os
 import logging
 import json
 import math
@@ -72,7 +73,7 @@ class VaultGraphCanvasGenerator:
         nodes = []
         edges = []
 
-        group_name = schedule_data.get("group_name", "ИКБО-01-23")
+        group_name = schedule_data.get("group_name", "ИВБО-22-25")
         # Root node
         nodes.append(_create_canvas_node("root_group", f"🎓 **Группа {group_name}**\nРасписание & Дедлайны", 0, 200, width=240, height=100, color="5"))
 

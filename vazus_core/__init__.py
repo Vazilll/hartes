@@ -123,7 +123,9 @@ from vazus_core.engine.exceptions import (
     EmbeddingError,
     JuryConsensusError,
     SMTVerificationError,
-    SubagentExecutionError
+    SubagentExecutionError,
+    SessionRequiredError,
+    ScheduleFetchError
 )
 
 from vazus_core import engine
@@ -145,9 +147,12 @@ __all__ = [
     "JuryConsensusError",
     "SMTVerificationError",
     "SubagentExecutionError",
+    "SessionRequiredError",
+    "ScheduleFetchError",
     "engine",
     "verification",
     "memory",
     "workers",
     "integrations",
 ]
+

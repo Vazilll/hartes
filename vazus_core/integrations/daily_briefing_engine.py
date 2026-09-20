@@ -32,7 +32,7 @@ class DailyBriefingEngine:
         self.wiki_dir.mkdir(parents=True, exist_ok=True)
         self.mirea_mgr = MireaStudentManager(db_path=self.db_path)
 
-    def generate_morning_briefing(self, group_name: str = "ИКБО-01-23") -> Dict[str, Any]:
+    def generate_morning_briefing(self, group_name: str = "ИВБО-22-25") -> Dict[str, Any]:
         """Generates comprehensive morning briefing for the day."""
         weekday = _get_russian_weekday()
         today_date = time.strftime("%Y-%m-%d")

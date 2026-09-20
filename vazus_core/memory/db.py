@@ -285,12 +285,12 @@ def _load_sqlite_vec_extension(conn: sqlite3.Connection) -> None:
                 logger.warning(f"Failed to load sqlite-vec: {e}")
 
 
-def _resolve_target_db_path(db_path: str | Path | None = None) -> str:
+def _resolve_target_db_path(db_path: str | Path | None = None, read_only: bool = False) -> str:
     """Resolves active database path with test isolation sandboxing."""
     if db_path is None:
         db_path = os.getenv("VAZUS_DB_PATH", DEFAULT_VAZUS_DB)
     path_str = str(db_path)
-    if os.getenv("VAZUS_TEST_ISOLATION") == "1" and path_str != ":memory:":
+    if not read_only and os.getenv("VAZUS_TEST_ISOLATION") == "1" and path_str != ":memory:":
         try:
             canonical_resolved = str(Path(r"C:\vazus\services\memory\vazus.db").resolve()).lower()
             target_resolved = str(Path(path_str).resolve()).lower()
@@ -334,7 +334,7 @@ def get_db_connection(
     Creates or retrieves a WAL-enabled SQLite connection with busy_timeout.
     Automatically initializes missing schemas (organic_insights, kg_nodes, kg_edges).
     """
-    path_str = _resolve_target_db_path(db_path)
+    path_str = _resolve_target_db_path(db_path, read_only=read_only)
 
     if use_cache and path_str != ":memory:":
         cached = _get_cached_thread_connection(path_str, read_only)
@@ -345,7 +345,7 @@ def get_db_connection(
         Path(path_str).resolve().parent.mkdir(parents=True, exist_ok=True)
 
     if read_only:
-        uri_path = f"file:{path_str}?mode=ro"
+        uri_path = f"file:{Path(path_str).as_posix()}?mode=ro"
         raw_conn = sqlite3.connect(uri_path, timeout=timeout, uri=True)
     else:
         raw_conn = sqlite3.connect(path_str, timeout=timeout)

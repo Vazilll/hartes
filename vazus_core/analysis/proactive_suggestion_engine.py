@@ -23,6 +23,7 @@ Usage:
 """
 from __future__ import annotations
 
+import os
 import json
 import logging
 import sqlite3
@@ -35,7 +36,7 @@ logger = logging.getLogger("ProactiveSuggestionEngine")
 
 VAZUS_ROOT = Path("C:/vazus")
 VENV_PY = str(VAZUS_ROOT / ".venv" / "Scripts" / "python.exe")
-VAZUS_DB = VAZUS_ROOT / "services" / "memory" / "vazus.db"
+VAZUS_DB = Path(os.environ.get("VAZUS_DB_PATH", str(VAZUS_ROOT / "services" / "memory" / "vazus.db")))
 
 SEVERITY_ORDER = {"error": 0, "warning": 1, "advisory": 2}
 
@@ -88,7 +89,7 @@ class ProactiveSuggestionEngine:
     """
 
     def __init__(self, db_path: Path | str | None = None):
-        self.db_path = Path(db_path or VAZUS_DB)
+        self.db_path = Path(db_path or os.environ.get("VAZUS_DB_PATH") or VAZUS_DB)
         self._ensure_schema()
 
     # ── DB ────────────────────────────────────────────────────────────────
@@ -148,7 +149,7 @@ class ProactiveSuggestionEngine:
         """
         RELEVANCE_THRESHOLD = 0.35  # Anthropic confidence gate
 
-        db = Path(db_path or VAZUS_DB)
+        db = Path(db_path or os.environ.get("VAZUS_DB_PATH") or VAZUS_DB)
         try:
             fetch_limit = limit * 3 if user_prompt else limit
             with sqlite3.connect(db, timeout=3) as conn:

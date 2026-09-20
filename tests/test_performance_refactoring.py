@@ -25,7 +25,7 @@ from vazus_core.embeddings import UnifiedEmbeddingManager, get_embedding_manager
 from vazus_core.supergraph_linker import SuperGraphLinker
 from vazus_core.agent_handoff import RaytSwarmHandoffManager
 from vazus_core.google_sync_engine import GoogleSyncEngine
-from scripts.full_workspace_indexer import FullWorkspaceIndexer
+from vazus_core.memory.knowledge_engine import FullWorkspaceIndexer
 
 
 def test_sqlite_secondary_indexes_and_wal():

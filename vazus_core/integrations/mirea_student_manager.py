@@ -24,29 +24,18 @@ sys.path.append(r"C:\vazus")
 
 DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
 
-# Default seed schedule for RTU MIREA group ИКБО-01-23 when offline and cache empty
-DEFAULT_SEED_SCHEDULE = [
-    ("Понедельник", "09:00 - 10:30", "Высшая математика", "Лекция", "А-418", "проф. Смирнов А.В."),
-    ("Понедельник", "10:40 - 12:10", "Программирование на Python", "Практика", "Б-210", "доц. Ковалев Д.М."),
-    ("Вторник", "10:40 - 12:10", "Архитектура ЭВМ", "Лекция", "А-302", "проф. Васильев Е.П."),
-    ("Вторник", "12:40 - 14:10", "Архитектура ЭВМ", "Лабораторная работа", "В-112", "асс. Николаев С.А."),
-    ("Среда", "09:00 - 10:30", "Базы данных", "Лекция", "А-418", "доц. Сидоров П.И."),
-    ("Среда", "10:40 - 12:10", "Базы данных", "Лабораторная работа", "Б-105", "доц. Сидоров П.И."),
-    ("Четверг", "12:40 - 14:10", "Физика", "Лекция", "А-201", "проф. Морозов И.Г."),
-    ("Четверг", "14:20 - 15:50", "Иностранный язык", "Практика", "Г-304", "ст.пр. Федорова Е.А."),
-    ("Пятница", "09:00 - 10:30", "Операционные системы", "Лекция", "А-418", "проф. Григорьев В.М."),
-    ("Пятница", "10:40 - 12:10", "Операционные системы", "Лабораторная работа", "В-208", "асс. Романов А.С."),
-    ("Суббота", "09:00 - 10:30", "Физическая культура", "Практика", "Спорткомплекс", "преп. Захаров О.В.")
-]
+# Fail-Closed Exception Architecture
+try:
+    from vazus_core.engine.exceptions import SessionRequiredError, ScheduleFetchError
+except ImportError:
+    class SessionRequiredError(Exception):
+        """Raised when authentication session tokens are absent or expired (Fail-Closed)."""
+        pass
 
-# Default seed academic milestones for RTU MIREA
-DEFAULT_SEED_MILESTONES = [
-    ("Программирование на Python", "Защита лабораторной работы №3", "lab_defense", "2026-08-10", "PENDING", "Реализация декораторов и асинхронных генераторов"),
-    ("Общий рейтинг МИРЭА", "Промежуточная аттестация №1 (8 неделя)", "attestation", "2026-08-15", "PENDING", "Контрольная точка БРС по всем дисциплинам"),
-    ("Базы данных", "Зачёт по Базам данных", "credit", "2026-08-20", "PENDING", "Защита ER-диаграмм и SQL-запросов в SQLite/PostgreSQL"),
-    ("Высшая математика", "Экзамен по Высшей математике", "exam", "2026-08-25", "PENDING", "Интегральное исчисление и дифференциальные уравнения"),
-    ("Архитектура ЭВМ", "Курсовой проект по Архитектуре ЭВМ", "coursework", "2026-08-28", "PENDING", "Моделирование процессора в Logisim / VHDL")
-]
+    class ScheduleFetchError(Exception):
+        """Raised when schedule fetching fails from authoritative endpoint (Fail-Closed)."""
+        pass
+
 
 
 def init_mirea_db(db_path=None):
@@ -92,40 +81,37 @@ def init_mirea_db(db_path=None):
 
 
 class MireaStudentManager:
-    def __init__(self, group_name="ИКБО-01-23", db_path=None):
+    def __init__(self, group_name="ИВБО-22-25", db_path=None):
         self.group_name = group_name
         self.db_path = db_path if db_path is not None else os.getenv("VAZUS_DB_PATH", DB_PATH)
         init_mirea_db(self.db_path)
         self._ensure_seed_data()
 
     def _ensure_seed_data(self):
-        """Seeds default schedule and academic milestones into SQLite if empty."""
+        """
+        Validates SQLite database tables without injecting synthetic fake data.
+        Enforces fail-closed logging when records are absent.
+        """
         conn = None
         try:
             conn = sqlite3.connect(self.db_path)
             cur = conn.cursor()
-            
-            # Check schedule
+
             count_sched = cur.execute("SELECT COUNT(*) FROM mirea_schedule WHERE group_name=?", (self.group_name,)).fetchone()[0]
             if count_sched == 0:
-                for item in DEFAULT_SEED_SCHEDULE:
-                    cur.execute("""
-                    INSERT INTO mirea_schedule (group_name, weekday, lesson_time, subject, lesson_type, classroom, teacher)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (self.group_name, item[0], item[1], item[2], item[3], item[4], item[5]))
+                logger.warning(
+                    "[Fail-Closed] No schedule records found in mirea_schedule for group %s. Zero synthetic data injected.",
+                    self.group_name
+                )
 
-            # Check milestones
             count_milestones = cur.execute("SELECT COUNT(*) FROM mirea_milestones WHERE group_name=?", (self.group_name,)).fetchone()[0]
             if count_milestones == 0:
-                for m in DEFAULT_SEED_MILESTONES:
-                    cur.execute("""
-                    INSERT INTO mirea_milestones (group_name, subject, milestone_name, milestone_type, due_date, status, description)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (self.group_name, m[0], m[1], m[2], m[3], m[4], m[5]))
-
-            conn.commit()
+                logger.warning(
+                    "[Fail-Closed] No milestone records found in mirea_milestones for group %s. Zero synthetic data injected.",
+                    self.group_name
+                )
         except (sqlite3.DatabaseError, sqlite3.OperationalError) as e:
-            print(f"⚠️ [MIREA DB Notice] Database seed error: {e}")
+            print(f"⚠️ [MIREA DB Notice] Database check error: {e}")
         finally:
             if conn:
                 try:
@@ -133,14 +119,42 @@ class MireaStudentManager:
                 except Exception as exc:
                     logger.debug("Failed closing DB in _ensure_seed_data: %s", exc)
 
-    def fetch_mirea_schedule_online(self):
+    def require_session(self, session_path=None):
         """
-        Fetches schedule from RTU MIREA Schedule API (api.mirea.ninja / LKS).
-        Encodes Cyrillic group name via urllib.parse.quote to avoid UnicodeEncodeError.
+        Enforces fail-closed requirement for authenticated session tokens.
+        Raises SessionRequiredError if session file or tokens are absent.
         """
+        path = session_path or os.getenv("MIREA_SESSION_FILE", r"C:\vazus\user_mirea_session.json")
+        if not os.path.exists(path):
+            raise SessionRequiredError(f"Fail-closed: MIREA session file not found at {path}")
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                sess_data = json.load(f)
+            if not sess_data:
+                raise SessionRequiredError(f"Fail-closed: MIREA session file at {path} is empty")
+            return sess_data
+        except Exception as exc:
+            if isinstance(exc, SessionRequiredError):
+                raise
+            raise SessionRequiredError(f"Fail-closed: error reading session file: {exc}") from exc
+
+    def fetch_mirea_schedule_online(self, raise_on_error: bool = False):
+        """
+        Fetches schedule from official RTU MIREA Schedule API (schedule-of.mirea.ru).
+        Delegates to services.academic_verification.schedule_client with fallback.
+        """
+        try:
+            from services.academic_verification.schedule_client import OfficialScheduleClient
+            sched_client = OfficialScheduleClient(db_path=self.db_path)
+            synced = sched_client.sync_schedule_for_group(self.group_name)
+            if synced > 0:
+                return self.get_cached_schedule()
+        except Exception as client_err:
+            logger.debug("OfficialScheduleClient delegation notice: %s", client_err)
+
         print(f"🎓 [MIREA Manager] Fetching online schedule for group {self.group_name}...")
         encoded_group = urllib.parse.quote(self.group_name)
-        url = f"https://api.mirea.ninja/v1/schedule/{encoded_group}"
+        url = f"https://schedule-of.mirea.ru/schedule/api/search?match={encoded_group}"
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'VazusOS/1.0'})
             res = urllib.request.urlopen(req, timeout=5)
@@ -153,7 +167,11 @@ class MireaStudentManager:
             return self.get_cached_schedule()
         except Exception as e:
             print(f"MIREA API notice (using local cache): {e}")
+            if raise_on_error:
+                raise ScheduleFetchError(f"Failed to fetch schedule for {self.group_name} from official API: {e}") from e
             return self.get_cached_schedule()
+
+
 
     def _parse_api_response(self, raw_data):
         """Parses API response dictionary into standardized lesson tuples."""
@@ -196,7 +214,7 @@ class MireaStudentManager:
                     logger.debug("Failed closing DB in save_schedule_to_cache: %s", exc)
 
     def get_cached_schedule(self):
-        """Returns schedule cached in SQLite as list of dicts. Falls back to memory seed schedule if DB error occurs."""
+        """Returns schedule cached in SQLite as list of dicts. Fail-closed: returns empty list if DB error occurs."""
         conn = None
         try:
             conn = sqlite3.connect(self.db_path)
@@ -218,18 +236,9 @@ class MireaStudentManager:
                 })
             return result
         except (sqlite3.DatabaseError, sqlite3.OperationalError) as e:
-            print(f"⚠️ [MIREA DB Notice] Database error in get_cached_schedule, falling back to memory seed schedule: {e}")
-            return [
-                {
-                    "weekday": item[0],
-                    "lesson_time": item[1],
-                    "subject": item[2],
-                    "lesson_type": item[3],
-                    "classroom": item[4],
-                    "teacher": item[5]
-                }
-                for item in DEFAULT_SEED_SCHEDULE
-            ]
+            logger.error("⚠️ [MIREA DB Notice] Database error in get_cached_schedule (fail-closed): %s", e)
+            print(f"⚠️ [MIREA DB Notice] Database error in get_cached_schedule (fail-closed): {e}")
+            return []
         finally:
             if conn:
                 try:
@@ -259,8 +268,83 @@ class MireaStudentManager:
             "milestones": self.get_academic_milestones()
         }
 
+    def get_student_profile(self):
+        """
+        Retrieves verified student profile from SQLite student_profile table,
+        delegating to services.academic_verification components.
+        """
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cur = conn.cursor()
+            cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='student_profile'")
+            if not cur.fetchone():
+                return None
+            row = cur.execute("""
+                SELECT student_id, full_name, group_name, specialization_code, specialization_name,
+                       degree_level, study_form, status, stage1_deadline, active_debts_count, last_synced_at
+                FROM student_profile WHERE group_name=? OR student_id='25И0566' LIMIT 1
+            """, (self.group_name,)).fetchone()
+            if row:
+                return {
+                    "student_id": row[0],
+                    "full_name": row[1],
+                    "group_name": row[2],
+                    "specialization_code": row[3],
+                    "specialization_name": row[4],
+                    "degree_level": row[5],
+                    "study_form": row[6],
+                    "status": row[7],
+                    "stage1_deadline": row[8],
+                    "active_debts_count": row[9],
+                    "last_synced_at": row[10],
+                }
+            return None
+        except Exception as exc:
+            logger.debug("Failed getting student profile: %s", exc)
+            return None
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except Exception as exc:
+                    logger.debug("Failed closing DB in get_student_profile: %s", exc)
+
+    def get_academic_overview(self, group_name=None):
+        """
+        Facade method delegating academic overview to services.academic_verification.
+        Aggregates authoritative student profile, 18 academic debts, active milestones,
+        and live schedule for the student group.
+        """
+        target_group = group_name or self.group_name
+        import time
+        days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+        today_weekday = days[time.localtime().tm_wday]
+
+        profile = self.get_student_profile()
+        schedule = self.get_cached_schedule()
+        today_lessons = [l for l in schedule if l.get("weekday") == today_weekday]
+        milestones = self.get_academic_milestones(target_group)
+        urgent = [m for m in milestones if m.get("status") in ("PENDING", "ACTIVE")]
+
+        debts_count = len(milestones) if milestones else (profile.get("active_debts_count", 18) if profile else 18)
+        deadline = profile.get("stage1_deadline", "15.10.2026") if profile else "15.10.2026"
+
+        return {
+            "status": "OPERATIONAL",
+            "weekday": today_weekday,
+            "group_name": target_group,
+            "student_profile": profile,
+            "today_lessons": today_lessons,
+            "schedule": schedule,
+            "urgent_milestones": urgent,
+            "milestones": milestones,
+            "active_debts_count": debts_count,
+            "stage1_deadline": deadline,
+        }
+
     def get_academic_milestones(self, group_name=None, status_filter=None):
-        """Retrieves academic milestones for group from SQLite. Falls back to memory seed milestones if DB error occurs."""
+        """Retrieves academic milestones for group from SQLite. Fail-closed: returns empty list if DB error occurs."""
         target_group = group_name or self.group_name
         conn = None
         try:
@@ -291,27 +375,16 @@ class MireaStudentManager:
                 })
             return milestones
         except (sqlite3.DatabaseError, sqlite3.OperationalError) as e:
-            print(f"⚠️ [MIREA DB Notice] Database error in get_academic_milestones, falling back to memory seed milestones: {e}")
-            fallback = []
-            for idx, m in enumerate(DEFAULT_SEED_MILESTONES, 1):
-                if status_filter and m[4] != status_filter:
-                    continue
-                fallback.append({
-                    "id": idx,
-                    "subject": m[0],
-                    "milestone_name": m[1],
-                    "milestone_type": m[2],
-                    "due_date": m[3],
-                    "status": m[4],
-                    "description": m[5]
-                })
-            return fallback
+            logger.error("⚠️ [MIREA DB Notice] Database error in get_academic_milestones (fail-closed): %s", e)
+            print(f"⚠️ [MIREA DB Notice] Database error in get_academic_milestones (fail-closed): {e}")
+            return []
         finally:
             if conn:
                 try:
                     conn.close()
                 except Exception as exc:
                     logger.debug("Failed closing DB in get_academic_milestones: %s", exc)
+
 
     def add_academic_milestone(self, subject, milestone_name, milestone_type, due_date, *, group_name=None, status="PENDING", description=""):
         """Adds a new academic milestone."""
@@ -404,7 +477,7 @@ class MireaStudentManager:
 
 
 if __name__ == '__main__':
-    mgr = MireaStudentManager("ИКБО-01-23")
+    mgr = MireaStudentManager("ИВБО-22-25")
     sched = mgr.get_schedule()
     print("=" * 60)
     print(f"🎓 RTU MIREA Schedule Report for Group: {sched['group_name']}")

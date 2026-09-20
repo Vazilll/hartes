@@ -203,7 +203,7 @@ class SharedMemoryRingBuffer:
                 self.shm.write(updated_hdr)
                 self.shm.flush()
 
-                return head
+                return new_head
 
     def read_payload(self) -> Optional[Tuple[bytes, int]]:
         """

@@ -278,8 +278,11 @@ def _check_termination_gates(conversation_id: str) -> Optional[dict]:
 
 def _persist_session_memories(conversation_id: str, invocation_num: int, messages: list) -> None:
     """Extracts summary, adds Mem0/organic insights, and authors skills if applicable."""
-    mem0 = Mem0Engine()
     user_msgs = extract_all_user_messages(messages)
+    if os.path.exists(r"C:\vazus\.vazus_test.lock") or not user_msgs or invocation_num < 1:
+        return
+
+    mem0 = Mem0Engine()
     model_msgs = extract_all_model_responses(messages)
     summary = build_session_summary(conversation_id=conversation_id, user_msgs=user_msgs, model_msgs=model_msgs, turn_count=invocation_num)
 

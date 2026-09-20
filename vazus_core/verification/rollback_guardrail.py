@@ -27,12 +27,14 @@ class RollbackGuardrail:
     @staticmethod
     def execute_with_guardrail(
         target_file: Union[str, Path],
-        opt_func: Callable[[], Any],
-        test_cmd: List[str]
+        opt_func: Optional[Callable[[], Any]] = None,
+        test_cmd: Optional[List[str]] = None,
+        *,
+        mutation_func: Optional[Callable[[], Any]] = None,
     ) -> bool:
         """
         Executes code modification with file-level snapshot restoration guardrail.
-        If opt_func or test_cmd fails, target_file is restored to original state.
+        If opt_func/mutation_func or test_cmd fails, target_file is restored to original state.
         """
         target_path = Path(target_file).resolve()
         file_existed = target_path.exists()
@@ -41,20 +43,25 @@ class RollbackGuardrail:
         if file_existed:
             backup_content = target_path.read_bytes()
 
+        func_to_run = mutation_func if mutation_func is not None else opt_func
+        if func_to_run is None:
+            return False
+
         try:
-            # Step 1: Run optimization function
-            opt_res = opt_func()
+            # Step 1: Run mutation / optimization function
+            opt_res = func_to_run()
             if opt_res is False:
                 logger.warning(f"[RollbackGuardrail] Optimization function returned False. Restoring {target_path}")
                 RollbackGuardrail._restore_file(target_path, file_existed, backup_content)
                 return False
 
-            # Step 2: Run test suite command
-            proc = subprocess.run(test_cmd, capture_output=True, text=True)
-            if proc.returncode != 0:
-                logger.warning(f"[RollbackGuardrail] Test command failed (code {proc.returncode}). Restoring {target_path}")
-                RollbackGuardrail._restore_file(target_path, file_existed, backup_content)
-                return False
+            # Step 2: Run test suite command if provided
+            if test_cmd:
+                proc = subprocess.run(test_cmd, capture_output=True, text=True)
+                if proc.returncode != 0:
+                    logger.warning(f"[RollbackGuardrail] Test command failed (code {proc.returncode}). Restoring {target_path}")
+                    RollbackGuardrail._restore_file(target_path, file_existed, backup_content)
+                    return False
 
             # Optimization and verification passed
             return True

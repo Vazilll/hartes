@@ -20,6 +20,11 @@
             "command": "ckb.cmd",
             "args": ["mcp"],
             "description": "Code Knowledge Backend (SCIP + LSP + Blast Radius + Semantic Impact Analysis)"
+        },
+        "telegram-mcp": {
+            "command": "C:\\vazus\\.venv\\Scripts\\python.exe",
+            "args": ["C:/vazus/scripts/mcp_servers/telegram_mcp.py"],
+            "description": "Telegram user account integration: media downloader, history, dialogs"
         }
     }
 }

@@ -206,17 +206,17 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         formatted = [self._format_search_item(idx, r) for idx, r in enumerate(raw_results, 1)]
         self.send_json_response({"results": formatted, "query": query, "count": len(formatted)})
 
-    def _resolve_media_stream_path(self, raw_path: str) -> Optional[Path]:
+    def _resolve_media_stream_path(self, raw_path: str) -> tuple[Optional[Path], bool]:
         file_path = Path(urllib.parse.unquote(raw_path))
         allowed_base = Path("C:/vazus").resolve()
         try:
             resolved_path = file_path.resolve()
             resolved_path.relative_to(allowed_base)
-            if resolved_path.exists() and resolved_path.is_file():
-                return resolved_path
         except Exception:
-            return None
-        return None
+            return None, True
+        if resolved_path.exists() and resolved_path.is_file():
+            return resolved_path, False
+        return None, False
 
     def _stream_range_response(self, resolved_path: Path, file_size: int, mime_type: str, range_header: str) -> None:
         byte_range = range_header.replace("bytes=", "").strip()
@@ -257,9 +257,12 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Missing path parameter")
             return
 
-        resolved_path = self._resolve_media_stream_path(raw_path)
+        resolved_path, is_forbidden = self._resolve_media_stream_path(raw_path)
+        if is_forbidden:
+            self.send_error(403, "Access Denied: Path outside allowed workspace boundary")
+            return
         if not resolved_path:
-            self.send_error(404, f"Media file not found or access denied: {raw_path}")
+            self.send_error(404, f"Media file not found: {raw_path}")
             return
 
         file_size = resolved_path.stat().st_size
@@ -597,6 +600,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
                 self.send_json_response({"error": "Missing note id or path parameter"}, status=400)
                 return
 
+            clean_id = urllib.parse.unquote(raw_id).strip()
+            if ".." in clean_id or clean_id.startswith(("/", "\\")) or (len(clean_id) > 1 and clean_id[1] == ":"):
+                self.send_json_response({"error": "Path traversal forbidden"}, status=403)
+                return
+
             target_file = self._resolve_wiki_note_file(raw_id)
             if not target_file:
                 self.send_json_response({"error": f"Note not found: {raw_id}"}, status=404)
@@ -650,6 +658,11 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
             if not raw_id:
                 self.send_json_response({"error": "Missing id parameter"}, status=400)
+                return
+
+            clean_id = urllib.parse.unquote(raw_id).strip()
+            if ".." in clean_id or clean_id.startswith(("/", "\\")) or (len(clean_id) > 1 and clean_id[1] == ":"):
+                self.send_json_response({"error": "Path traversal forbidden"}, status=403)
                 return
 
             target_file = self._resolve_wiki_note_file(raw_id)

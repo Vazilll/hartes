@@ -1,89 +1,74 @@
-# Project: Gemma 4 E2B IT NPU Deployment & J-Space Bus Integration
+# Project: Vazus OS Performance & Storage Optimization
 
 ## Architecture
-Gemma 4 E2B IT NPU Runtime on Intel Core Ultra (Meteor Lake `Intel(R) AI Boost` NPU 3720) via OpenVINO 2026.3.0.
-The subsystem comprises:
-1. **Model & Compiler Layer**: OpenVINO IR model (`OpenVINO/gemma-4-E2B-it-int4-ov` / INT4 asymmetric quantized) compiled for `NPU` device with persistent driver blob caching (`CACHE_DIR`), `NPU_TURBO=True`, `NPU_TILES=2`, `PERFORMANCE_HINT=LATENCY`, and static shape bounding (`[1, 128]` to `[1, 2048]`).
-2. **Inference & Telemetry Engine (`vazus_core/engine/gemma4_npu_engine.py`)**: Programmatic Python runtime providing asynchronous non-blocking infer request dispatch (`infer_request.start_async()`, `infer_request.wait()`), streaming token generation with low latency, background CPU utilization tracking (`psutil` background sampler), and power efficiency profiling (sub-5W TDP, CPU load <= 10%).
-3. **J-Space Cognitive Bus Tap (`vazus_core/global_j_workspace.py`)**: Direct forward-pass internal activation extraction from the pre-LM-head RMSNorm / hidden states, projected and $L_2$-normalized to 768-dimensional unit vectors ($\|v\|_2 \approx 1.0$) for zero-overhead multi-agent cognitive broadcasting.
-4. **4-Tier E2E Verification Benchmark (`tests/test_gemma4_npu.py`)**: Dual-mode standalone CLI & pytest verification suite validating NPU target execution, <=10% CPU load, >=10 t/s throughput, unit-normalized activations, and zero regressions.
-
-```
-+--------------------------------------------------------------------------------+
-|                        Prompt / Subagent Cognitive Request                     |
-+--------------------------------------------------------------------------------+
-                                       |
-                                       v
-+--------------------------------------------------------------------------------+
-|                       Gemma4NPUEngine (Python Runtime)                         |
-|     (vazus_core/engine/gemma4_npu_engine.py - Streamer, Tokenizer, Telemetry)   |
-+--------------------------------------------------------------------------------+
-                                       |
-        +------------------------------+------------------------------+
-        |                                                             |
-        v                                                             v
-+----------------------------------+          +----------------------------------+
-|    Intel(R) AI Boost NPU 3720    |          |  J-Space Activation Tap (768D)   |
-|   (OpenVINO Compiled IR Model)   |          |    (Pre-LM Norm -> L2-Norm)      |
-|  • INT4 Asymmetric Quantization  |          |  • len(v) == 768, ||v||2 ≈ 1.0   |
-|  • 2 Compute Tiles, Turbo Mode   |          |  • Broadcast to GlobalJWorkspace |
-|  • Sub-5W, <=10% Host CPU Load   |          +----------------------------------+
-|  • >= 10 tokens/second Decode    |
-+----------------------------------+
-```
+- **Storage & Git Layer**:
+  - Historical repository blob pruning via `git-filter-repo` and `git gc --prune=now --aggressive`.
+  - Static media decoupling: `knowledge/telegram_courses/` relocated to `C:\Users\Vaz\Videos\Courses` with dynamic path resolution via `VAZUS_COURSES_DIR`.
+  - Tightened `.gitignore` to prevent re-tracking Whisper models, GGUF weights, and SQLite archives.
+- **Canonical Database Layer (`services/memory/vazus.db`)**:
+  - SQLite WAL mode engine with `PRAGMA synchronous = NORMAL` at runtime.
+  - B-Tree index coverage across high-frequency lookup columns (`finance_transactions`, `mirea_schedule`, `mirea_milestones`, `nutrition_log`, `mi_scale_weighins`, `self_employed_receipts`, `subagent_memory_traces`, `mem0_facts`).
+  - Maintenance cycle: `ANALYZE`, `PRAGMA optimize`, `VACUUM`, and `PRAGMA wal_checkpoint(TRUNCATE)`.
+  - 100% invariant preservation of verified user records (810 transactions, 4 liabilities, 28 tax receipts, 18 debts, 95 schedule items, nutrition logs, BLE weigh-ins).
+- **Antigravity Hook Lifecycle Layer (`vazus_core/hooks/`)**:
+  - `vazus_core/__init__.py`: Lazy loading via module `__getattr__` to eliminate 2,347 ms eager import cascade (OpenVINO, NumPy, SuperGraphLinker, ConcordiaJury).
+  - `pre_tool_hook.py`: Propositional fast-path validation for workspace path jail, dangerous commands, and null bytes (< 1.0 ms in-process, target < 15 ms).
+  - `pre_invocation_hook.py`: Direct SQLite profile/trace retrieval, JSON skill caching (`logs/.skill_index_cache.json`), and non-blocking background hints (~19.5 ms Turn 0, < 0.5 ms Turn N > 0, target < 50 ms).
+  - `post_tool_hook.py`: Lean HUD event dispatcher and non-blocking maintenance trigger.
+- **Zero-Regression Verification Layer**:
+  - Invariant preservation and 100% pass across core test suites:
+    `pytest tests/test_academic_truth_engine.py tests/test_db_consolidation.py tests/test_stop_hook_curation.py`.
 
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | OpenVINO NPU Model Acquisition | Acquire Gemma 4 E2B IT OpenVINO INT4 IR model & tokenizer definitions in `C:\vazus\models\` | M1 | Survey Exp 1 |
-| 2 | NPU Level Zero Compilation Config | Configure OpenVINO NPU properties (`CACHE_DIR`, `NPU_TURBO`, `NPU_TILES=2`, `LATENCY`) | M1 | Survey Exp 1 |
-| 3 | Static Shape Bounding & VPUX Stability | Implement static/bounded input shapes to guarantee Level0 VPUX NPU compiler stability | M1 | Survey Exp 2,3 |
-| 4 | Programmatic Engine Interface | Implement `Gemma4NPUEngine` in `vazus_core/engine/gemma4_npu_engine.py` | M2 | Survey Exp 2 |
-| 5 | Asynchronous Streaming Generation | Implement `generate_stream()` and `generate()` using non-blocking OpenVINO infer requests | M2 | Survey Exp 2 |
-| 6 | Real-time Hardware Telemetry | Implement background CPU utilization sampler ensuring <= 10% host CPU load during generation | M2 | Survey Exp 2 |
-| 7 | Direct J-Space Activation Extraction | Extract pre-LM-head hidden states ($h_L$), project to 768D, and $L_2$-normalize ($\|v\|_2 \approx 1.0$) | M3 | Survey Exp 3 |
-| 8 | GlobalJWorkspace Concept Broadcast | Feed extracted 768D concepts into `GlobalJWorkspace` without double-forward re-encoding | M3 | Survey Exp 3 |
-| 9 | Standalone Benchmark Script | Implement `tests/test_gemma4_npu.py` with 4-tier verification and exit code 0 | M4 | Survey Exp 3 |
-| 10 | Dual-Mode E2E Test Suite | Enable both CLI standalone execution with formatted telemetry and full pytest test runner | M4 | Survey Exp 3 |
+| 1 | Git History Blob Purge | Purge MP4s, Whisper models, SQLite commits from `.git` history using `git-filter-repo`, reducing `.git` to < 500 MB | M1 | explorer_1 |
+| 2 | Media Courses Relocation | Relocate `knowledge/telegram_courses/` (27.12 GB) to `C:\Users\Vaz\Videos\Courses` and update references | M1 | explorer_1 |
+| 3 | `.gitignore` Hardening | Add explicit exclusions for `.whisper_cache/`, `*.gguf`, `_archive/`, and media directories | M1 | explorer_1 |
+| 4 | Workspace Footprint Reduction | Shrink total `C:\vazus` directory size below 10 GB (projected ~9.29 GB) | M1 | explorer_1 |
+| 5 | Database Integrity & Record Check | Verify 100% record invariants (810 tx, 4 liab, 28 receipts, 18 debts, 95 schedule, nutrition, BLE) and `PRAGMA integrity_check` = `ok` | M2 | explorer_2 |
+| 6 | Strategic B-Tree Indexing | Create 12 targeted B-Tree indices on frequently queried foreign keys and timestamp columns | M2 | explorer_2 |
+| 7 | SQLite Compaction & Engine Tuning | Execute `ANALYZE`, `PRAGMA optimize`, `VACUUM`, and truncate WAL checkpoint | M2 | explorer_2 |
+| 8 | Root Package Lazy Loading | Replace eager imports in `vazus_core/__init__.py` with `__getattr__` lazy loading, cutting import time from 2,347ms to < 2ms | M3 | explorer_3 |
+| 9 | Pre-Tool Hook Fast-Path | Implement propositional fast-path security checks in `pre_tool_hook.py` achieving < 1.0 ms latency | M3 | explorer_3 |
+| 10 | Pre-Invocation Hook Streamlining | Add JSON skill cache and direct SQLite queries in `pre_invocation_hook.py` achieving < 50 ms Turn 0 and < 0.5 ms Turn N | M3 | explorer_3 |
+| 11 | Post-Tool Hook Optimization | Decouple heavy imports in `post_tool_hook.py` to ensure lightweight HUD telemetry | M3 | explorer_3 |
+| 12 | Core Test Suite Zero-Regression | Verify 100% pass rate across `test_academic_truth_engine.py`, `test_db_consolidation.py`, `test_stop_hook_curation.py` | M4 | explorer_3 |
+| 13 | Forensic Integrity Verification | Multi-agent review, adversarial challenge, and forensic audit of system invariants and absence of cheating | M4 | orchestrator |
 
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| M1 | Model Acquisition & OpenVINO NPU Compilation | Download/prepare Gemma 4 INT4 IR model, configure NPU properties and blob caching | none | PLANNED |
-| M2 | Python Runtime & Telemetry Engine | Implement `Gemma4NPUEngine` in `vazus_core/engine/` with async streaming and CPU load telemetry | M1 | PLANNED |
-| M3 | J-Space Activation Extraction & Cognitive Bus | Implement zero-overhead 768D hidden state tap, $L_2$-norm, and `GlobalJWorkspace` integration | M2 | PLANNED |
-| M4 | E2E Benchmark Suite & Hardware Verification | Implement `tests/test_gemma4_npu.py` validating >=10 t/s, <=10% CPU, and 100% test pass | M3 | PLANNED |
+| 1 | M1: Git Compression & Media Relocation | Features 1, 2, 3, 4 | none | IN_PROGRESS |
+| 2 | M2: Database Compaction & Engine Tuning | Features 5, 6, 7 | none | PLANNED |
+| 3 | M3: Antigravity Hook Latency Minimization | Features 8, 9, 10, 11 | none | PLANNED |
+| 4 | M4: Zero-Regression Verification Gate & Forensic Audit | Features 12, 13 | M1, M2, M3 | PLANNED |
 
 ## Interface Contracts
-### `Gemma4NPUEngine` ↔ `vazus_core.engine` & `GlobalJWorkspace`
-- **Class**: `Gemma4NPUEngine(model_path: str, device: str = "NPU", cache_dir: Optional[str] = None, max_seq_len: int = 512)`
-- **`generate(prompt: str, max_new_tokens: int = 128, temperature: float = 0.7) -> GenerationResult`**
-  - Returns `GenerationResult(text: str, tokens_generated: int, throughput_tps: float, cpu_utilization_pct: float, j_space_concept: Optional[JSpaceConcept])`
-- **`generate_stream(prompt: str, max_new_tokens: int = 128) -> Iterator[str]`**
-  - Yields token strings incrementally as generated on NPU.
-- **`extract_j_space_activation(prompt_or_tokens: Union[str, List[int]]) -> List[float]`**
-  - Returns 768-dimensional $L_2$-normalized float vector (`len == 768`, $\lvert \|v\|_2 - 1.0 \rvert < 10^{-3}$).
-- **`get_telemetry() -> EngineTelemetry`**
-  - Returns current device info, NPU tile count, CPU utilization history, and memory stats.
+### `knowledge/telegram_courses` ↔ `scripts/mcp_servers/telegram_mcp.py` & `vazus_core/integrations/telegram_indexer.py`
+- `DEFAULT_COURSES_DIR = Path(os.environ.get("VAZUS_COURSES_DIR", r"C:\Users\Vaz\Videos\Courses"))`
+- Allows seamless course index lookup both locally and across relocated media storage.
+
+### `vazus_core/__init__.py` ↔ Consumers
+- `__getattr__(name: str) -> Any`:
+  - Dynamically imports `get_db_connection`, `DocstringAndBodyPruner`, `SuperGraphLinker`, `ConcordiaJury`, `UnifiedReasoningPipeline` only upon explicit access.
+  - Exposes subpackages `engine`, `verification`, `memory`, `workers`, `integrations` via lazy attributes.
+  - Guarantees `import vazus_core` takes < 5 ms.
+
+### `vazus_core.hooks.pre_tool_hook`
+- `run_pre_tool(tool_name: str, tool_args: Dict[str, Any]) -> Dict[str, Any]`
+- Validates path jail and command safety in < 1.0 ms without invoking heavy external solvers unless ambiguous.
+
+### `vazus_core.hooks.pre_invocation_hook`
+- `run_pre_invocation(context: Dict[str, Any]) -> Dict[str, Any]`
+- Injects user profile, memory traces, and matched skills in < 50 ms on Turn 0 and < 0.5 ms on Turn N > 0.
 
 ## Code Layout
-```
-C:\vazus\
-├── vazus_core/
-│   ├── engine/
-│   │   ├── gemma4_npu_engine.py   # Primary Gemma 4 NPU runtime, streaming, telemetry & J-Space tap
-│   │   ├── supergraph_bridge.py   # Vector synchronization bridge
-│   │   └── llm_client.py          # Unified client bindings
-│   ├── global_j_workspace.py      # GlobalJWorkspace concept hub (768D bounded bottleneck K=16)
-│   ├── embeddings.py              # 768D embedding vector models
-│   └── memory/
-│       └── embeddings.py          # Vector sanitization, AVX-512 cosine search
-├── models/
-│   ├── gemma-4-e2b-it-int4-ov/    # OpenVINO IR model, tokenizers, config
-│   └── .ov_cache/                 # Persistent NPU compiled driver blobs (.blob)
-├── tests/
-│   ├── test_gemma4_npu.py         # Standalone 4-tier benchmark & acceptance verification suite
-│   ├── test_j_space_skill_state.py# J-Space cognitive state integration tests
-│   └── test_openvino_npu.py       # Base OpenVINO NPU hardware tests
-└── .agents/                       # Subagent coordination & audit metadata
-```
+- `.gitignore`: Git exclusion rules (owned by M1)
+- `scripts/mcp_servers/telegram_mcp.py`, `vazus_core/integrations/telegram_indexer.py`: Relocated courses path resolution (owned by M1)
+- `services/memory/vazus.db`: Canonical SQLite database (owned by M2)
+- `vazus_core/__init__.py`: Lazy package exports (owned by M3)
+- `vazus_core/hooks/pre_tool_hook.py`, `vazus_core/verification/substrate_guard.py`: Pre-tool security validation (owned by M3)
+- `vazus_core/hooks/pre_invocation_hook.py`: Pre-invocation context injection & skill cache (owned by M3)
+- `vazus_core/hooks/post_tool_hook.py`: Post-tool HUD telemetry (owned by M3)
+- `tests/test_academic_truth_engine.py`, `tests/test_db_consolidation.py`, `tests/test_stop_hook_curation.py`: Core verification suites (owned by M4)

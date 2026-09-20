@@ -1,17 +1,40 @@
 {
-  "venvPath": "C:\\vazus",
-  "venv": ".venv",
   "pythonVersion": "3.11",
+  "typeCheckingMode": "off",
+  "useLibraryCodeForTypes": false,
   "include": [
-    "vazus_core",
-    "services",
-    "scripts",
-    "apps"
+    "vazus_core/engine",
+    "vazus_core/verification",
+    "vazus_core/memory",
+    "vazus_core/workers",
+    "vazus_core/hooks",
+    "vazus_core/runtime",
+    "vazus_core/missions",
+    "vazus_core/infra",
+    "vazus_core/analysis",
+    "vazus_core/evolution",
+    "vazus_core/security",
+    "vazus_core/codemods",
+    "vazus_core/storage",
+    "vazus_core/telemetry",
+    "vazus_core/ipc",
+    "vazus_core/maintenance"
   ],
   "exclude": [
     "**/__pycache__",
+    "**/.venv/**",
+    ".venv/**",
     "**/.venv",
-    "**/scratch",
-    "**/node_modules"
+    "**/site-packages/**",
+    "**/scratch/**",
+    "**/node_modules/**",
+    "services/inference/llama.cpp/**",
+    "**/services/inference/llama.cpp/**",
+    "tests/**",
+    "tools/**",
+    "labs/**",
+    "bin/**",
+    "scratch/**",
+    "**/_archive/**"
   ]
 }

@@ -194,8 +194,13 @@ class MoodleSessionManager:
             "cookies": cookie_dict,
             "sesskey": self.sesskey
         }
-        with open(self.session_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        for target in [self.session_file, Path("C:/vazus/data/sessions/user_mirea_session.json")]:
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with open(target, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+            except Exception:
+                pass
 
     def load_session_cookies(self) -> bool:
         if not self.session_file.exists():
@@ -343,10 +348,12 @@ class MoodleSessionManager:
 
         if code:
             form_2fa = soup_res.find("form")
-            target_url = urllib.parse.urljoin(res.url, form_2fa.get("action", res.url)) if form_2fa else res.url
+            action_from_kc = self.extract_login_action_url(res.text, res.url)
+            target_url = action_from_kc or (urllib.parse.urljoin(res.url, form_2fa.get("action", res.url)) if form_2fa else res.url)
             payload_2fa = {inp.get("name"): inp.get("value", "") for inp in (form_2fa.find_all("input") if form_2fa else []) if inp.get("name")}
             payload_2fa["code"] = code
             payload_2fa["otp"] = code
+            print(f"🔑 [2FA Отправка] POST {target_url[:80]}... с кодом {code}")
             res = self.session.post(target_url, data=payload_2fa, timeout=15, allow_redirects=True)
             print(f"🌐 [HTTP POST 2FA] Status {res.status_code} | URL: {res.url}")
         return res
@@ -387,7 +394,15 @@ class MoodleSessionManager:
                 return False
 
             otp_input = soup_res.find("input", {"name": re.compile(r'^(twofactor|authcode|otpcode|token|verification_code|totp)$', re.IGNORECASE)})
-            if "twofactor" in res.url or "двухфакторн" in res.text.lower() or "код подтверждения" in res.text.lower() or otp_input:
+            is_2fa = (
+                "twofactor" in res.url or
+                "email-code-form" in res.text or
+                "email-authenticator" in res.text or
+                "двухфакторн" in res.text.lower() or
+                "код подтверждения" in res.text.lower() or
+                bool(otp_input)
+            )
+            if is_2fa:
                 res = self._handle_2fa_prompt(res, soup_res, yandex_email, yandex_password)
 
             self.handle_max_registration_bypass(res.text, res.url)

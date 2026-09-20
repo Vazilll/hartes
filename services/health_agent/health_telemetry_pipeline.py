@@ -27,7 +27,9 @@ class VazusHealthPipelineManager:
         Executes full Google Fit API sync across Sessions, Sleep Stages, Workouts, HR, SpO2
         """
         print(f"[Health Pipeline] Syncing Google Fit telemetry for last {days_back} days...")
-        return fetch_and_save_fitness_data()
+        vazus_mod = sys.modules.get("vazus_core.health_telemetry_pipeline")
+        fn = getattr(vazus_mod, "fetch_and_save_fitness_data", fetch_and_save_fitness_data) if vazus_mod else fetch_and_save_fitness_data
+        return fn()
 
     async def scan_ble_scale_weighin(self, duration_sec=30):
         """
