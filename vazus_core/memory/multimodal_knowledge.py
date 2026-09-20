@@ -837,8 +837,8 @@ def index_scenes_to_supergraph(
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding='utf-8')
-    print("Testing Multimodal Knowledge Engine...")
-    sample_file = r"C:\vazus\knowledge\telegram_courses\Курс _Покоритель Наташек 6_0_\media_174.oga"
+    courses_dir = os.environ.get("VAZUS_COURSES_DIR", r"C:\Users\Vaz\Videos\Courses")
+    sample_file = os.path.join(courses_dir, "Курс _Покоритель Наташек 6_0_", "media_174.oga")
     if os.path.exists(sample_file):
         print(f"Transcribing and chunking: {sample_file}")
         scenes_data = transcribe_and_chunk_media(sample_file)

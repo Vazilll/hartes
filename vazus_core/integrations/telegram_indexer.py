@@ -19,6 +19,8 @@ import threading
 
 logger = logging.getLogger("telegram_indexer")
 
+DEFAULT_COURSES_DIR = os.environ.get("VAZUS_COURSES_DIR", r"C:\Users\Vaz\Videos\Courses")
+
 _EMBEDDING_MANAGER_CACHE = None
 _EMBEDDING_LOCK = threading.Lock()
 
@@ -216,10 +218,12 @@ def _scan_courses_media_files(
 
 
 def build_media_index(
-    courses_dir: str = "C:/vazus/knowledge/telegram_courses",
+    courses_dir: Optional[str] = None,
     target_dbs: Optional[List[str]] = None
 ) -> Tuple[Dict[str, List[str]], Dict[int, List[Tuple[str, str]]]]:
     """Builds lookup structures for media files and M1 MediaScene nodes."""
+    if courses_dir is None:
+        courses_dir = DEFAULT_COURSES_DIR
     scene_by_file: Dict[str, List[str]] = {}
     media_by_msg_id: Dict[int, List[Tuple[str, str]]] = {}
 
@@ -416,7 +420,7 @@ def index_telegram_messages(
     target_dbs = list(dict.fromkeys([db_path, "C:/vazus/services/memory/vazus.db"]))
 
     embedder = get_embedding_manager()
-    courses_dir = "C:/vazus/knowledge/telegram_courses"
+    courses_dir = DEFAULT_COURSES_DIR
     scene_by_file, media_by_msg_id = build_media_index(courses_dir, target_dbs)
 
     all_files = glob.glob(os.path.join(messages_dir, "*.jsonl")) + glob.glob(os.path.join(messages_dir, "*.md"))
