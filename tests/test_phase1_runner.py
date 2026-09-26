@@ -324,9 +324,12 @@ class TestAgyPlanner:
     def test_resolve_agy_binary_returns_valid_or_none(self):
         from llm.agy_planner import resolve_agy_binary
         bin_path = resolve_agy_binary()
-        # On user machine agy.exe is installed, so bin_path is not None
-        assert bin_path is not None
-        assert bin_path.exists()
+        # On user machine agy.exe is installed, but in CI it might be None
+        # the test name says valid_or_none, so we should assert it's either Path or None
+        from pathlib import Path
+        assert bin_path is None or isinstance(bin_path, Path)
+        if bin_path is not None:
+            assert bin_path.exists()
 
     def test_agy_planner_offline_mock(self):
         from llm.agy_planner import AgyPlanner
