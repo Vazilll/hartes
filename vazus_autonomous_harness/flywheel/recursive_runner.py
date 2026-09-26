@@ -106,3 +106,9 @@ class RecursiveSelfImprovementFlywheel:
             "search_rankings": self.search_bandit.get_rankings(),
             "skill_tree_state": self.skill_tree.export_summary(),
         }
+
+
+def run_evolution_flywheel(rounds: int = 3) -> Dict[str, Any]:
+    """Helper entry point for CLI and CI runners."""
+    runner = RecursiveSelfImprovementFlywheel()
+    return runner.run_evolution_rounds(rounds)

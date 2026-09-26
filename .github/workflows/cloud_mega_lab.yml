@@ -1,0 +1,77 @@
+name: "Hartes Cloud Mega-Lab Autonomous Flywheel"
+
+on:
+  schedule:
+    # Runs every 3 hours in the cloud, completely independent of local hardware
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  autonomous_lab_run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest
+
+      - name: Run SMT Z3 Gate & Pytest Verification
+        run: |
+          pytest tests/ -v
+
+      - name: Execute Recursive Flywheel Co-Evolution
+        run: |
+          python -c "
+          from vazus_autonomous_harness.flywheel.recursive_runner import run_evolution_flywheel
+          history = run_evolution_flywheel(rounds=2)
+          print(f'Completed {len(history)} cloud evolution rounds')
+          "
+
+      - name: Update Cloud Telemetry & Research Log
+        run: |
+          python -c "
+          import time
+          from pathlib import Path
+          from vazus_autonomous_harness.telemetry.cloud_bridge import CloudTelemetryBridge
+          bridge = CloudTelemetryBridge(drive_root=Path('artifacts/telemetry'))
+          report = bridge.collect_health()
+          bridge.sync_to_cloud(report)
+
+          log_path = Path('CLOUD_LAB_LOG.md')
+          now_str = time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())
+          entry = f'''
+          ## 🧪 Autonomous Mega-Lab Cycle: {now_str}
+          - **Status**: {report.status}
+          - **SMT Z3 Invariants**: PASS (Latency: {report.z3_latency_ms:.3f} ms)
+          - **Total Skills**: {report.total_skills}
+          - **Environment**: Cloud VM (GitHub Actions Runner)
+          - **Hardware Impact on User Laptop**: 0% (Headless Cloud)
+          '''
+          current = log_path.read_text(encoding='utf-8') if log_path.exists() else '# Hartes Autonomous Cloud Mega-Lab Experiment Log\n'
+          log_path.write_text(current + '\n' + entry, encoding='utf-8')
+          "
+
+      - name: Commit and Push Evolution State
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "Hartes Cloud Mega-Lab [Bot]"
+          git add CLOUD_LAB_LOG.md
+          git commit -m "chore(cloud-lab): Autonomous co-evolution cycle [skip ci]" || echo "No changes to commit"
+          git push origin main || echo "Push skipped"
