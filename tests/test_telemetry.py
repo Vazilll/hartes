@@ -1,9 +1,15 @@
 """
-tests.test_telemetry — Verification for CloudTelemetryBridge and Google Drive Sync.
+tests.test_telemetry — Verification for CloudTelemetryBridge, Google Drive Sync, and Spark Directives.
 """
 
 import json
-from vazus_autonomous_harness.telemetry.cloud_bridge import CloudTelemetryBridge, SystemHealthReport
+from pathlib import Path
+from vazus_autonomous_harness.telemetry.cloud_bridge import (
+    CloudTelemetryBridge,
+    SystemHealthReport,
+    resolve_relevant_notebook,
+    KNOWN_NOTEBOOKS,
+)
 
 
 def test_collect_health():
@@ -47,6 +53,7 @@ def test_alert_dispatch(tmp_path):
     assert report.status == "ALERT"
     assert report.spark_action_required is True
     assert "[SPARK INTERVENTION REQUIRED]" in report.action_prompt_for_spark
+    assert len(report.structured_directives) == 1
 
     paths = bridge.sync_to_cloud(report)
     spark_md = paths[f"{tmp_path.name}_spark_actions"]
@@ -55,3 +62,51 @@ def test_alert_dispatch(tmp_path):
     content = spark_md.read_text(encoding="utf-8")
     assert "ATTENTION GEMINI SPARK" in content
     assert "Simulated Invariant Divergence" in content
+    assert "Target Grounded Knowledge Bases" in content
+
+
+def test_resolve_relevant_notebook():
+    nb_arch = resolve_relevant_notebook("SMT substrate invariant violation")
+    assert nb_arch["id"] == KNOWN_NOTEBOOKS["architecture"]["id"]
+
+    nb_math = resolve_relevant_notebook("calculus derivative error in boolean algebra")
+    assert nb_math["id"] == KNOWN_NOTEBOOKS["math"]["id"]
+
+    nb_skill = resolve_relevant_notebook("skill state cot token reduction error")
+    assert nb_skill["id"] == KNOWN_NOTEBOOKS["mechanisms"]["id"]
+
+
+def test_bidirectional_spark_queues(tmp_path):
+    bridge = CloudTelemetryBridge(drive_root=tmp_path)
+    alerts = [{
+        "title": "Test Anomaly",
+        "severity": "CRITICAL",
+        "context": "Memory threshold exceeded in flywheel",
+        "trace": "MemoryError"
+    }]
+    report = bridge.collect_health(active_alerts=alerts)
+    bridge.sync_to_cloud(report)
+
+    # Check spark_inbox created
+    inbox = tmp_path / "spark_inbox"
+    assert inbox.exists()
+    inbox_files = list(inbox.glob("*.json"))
+    assert len(inbox_files) == 1
+
+    # Simulate Spark placing an RFC resolution in spark_outbox
+    outbox = tmp_path / "spark_outbox"
+    assert outbox.exists()
+    mock_solution = {
+        "directive_id": report.structured_directives[0]["directive_id"],
+        "status": "RESOLVED",
+        "resolution_doc_url": "https://docs.google.com/document/d/mock123",
+        "rfc_summary": "Adjusted memory pooling limits in configuration",
+    }
+    with open(outbox / "response_001.json", "w", encoding="utf-8") as f:
+        json.dump(mock_solution, f)
+
+    # Poll responses
+    responses = bridge.poll_spark_responses()
+    assert len(responses) == 1
+    assert responses[0]["status"] == "RESOLVED"
+    assert "mock123" in responses[0]["resolution_doc_url"]
