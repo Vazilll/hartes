@@ -19,6 +19,7 @@ Conforms strictly to:
 import concurrent.futures
 import logging
 import re
+import pytest
 import sqlite3
 import subprocess
 import sys
@@ -405,6 +406,7 @@ class BaseProcessor(ABC):
         assert has_stubs is False
         assert reason is None
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows specific path logic")
     def test_sovereignty_path_jail_directory_traversal_attacks(self):
         """
         Attack: Filesystem mutation paths attempting directory traversal outside C:\\vazus and ~/.gemini.
