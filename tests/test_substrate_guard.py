@@ -2,7 +2,6 @@
 Unit tests for SMT Z3 SubstrateGuard.
 """
 
-from pathlib import Path
 from vazus_autonomous_harness.skills.substrate_guard import SubstrateGuard
 
 

@@ -2,9 +2,7 @@
 tests.test_telemetry — Verification for CloudTelemetryBridge and Google Drive Sync.
 """
 
-import pytest
 import json
-from pathlib import Path
 from vazus_autonomous_harness.telemetry.cloud_bridge import CloudTelemetryBridge, SystemHealthReport
 
 

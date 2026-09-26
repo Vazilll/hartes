@@ -7,8 +7,6 @@ Synchronizes local/cloud execution status between:
 - Gemini Spark Watchdog & Scheduler (24/7 autonomous monitoring & intervention)
 """
 
-import os
-import sys
 import json
 import time
 import logging

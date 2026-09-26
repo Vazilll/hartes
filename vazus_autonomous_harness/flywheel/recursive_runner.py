@@ -9,7 +9,7 @@ Implements ADR-005 (5-Stage Continuous Agent Evaluation & Self-Improvement Flywh
 5. Automated Merge & Skill Tree Reward Re-weighting
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 import time
 import logging
 

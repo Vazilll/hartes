@@ -11,7 +11,6 @@ import time
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
 import z3
 
 logger = logging.getLogger("vazus.substrate_guard")

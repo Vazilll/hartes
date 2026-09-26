@@ -8,7 +8,7 @@ Enforces Academic Sovereignty and Socratic Mentoring Invariants (USER.md#L37).
 
 import re
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
 logger = logging.getLogger("vazus.harness.verification.academic")
 

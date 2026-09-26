@@ -9,7 +9,7 @@ satisfy AST syntax validity, and filter out hallucinated/byzantine votes.
 import ast
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 logger = logging.getLogger("vazus.harness.verification.concordia")
 

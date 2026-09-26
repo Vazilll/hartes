@@ -12,7 +12,6 @@ Tiers:
 
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
-import time
 
 
 @dataclass

@@ -2,8 +2,6 @@
 Tests for 30 TB Tars Vault Offload Engine in vazus_autonomous_harness.
 """
 
-import pytest
-from pathlib import Path
 from vazus_autonomous_harness.flywheel.tars_vault_bridge import TarsVaultBridge, VAULT_BUCKETS
 
 

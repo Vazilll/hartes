@@ -6,10 +6,8 @@ matrices, dataset caches, flywheel telemetry, and NotebookLM grounding sources
 to Google Drive Desktop (`G:\\My Drive\\Tars_30TB_Vault`) with local fallback.
 """
 
-import os
 import json
 import time
-import shutil
 import logging
 from pathlib import Path
 from dataclasses import dataclass

@@ -1,0 +1,31 @@
+[Unit]
+Description=Vazus Flywheel Headless VPS Orchestration Daemon (Tier 0)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/vazus-flywheel
+EnvironmentFile=/etc/vazus/flywheel.env
+ExecStart=/opt/vazus-flywheel/venv/bin/python3 -m vazus_autonomous_harness.daemon.vps_daemon
+Restart=always
+RestartSec=10
+
+# Strict Resource Governance (<= 200 MB RAM Budget on 1 GB VPS)
+MemoryAccounting=yes
+MemoryHigh=160M
+MemoryMax=200M
+MemorySwapMax=50M
+CPUQuota=50%
+
+# Security & Sandboxing (Zero Plaintext Invariant)
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/vazus-flywheel/data /var/log/vazus
+PrivateTmp=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

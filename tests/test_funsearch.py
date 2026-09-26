@@ -2,7 +2,6 @@
 Tests for DeepMind FunSearch Evolutionary Core in vazus_autonomous_harness.
 """
 
-import pytest
 from vazus_autonomous_harness.flywheel.funsearch_engine import (
     ProgramNode,
     Island,
