@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vazus-autonomous-harness"
+version = "1.0.0"
+description = "Autonomous Self-Improving AI Agent Harness & SOTA Skill Tree Engine with SMT Z3 Verification and Epistemic Meta-Search"
+readme = "README.md"
+authors = [{ name = "Maxim Zhukov & Antigravity AI", email = "zhukov.m.d1@edu.mirea.ru" }]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "z3-solver>=4.13.0",
+    "pydantic>=2.7.0",
+    "sympy>=1.13.0",
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
