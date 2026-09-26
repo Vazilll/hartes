@@ -19,7 +19,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 logger = logging.getLogger("vazus.tests.e2e.contract_loader")
 
@@ -613,8 +616,13 @@ except ImportError:
             self.cloud_jobs_dispatched: List[Dict[str, Any]] = []
 
         def get_current_rss_mb(self) -> float:
-            process = psutil.Process(os.getpid())
-            return process.memory_info().rss / (1024 * 1024)
+            try:
+                import psutil
+                import os
+                process = psutil.Process(os.getpid())
+                return process.memory_info().rss / (1024 * 1024)
+            except ImportError:
+                return 0.0
 
         def tick(self) -> Dict[str, Any]:
             rss_mb = self.get_current_rss_mb()
