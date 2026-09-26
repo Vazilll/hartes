@@ -75,3 +75,18 @@ jobs:
           git add CLOUD_LAB_LOG.md
           git commit -m "chore(cloud-lab): Autonomous co-evolution cycle [skip ci]" || echo "No changes to commit"
           git push origin main || echo "Push skipped"
+
+      - name: Trigger Google Jules Cloud VM Autonomous Sprint
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        run: |
+          echo "Triggering Google Jules Cloud VM session for Vazilll/hartes..."
+          response=$(curl -s -w "\n%{http_code}" -X POST "https://jules.googleapis.com/v1alpha/sessions" \
+            -H "Content-Type: application/json" \
+            -H "X-Goog-Api-Key: $JULES_API_KEY" \
+            -d '{
+              "source_id": "sources/github/Vazilll/hartes",
+              "prompt": "[Hartes 3-Hour Autonomous Sprint] Audit latest commits in Vazilll/hartes, verify all 12 tests in tests/, confirm SMT Z3 substrate-guard formal proof bounds, and propose next-tier multi-agent optimizations in a PR.",
+              "title": "Hartes 3-Hour Cloud Mega-Lab Autonomous Sprint"
+            }')
+          echo "Jules API Response: $response"
