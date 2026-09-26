@@ -2,8 +2,8 @@
 Tests for Formal Verification & SMT Invariant Cores in vazus_autonomous_harness.verification.
 """
 
-from vazus_autonomous_harness.verification.smt_equivalence_prover import SMTEquivalenceProver
-from vazus_autonomous_harness.verification.academic_sovereignty_guard import AcademicSovereigntyGuard
+from vazus_autonomous_harness.verification.smt_prover import SMTEquivalenceProver
+from vazus_autonomous_harness.verification.academic_sovereignty import AcademicSovereigntyGuard
 from vazus_autonomous_harness.verification.concordia_jury import ConcordiaJuryCore
 
 

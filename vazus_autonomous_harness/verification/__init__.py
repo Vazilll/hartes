@@ -1,12 +1,12 @@
-"""
-vazus_autonomous_harness.verification — Formal Verification & Quality Evaluation Cores.
+﻿"""
+vazus_autonomous_harness.verification - Formal Verification and Quality Evaluation Cores.
 
-Milestone 1 Components:
-1. QualityEvaluationEngine & QualityScore: 100-point multi-dimensional rubric (F1).
-2. ASTParsimonyAnalyzer: AST bloat and clean diff parsimony analyzer (F3).
-3. SMTProver & SMTEquivalenceProver: Microsoft Z3 SMT contract and equivalence theorem prover (F2).
-4. AcademicSovereigntyGuard: USER.md#L37 Socratic guard and USER.md#L33 zero stub guard (F4).
-5. ConcordiaJuryCore & JuryVerdict: Multi-agent consensus jury with Byzantine filtering.
+Components:
+1. QualityEvaluationEngine + QualityScore: 100-point multi-dimensional rubric.
+2. ASTParsimonyAnalyzer: AST bloat and clean diff parsimony analyzer.
+3. SMTProver + SMTEquivalenceProver: Z3 SMT contract and equivalence theorem prover.
+4. AcademicSovereigntyGuard: Socratic guard and zero stub guard.
+5. ConcordiaJuryCore + JuryVerdict: Multi-agent consensus jury with Byzantine filtering.
 """
 
 from vazus_autonomous_harness.verification.smt_prover import SMTProver, SMTProofResult, SMTEquivalenceProver
