@@ -1,10 +1,11 @@
 """
-hartes.llm — Thin LLM backend adapters.
+hartes.llm — LLM backend adapters.
 
-Provides a uniform PlannerFn interface that AgentHarness expects,
-backed by real API calls (Gemini, etc.).
+Primary: AgyPlanner (Antigravity CLI `agy.exe` wrapper, 0 external API cost, uses IDE quota)
+Secondary/Fallback: GeminiPlanner (direct Google Generative AI API)
 """
 
+from llm.agy_planner import AgyPlanner
 from llm.gemini_planner import GeminiPlanner
 
-__all__ = ["GeminiPlanner"]
+__all__ = ["AgyPlanner", "GeminiPlanner"]

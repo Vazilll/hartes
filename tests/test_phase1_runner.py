@@ -271,7 +271,7 @@ class TestRunnerIntegration:
         return mock
 
     def test_success_on_first_round(self):
-        with patch("llm.gemini_planner.GeminiPlanner", return_value=self._mock_planner(OPTIMIZED_CODE)):
+        with patch("llm.agy_planner.AgyPlanner", return_value=self._mock_planner(OPTIMIZED_CODE)):
             import runner, importlib; importlib.reload(runner)
             result = runner.run(
                 task_name="code_optimizer",
@@ -284,7 +284,7 @@ class TestRunnerIntegration:
         assert result["rounds_used"] == 1
 
     def test_timeout_when_always_bad(self):
-        with patch("llm.gemini_planner.GeminiPlanner", return_value=self._mock_planner(BAD_SYNTAX_CODE)):
+        with patch("llm.agy_planner.AgyPlanner", return_value=self._mock_planner(BAD_SYNTAX_CODE)):
             import runner, importlib; importlib.reload(runner)
             result = runner.run(
                 task_name="code_optimizer",
@@ -295,7 +295,7 @@ class TestRunnerIntegration:
         assert result["status"] in ("TIMEOUT", "ESCALATED")
 
     def test_result_has_required_keys(self):
-        with patch("llm.gemini_planner.GeminiPlanner", return_value=self._mock_planner(OPTIMIZED_CODE)):
+        with patch("llm.agy_planner.AgyPlanner", return_value=self._mock_planner(OPTIMIZED_CODE)):
             import runner, importlib; importlib.reload(runner)
             result = runner.run(
                 task_name="code_optimizer",
@@ -305,3 +305,35 @@ class TestRunnerIntegration:
             )
         for key in ("status", "task_id", "score", "rounds_used", "duration_s"):
             assert key in result, f"Missing key: {key}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AgyPlanner Unit Tests
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestAgyPlanner:
+    def test_resolve_model_name_aliases(self):
+        from llm.agy_planner import resolve_model_name
+        assert resolve_model_name("flash") == "gemini-3.8-flash-high"
+        assert resolve_model_name("flash-lite") == "gemini-3.7-flash-high"
+        assert resolve_model_name("pro") == "gemini-3.1-pro-high"
+        assert resolve_model_name("sonnet") == "claude-sonnet-4-6"
+        assert resolve_model_name("opus") == "claude-opus-4-6-thinking"
+        assert resolve_model_name("gpt") == "gpt-oss-120b-medium"
+
+    def test_resolve_agy_binary_returns_valid_or_none(self):
+        from llm.agy_planner import resolve_agy_binary
+        bin_path = resolve_agy_binary()
+        # On user machine agy.exe is installed, so bin_path is not None
+        assert bin_path is not None
+        assert bin_path.exists()
+
+    def test_agy_planner_offline_mock(self):
+        from llm.agy_planner import AgyPlanner
+        planner = AgyPlanner(model="flash")
+        # In pytest, is_test_mode() is True
+        res = planner.plan("def foo(): return 1", history=[])
+        assert "response" in res
+        assert "thought_signature" in res
+        assert res["model"] == "gemini-3.8-flash-high"
+        assert "def foo" in res["response"]

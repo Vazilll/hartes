@@ -64,9 +64,8 @@ def run(
     """
     t0 = time.perf_counter()
 
-    # ── Infrastructure ────────────────────────────────────────────────────────
     from tasks.registry import TaskRegistry
-    from llm.gemini_planner import GeminiPlanner
+    from llm.agy_planner import AgyPlanner
     from vazus_autonomous_harness.memory.episodic_store import EpisodicMemoryStore
     from vazus_autonomous_harness.memory.preflight_filter import PreFlightFilter
     from vazus_autonomous_harness.engine.anti_thrashing import (
@@ -77,7 +76,7 @@ def run(
     from tasks.base import TaskStatus, TaskResult
 
     task = TaskRegistry.load(task_name, **task_kwargs)
-    planner = GeminiPlanner(model=model)
+    planner = AgyPlanner(model=model)
     memory = EpisodicMemoryStore()
     preflight = PreFlightFilter(episodic_store=memory)
     breaker = AntiThrashingCircuitBreaker()
@@ -241,7 +240,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--inline", dest="inline_code", help="Inline code string.")
     run_p.add_argument("--test-cmd", dest="test_command", help="Shell command to run tests.")
     run_p.add_argument("--model", default=DEFAULT_MODEL,
-                       help=f"LLM model shortname. Options: flash-lite (default), flash, pro.")
+                       help=f"LLM model for agy. Options: flash (Gemini 3.8 Flash), flash-lite (Gemini 3.7 Flash), pro (Gemini 3.1 Pro), sonnet (Claude Sonnet 4.6), opus (Claude Opus 4.6). Default: {DEFAULT_MODEL}")
     run_p.add_argument("--rounds", type=int, default=DEFAULT_MAX_ROUNDS,
                        help=f"Maximum optimization rounds (default: {DEFAULT_MAX_ROUNDS}).")
     run_p.add_argument("--json", dest="output_json", action="store_true",
