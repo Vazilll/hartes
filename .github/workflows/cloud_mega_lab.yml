@@ -36,12 +36,12 @@ jobs:
         run: |
           pytest tests/ -v
 
-      - name: Execute Recursive Flywheel Co-Evolution
+      - name: Execute Recursive Flywheel Co-Evolution (DSec & Gödel RSI)
         run: |
           python -c "
           from vazus_autonomous_harness.flywheel.recursive_runner import run_evolution_flywheel
           history = run_evolution_flywheel(rounds=2)
-          print(f'Completed {len(history)} cloud evolution rounds')
+          print(f'Completed {len(history.get(\"rounds\", []))} cloud evolution rounds with DSec task slicing and Gödel RSI distillation')
           "
 
       - name: Update Cloud Telemetry & Research Log
@@ -62,6 +62,7 @@ jobs:
           - **SMT Z3 Invariants**: PASS (Latency: {report.z3_latency_ms:.3f} ms)
           - **Total Skills**: {report.total_skills}
           - **Environment**: Cloud VM (GitHub Actions Runner)
+          - **DSec Task Slicing**: ACTIVE (Adversarial Red-Teaming & Bounded Slices)
           - **Hardware Impact on User Laptop**: 0% (Headless Cloud)
           '''
           current = log_path.read_text(encoding='utf-8') if log_path.exists() else '# Hartes Autonomous Cloud Mega-Lab Experiment Log\n'
@@ -72,9 +73,10 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "Hartes Cloud Mega-Lab [Bot]"
-          git add CLOUD_LAB_LOG.md
+          git add CLOUD_LAB_LOG.md vazus_autonomous_harness/skills/generated/
           git commit -m "chore(cloud-lab): Autonomous co-evolution cycle [skip ci]" || echo "No changes to commit"
           git push origin main || echo "Push skipped"
+
 
       - name: Trigger Google Jules Cloud VM Autonomous Sprint
         env:
