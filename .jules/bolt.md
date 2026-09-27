@@ -1,0 +1,3 @@
+## 2024-06-25 - Pure Python Vector Computation Optimization
+**Learning:** In codebases avoiding dependencies like NumPy (e.g., in `vazus_autonomous_harness`'s preflight filter where speed is paramount and pure Python is used for FTS embedding matching), standard Python math operations for vector similarity are significant bottlenecks. Specifically, `sum(a * a for a in v)` with `math.sqrt()` is much slower than `math.hypot(*v)`. Similarly, `sum(a * b for a, b in zip(v1, v2))` is much slower than `sum(map(operator.mul, v1, v2))`.
+**Action:** When optimizing dense vector math in pure Python (especially high-frequency routines like cosine similarity), use `math.hypot(*vec)` for L2 norms and `sum(map(operator.mul, v1, v2))` for dot products.
