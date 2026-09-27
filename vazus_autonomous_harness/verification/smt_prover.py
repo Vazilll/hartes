@@ -31,10 +31,14 @@ class SMTProofResult:
     details: str = ""
     structured_details: Optional[List[Dict[str, Any]]] = None
 
+    @property
+    def is_valid(self) -> bool:
+        return self.verified
+
     def __getitem__(self, key: str) -> Any:
         if key in ("status", "solver_status", "smt_solver_status"):
             return self.status
-        if key == "equivalent":
+        if key in ("equivalent", "is_valid", "valid"):
             return self.verified
         if key == "counterexample":
             return self.counterexample
@@ -373,6 +377,63 @@ class SMTProver:
                 result_z3 = z3.Int("result")
 
             z3_vars["result"] = result_z3
+
+            # 1. Z3-based precondition satisfiability check (anti-vacuous contract check)
+            if requires:
+                pre_solver = z3.Solver()
+                pre_solver.set("timeout", self.timeout_ms)
+                for req in requires:
+                    req_ast = ast.parse(req.strip(), mode="eval").body
+                    pre_solver.add(_parse_expr_to_z3(req_ast, z3_vars))
+                if pre_solver.check() == z3.unsat:
+                    return SMTProofResult(
+                        verified=False,
+                        status="VACUOUS_CONTRACT",
+                        details=f"Preconditions are unsatisfiable (contradictory) in Z3 for function '{node.name}'."
+                    )
+
+            # 2. Z3-based tautology check on postconditions (identity tautology rejection)
+            if ensures:
+                taut_vars: Dict[str, Any] = {}
+                for arg in node.args.args:
+                    ann = getattr(arg, "annotation", None)
+                    ann_id = getattr(ann, "id", "") if ann else ""
+                    if ann_id == "float":
+                        taut_vars[arg.arg] = z3.Real(arg.arg)
+                    elif ann_id == "bool":
+                        taut_vars[arg.arg] = z3.Bool(arg.arg)
+                    else:
+                        taut_vars[arg.arg] = z3.Int(arg.arg)
+                taut_vars["result"] = z3.Int("result")
+
+                for ens in ensures:
+                    ens_ast = ast.parse(ens.strip(), mode="eval").body
+                    ens_taut_z3 = _parse_expr_to_z3(ens_ast, taut_vars)
+                    taut_solver = z3.Solver()
+                    taut_solver.set("timeout", self.timeout_ms)
+                    taut_solver.add(z3.Not(ens_taut_z3))
+                    if taut_solver.check() == z3.unsat:
+                        return SMTProofResult(
+                            verified=False,
+                            status="VACUOUS_CONTRACT",
+                            details=f"Tautological identity postcondition ':ensures: {ens}' is universally valid (identity tautology) in Z3."
+                        )
+
+                if len(ensures) > 1:
+                    all_ens_z3 = []
+                    for ens in ensures:
+                        ens_ast = ast.parse(ens.strip(), mode="eval").body
+                        all_ens_z3.append(_parse_expr_to_z3(ens_ast, taut_vars))
+                    conj_taut = z3.And(*all_ens_z3)
+                    taut_solver = z3.Solver()
+                    taut_solver.set("timeout", self.timeout_ms)
+                    taut_solver.add(z3.Not(conj_taut))
+                    if taut_solver.check() == z3.unsat:
+                        return SMTProofResult(
+                            verified=False,
+                            status="VACUOUS_CONTRACT",
+                            details="Tautological identity postcondition conjunction is universally valid in Z3."
+                        )
 
             solver = z3.Solver()
             solver.set("timeout", self.timeout_ms)

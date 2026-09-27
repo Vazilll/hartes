@@ -1,0 +1,38 @@
+name: "Warm-Ping Cloud Run (Anti-Cold-Start)"
+
+# Pings Cloud Run every 5 minutes to keep container warm.
+# Free: GitHub Actions gives 2000 min/month for public repos.
+# 5-min interval = ~8640 pings/month = ~144 min used (well within free tier).
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  warm-ping:
+    name: "Ping /health"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read Service URL
+        id: url
+        run: |
+          # Fallback to secret if file not available
+          if [ -n "${{ secrets.CLOUD_RUN_URL }}" ]; then
+            echo "url=${{ secrets.CLOUD_RUN_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=https://gemini-bridge-placeholder.run.app" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Warm ping
+        run: |
+          URL="${{ steps.url.outputs.url }}"
+          echo "Pinging: ${URL}/health"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${URL}/health" || echo "000")
+          echo "Response: HTTP $HTTP"
+          if [ "$HTTP" = "200" ]; then
+            echo "✅ Cloud Run warm"
+          elif [ "$HTTP" = "000" ]; then
+            echo "⚠️ Cloud Run not yet deployed — skipping"
+          else
+            echo "⚠️ Unexpected HTTP $HTTP — may be cold starting"
+          fi

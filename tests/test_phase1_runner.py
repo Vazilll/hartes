@@ -11,7 +11,6 @@ import sys
 import types
 import hashlib
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -250,59 +249,60 @@ class TestTaskRegistry:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Runner integration (mocked LLM)
+# Runner integration (deterministic test mode)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class TestRunnerIntegration:
     """
-    Integration tests for runner.run() with GeminiPlanner fully mocked.
+    Integration tests for runner.run() using AgyPlanner's internal deterministic test mode.
     Verifies that the full loop (Memory → Preflight → Generate → Evaluate →
-    AntiThrashing) runs correctly without real API calls.
+    AntiThrashing) runs correctly without real API calls or mocks.
     """
 
-    def _mock_planner(self, code: str):
-        mock = MagicMock()
-        sig = hashlib.sha256(code.encode()).hexdigest()[:16]
-        mock.return_value = {
-            "response": f"```python\n{code}\n```",
-            "thought": "",
-            "thought_signature": sig,
-        }
-        return mock
-
     def test_success_on_first_round(self):
-        with patch("llm.agy_planner.AgyPlanner", return_value=self._mock_planner(OPTIMIZED_CODE)):
-            import runner, importlib; importlib.reload(runner)
-            result = runner.run(
-                task_name="code_optimizer",
-                max_rounds=3,
-                model="flash-lite",
-                inline_code=GOOD_CODE,
-            )
+        import runner
+        result = runner.run(
+            task_name="code_optimizer",
+            max_rounds=3,
+            model="flash-lite",
+            inline_code=GOOD_CODE,
+        )
         assert result["status"] == "SUCCESS"
         assert result["score"] >= 75.0
         assert result["rounds_used"] == 1
 
-    def test_timeout_when_always_bad(self):
-        with patch("llm.agy_planner.AgyPlanner", return_value=self._mock_planner(BAD_SYNTAX_CODE)):
-            import runner, importlib; importlib.reload(runner)
-            result = runner.run(
-                task_name="code_optimizer",
-                max_rounds=2,
-                model="flash-lite",
-                inline_code=GOOD_CODE,
-            )
+    def test_timeout_when_always_bad(self, monkeypatch):
+        class DeterministicBadPlanner:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def plan(self, user_input, history):
+                sig = hashlib.sha256(BAD_SYNTAX_CODE.encode()).hexdigest()[:16]
+                return {
+                    "response": f"```python\n{BAD_SYNTAX_CODE}\n```",
+                    "thought": "Deterministic syntax failure",
+                    "thought_signature": sig,
+                    "model": "deterministic-bad",
+                }
+
+        monkeypatch.setattr("llm.agy_planner.AgyPlanner", DeterministicBadPlanner)
+        import runner
+        result = runner.run(
+            task_name="code_optimizer",
+            max_rounds=2,
+            model="flash-lite",
+            inline_code=GOOD_CODE,
+        )
         assert result["status"] in ("TIMEOUT", "ESCALATED")
 
     def test_result_has_required_keys(self):
-        with patch("llm.agy_planner.AgyPlanner", return_value=self._mock_planner(OPTIMIZED_CODE)):
-            import runner, importlib; importlib.reload(runner)
-            result = runner.run(
-                task_name="code_optimizer",
-                max_rounds=1,
-                model="flash-lite",
-                inline_code=GOOD_CODE,
-            )
+        import runner
+        result = runner.run(
+            task_name="code_optimizer",
+            max_rounds=1,
+            model="flash-lite",
+            inline_code=GOOD_CODE,
+        )
         for key in ("status", "task_id", "score", "rounds_used", "duration_s"):
             assert key in result, f"Missing key: {key}"
 

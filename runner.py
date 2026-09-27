@@ -42,7 +42,7 @@ EXIT_ERROR     = 3
 
 # ── Default hyperparameters ───────────────────────────────────────────────────
 DEFAULT_MAX_ROUNDS = 5
-DEFAULT_MODEL      = "flash-lite"
+DEFAULT_MODEL      = "flash-fast"
 
 
 def run(
@@ -113,12 +113,37 @@ def run(
             _record_failure(memory, task, f"generation_error: {exc}", round_n, 0.0)
             continue
 
+        # 2b. Pre-flight negative constraint gate
+        try:
+            pfr = preflight.check_candidate(candidate.code)
+            if pfr.is_blocked:
+                logger.warning("Pre-flight BLOCKED: %s", pfr.violation_message)
+                _record_failure(memory, task, f"preflight_blocked: {pfr.violation_message}", round_n, 0.0)
+                continue
+        except Exception as exc:
+            logger.debug("Pre-flight check skipped: %s", exc)
+
         # 3. Evaluate candidate (objective scorer)
         try:
-            score = task.evaluator(candidate)
+            baseline_code = getattr(task, 'seed', '') or ''
+            test_cmd = getattr(task, 'test_command', None)
+            qs = quality.evaluate(
+                candidate_code=candidate.code,
+                baseline_code=baseline_code,
+                test_command=test_cmd,
+                context_prompt=task.problem_description,
+            )
+            score = qs.total_score
+            logger.info("Quality: SMT=%.0f Empirical=%.0f Parsimony=%.0f Sovereignty=%.0f",
+                        qs.correctness_smt, qs.empirical_integrity,
+                        qs.parsimony_efficiency, qs.academic_sovereignty)
         except Exception as exc:
-            logger.error("Evaluation failed: %s", exc)
-            score = 0.0
+            logger.error("Quality evaluation failed, falling back: %s", exc)
+            try:
+                score = task.evaluator(candidate)
+            except Exception:
+                score = 0.0
+            qs = None
 
         logger.info("Score: %.1f / 100.0 (admissible: %s)", score, task.is_admissible(score))
 
@@ -128,7 +153,7 @@ def run(
             best_candidate = candidate
 
         # 4. Record result in episodic memory
-        _record_failure(memory, task, candidate.code[:200], round_n, score)
+        _record_failure(memory, task, candidate.code[:200], round_n, score, qs=qs)
 
         # 5a. Accept if admissible
         if task.is_admissible(score):
@@ -182,27 +207,29 @@ def run(
     return _serialize_result(result)
 
 
-def _record_failure(memory, task, summary: str, round_n: int, score: float) -> None:
+def _record_failure(memory, task, summary: str, round_n: int, score: float, qs=None) -> None:
     """Store a reflexion record for every round (pass or fail)."""
     try:
         from vazus_autonomous_harness.memory.reflexion_engine import (
             ContinuousReflexionGenerator,
         )
         from vazus_autonomous_harness.verification.quality_engine import QualityScore
-        # Build a minimal QualityScore for the reflexion engine
-        qs = QualityScore(
-            total_score=score,
-            correctness_smt=min(score * 0.4, 40.0),
-            empirical_integrity=min(score * 0.3, 30.0),
-            parsimony_efficiency=min(score * 0.15, 15.0),
-            academic_sovereignty=min(score * 0.15, 15.0),
-            is_admissible=score >= 75.0,
+        # Build a minimal QualityScore for the reflexion engine if not provided
+        if qs is None:
+            qs = QualityScore(
+                total_score=score,
+                correctness_smt=min(score * 0.4, 40.0),
+                empirical_integrity=min(score * 0.3, 30.0),
+                parsimony_efficiency=min(score * 0.15, 15.0),
+                academic_sovereignty=min(score * 0.15, 15.0),
+                is_admissible=score >= 75.0,
+            )
+        record = ContinuousReflexionGenerator().from_quality_score(
+            task_id=task.task_id,
+            candidate_code=summary[:200],
+            score=qs,
         )
-        record = ContinuousReflexionGenerator(task_id=task.task_id).from_quality_score(
-            candidate_summary=summary[:200],
-            quality_score=qs,
-        )
-        memory.insert_record(record)
+        memory.record_failure(record)
     except Exception:
         pass  # reflexion is best-effort; never crash the main loop
 
@@ -241,10 +268,17 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--test-cmd", dest="test_command", help="Shell command to run tests.")
     run_p.add_argument("--model", default=DEFAULT_MODEL,
                        help=f"LLM model for agy. Options: flash (Gemini 3.8 Flash), flash-lite (Gemini 3.7 Flash), pro (Gemini 3.1 Pro), sonnet (Claude Sonnet 4.6), opus (Claude Opus 4.6). Default: {DEFAULT_MODEL}")
-    run_p.add_argument("--rounds", type=int, default=DEFAULT_MAX_ROUNDS,
-                       help=f"Maximum optimization rounds (default: {DEFAULT_MAX_ROUNDS}).")
     run_p.add_argument("--json", dest="output_json", action="store_true",
                        help="Output result as JSON.")
+
+    # daemon
+    daemon_p = subparsers.add_parser("daemon", help="Run the always-on autonomous flywheel daemon.")
+    daemon_p.add_argument("--interval", type=float, default=30.0,
+                          help="Loop tick interval in seconds (default: 30.0).")
+    daemon_p.add_argument("--model", default=DEFAULT_MODEL,
+                          help=f"Model for resolving tasks (default: {DEFAULT_MODEL}).")
+    daemon_p.add_argument("--max-cycles", type=int, default=None,
+                          help="Stop after N cycles (default: run indefinitely).")
     return parser
 
 
@@ -303,6 +337,16 @@ def main(argv: Optional[list] = None) -> int:
             "ERROR":     EXIT_ERROR,
         }
         return status_map.get(result["status"], EXIT_ERROR)
+
+    if args.command == "daemon":
+        from vazus_autonomous_harness.daemon.autonomous_flywheel import AutonomousFlywheelDaemon
+        daemon = AutonomousFlywheelDaemon(
+            interval_seconds=args.interval,
+            model=args.model,
+            max_cycles=args.max_cycles,
+        )
+        daemon.start()
+        return EXIT_SUCCESS
 
     return EXIT_ERROR
 

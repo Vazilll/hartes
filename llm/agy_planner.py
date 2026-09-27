@@ -34,15 +34,20 @@ DEFAULT_AGY_PATH = (
 MODEL_ALIASES: Dict[str, str] = {
     "flash": "gemini-3.8-flash-high",
     "flash-lite": "gemini-3.7-flash-high",
+    "flash-fast": "gemini-3.8-flash-low",
+    "flash-low": "gemini-3.8-flash-low",
+    "flash-high": "gemini-3.8-flash-high",
+    "flash-medium": "gemini-3.8-flash-medium",
     "pro": "gemini-3.1-pro-high",
+    "pro-high": "gemini-3.1-pro-high",
     "pro-low": "gemini-3.1-pro-low",
     "sonnet": "claude-sonnet-4-6",
     "opus": "claude-opus-4-6-thinking",
     "gpt": "gpt-oss-120b-medium",
 }
 
-DEFAULT_MODEL = "gemini-3.8-flash-high"
-DEFAULT_TIMEOUT_S = 180.0
+DEFAULT_MODEL = "gemini-3.8-flash-low"
+DEFAULT_TIMEOUT_S = 60.0
 
 
 def is_test_mode() -> bool:
@@ -80,12 +85,12 @@ def resolve_model_name(model_name: str) -> str:
         return "claude-opus-4-6-thinking"
     if "120b" in k or "gpt" in k:
         return "gpt-oss-120b-medium"
-    if "pro" in k or "3.1" in k:
-        return "gemini-3.1-pro-high"
+    if "pro" in k:
+        return "gemini-3.1-pro-low" if "low" in k else "gemini-3.1-pro-high"
     if "3.7" in k:
-        return "gemini-3.7-flash-high"
+        return "gemini-3.7-flash-low" if ("low" in k or "fast" in k) else "gemini-3.7-flash-high"
     if "3.8" in k or "flash" in k:
-        return "gemini-3.8-flash-high"
+        return "gemini-3.8-flash-low" if ("low" in k or "fast" in k) else "gemini-3.8-flash-high"
     return model_name
 
 
@@ -143,7 +148,15 @@ class AgyPlanner:
         self.resolved_model = resolve_model_name(model)
         self.agy_path = resolve_agy_binary(agy_path)
         self.timeout_seconds = timeout_seconds
-        self.cwd = cwd or Path(r"C:\vazus")
+
+        # Isolate working directory so agy doesn't recursively index the 30GB repository
+        isolated_scratch = Path(r"C:\vazus\hartes\scratch\agy_worker")
+        try:
+            isolated_scratch.mkdir(parents=True, exist_ok=True)
+            self.cwd = cwd or isolated_scratch
+        except Exception:
+            self.cwd = cwd or Path(r"C:\vazus")
+
         self.effort = effort
 
     def is_available(self) -> bool:
@@ -189,6 +202,7 @@ class AgyPlanner:
             full_prompt,
             "--model",
             self.resolved_model,
+            "--disable-slash-commands",
             "--output-format",
             "text",
             "--dangerously-skip-permissions",

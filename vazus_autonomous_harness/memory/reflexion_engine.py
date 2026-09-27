@@ -417,6 +417,65 @@ class ContinuousReflexionGenerator:
             remediation_hint=remediation_hint,
         )
 
+    def from_titans_surprise(
+        self,
+        task_id: str,
+        surprise_loss: float,
+        threshold: float = 25.0,
+        context: str = "",
+        candidate_code: str = "",
+        key_vector: Optional[Any] = None,
+        value_vector: Optional[Any] = None,
+    ) -> Optional[ReflexionRecord]:
+        """
+        Titans surprise-gated retrospective generation (arXiv:2501.00663).
+        If surprise_loss (||x̂_t - x_t||^2) exceeds the given threshold,
+        generates and returns a structured ReflexionRecord capturing the epistemic anomaly.
+        If surprise_loss <= threshold, returns None (no retrospective needed).
+        """
+        if surprise_loss <= threshold:
+            return None
+
+        root_cause = (
+            f"Epistemic anomaly detected by Titans Neural Memory: "
+            f"surprise loss {surprise_loss:.4f} exceeded threshold {threshold:.4f}."
+        )
+        if context:
+            root_cause += f" Context: {context.strip()[:150]}"
+
+        violated_invariant = (
+            "Titans Epistemic Continuity Invariant: test-time surprise loss "
+            f"L_surprise <= {threshold:.2f}."
+        )
+
+        remediation_hint = (
+            "Re-calibrate associative memory weights via test-time adaptation "
+            "or explore alternative solution paths."
+        )
+
+        rules: List[ExecutableNegativeConstraint] = []
+        if candidate_code and candidate_code.strip():
+            rules.append(
+                ExecutableNegativeConstraint(
+                    rule_id=f"neg_titans_{uuid.uuid4().hex[:6]}",
+                    rule_type="REGEX_DENY",
+                    pattern=re.escape(candidate_code.strip()[:50]),
+                    description=f"Block high-surprise anomaly pattern (loss={surprise_loss:.2f})",
+                    target_scope="code",
+                )
+            )
+
+        return self.generate_record(
+            task_id=task_id,
+            candidate_code=candidate_code,
+            root_cause=root_cause,
+            violated_invariant=violated_invariant,
+            negative_rules=rules,
+            fitness_score=max(0.0, 100.0 - float(surprise_loss)),
+            category="titans_surprise_anomaly",
+            remediation_hint=remediation_hint,
+        )
+
     def _summarize_code(self, code: str, max_lines: int = 4) -> str:
         """Extracts brief signature/summary lines from candidate code."""
         if not code or not code.strip():
@@ -481,3 +540,29 @@ class ReflexionMemoryStore:
         check_res = self.preflight_filter.check_candidate(candidate_code)
         is_blocked = not check_res.allowed
         return (is_blocked, check_res.violation_message)
+
+    def check_and_record_titans_surprise(
+        self,
+        task_id: str,
+        surprise_loss: float,
+        threshold: float = 25.0,
+        context: str = "",
+        candidate_code: str = "",
+    ) -> Optional[ReflexionRecord]:
+        """
+        Surprise-gated episodic recording:
+        If surprise_loss > threshold, synthesizes ReflexionRecord, persists to SQLite SSOT & Wiki,
+        reloads negative constraint filter, and returns the record.
+        Otherwise returns None.
+        """
+        generator = ContinuousReflexionGenerator()
+        record = generator.from_titans_surprise(
+            task_id=task_id,
+            surprise_loss=surprise_loss,
+            threshold=threshold,
+            context=context,
+            candidate_code=candidate_code,
+        )
+        if record:
+            self.record_failure(record)
+        return record

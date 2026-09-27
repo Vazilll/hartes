@@ -9,9 +9,36 @@ import json
 import time
 import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
 import httpx
+
+
+class InMemoryHttpTransport(httpx.BaseTransport):
+    """Native in-memory HTTP transport simulating remote GitHub/Jules endpoints."""
+
+    def __init__(self, should_fail_network: bool = False):
+        super().__init__()
+        self.should_fail_network = should_fail_network
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        if self.should_fail_network:
+            raise httpx.ConnectError("Connection refused")
+        url = str(request.url)
+        if "missing_workflow" in url:
+            return httpx.Response(404, text="Not Found")
+        if "jules" in url or "googleapis.com" in url:
+            return httpx.Response(201, json={"status": "session_created"})
+        if "workflows" in url:
+            return httpx.Response(204)
+        return httpx.Response(200)
+
+
+class InMemoryHttpClient(httpx.Client):
+    """Test double for httpx.Client routing through InMemoryHttpTransport."""
+
+    def __init__(self, *args, should_fail_network: bool = False, **kwargs):
+        kwargs["transport"] = InMemoryHttpTransport(should_fail_network=should_fail_network)
+        super().__init__(*args, **kwargs)
 
 from vazus_autonomous_harness.daemon.vps_daemon import (
     VpsDaemon,
@@ -242,47 +269,43 @@ class TestVpsDaemon:
         assert res["colab_queue"]["pending_count"] == 1
         assert res["colab_queue"]["worker_alive"] is False
 
-    def test_daemon_dispatch_cloud_job_github_success(self):
+    def test_daemon_dispatch_cloud_job_github_success(self, monkeypatch):
         daemon = VpsDaemon()
         payload = {"ref": "main", "inputs": {"rounds": "2"}}
+        monkeypatch.setattr(httpx, "Client", InMemoryHttpClient)
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 204
+        success = daemon.dispatch_cloud_job("cloud_mega_lab.yml", payload)
+        assert success is True
+        assert len(daemon.dispatched_jobs_history) == 1
+        assert daemon.dispatched_jobs_history[0]["success"] is True
 
-        with patch("httpx.Client.post", return_value=mock_resp):
-            success = daemon.dispatch_cloud_job("cloud_mega_lab.yml", payload)
-            assert success is True
-            assert len(daemon.dispatched_jobs_history) == 1
-            assert daemon.dispatched_jobs_history[0]["success"] is True
-
-    def test_daemon_dispatch_cloud_job_github_failure(self):
+    def test_daemon_dispatch_cloud_job_github_failure(self, monkeypatch):
         daemon = VpsDaemon()
-        mock_resp = MagicMock()
-        mock_resp.status_code = 404
-        mock_resp.text = "Not Found"
+        monkeypatch.setattr(httpx, "Client", InMemoryHttpClient)
 
-        with patch("httpx.Client.post", return_value=mock_resp):
-            success = daemon.dispatch_cloud_job("missing_workflow.yml", {})
-            assert success is False
+        success = daemon.dispatch_cloud_job("missing_workflow.yml", {})
+        assert success is False
 
-    def test_daemon_dispatch_cloud_job_jules_success(self):
+    def test_daemon_dispatch_cloud_job_jules_success(self, monkeypatch):
         daemon = VpsDaemon()
         payload = {"prompt": "Run SMT formal proof gate", "title": "Jules Sprint"}
+        monkeypatch.setattr(httpx, "Client", InMemoryHttpClient)
 
-        mock_resp = MagicMock()
-        mock_resp.status_code = 201
+        success = daemon.dispatch_cloud_job("jules", payload)
+        assert success is True
+        assert daemon.dispatched_jobs_history[-1]["target"] == "google_jules"
 
-        with patch("httpx.Client.post", return_value=mock_resp):
-            success = daemon.dispatch_cloud_job("jules", payload)
-            assert success is True
-            assert daemon.dispatched_jobs_history[-1]["target"] == "google_jules"
-
-    def test_daemon_dispatch_cloud_job_network_error(self):
+    def test_daemon_dispatch_cloud_job_network_error(self, monkeypatch):
         daemon = VpsDaemon()
-        with patch("httpx.Client.post", side_effect=httpx.ConnectError("Connection refused")):
-            success = daemon.dispatch_cloud_job("cloud_mega_lab.yml", {})
-            assert success is False
-            assert daemon.dispatched_jobs_history[-1]["success"] is False
+        monkeypatch.setattr(
+            httpx,
+            "Client",
+            lambda *args, **kwargs: InMemoryHttpClient(should_fail_network=True, **kwargs),
+        )
+
+        success = daemon.dispatch_cloud_job("cloud_mega_lab.yml", {})
+        assert success is False
+        assert daemon.dispatched_jobs_history[-1]["success"] is False
 
     @pytest.mark.anyio
     async def test_daemon_run_loop_bounded_ticks(self, temp_colab_queue):

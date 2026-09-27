@@ -21,9 +21,25 @@ Covers:
 
 import time
 import subprocess
-from unittest.mock import patch
 
 import pytest
+
+
+class DummySubprocessRunner:
+    """Native deterministic subprocess runner test double."""
+
+    def __init__(self, returncode: int = 0, stdout: str = "", stderr: str = ""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+    def __call__(self, cmd, *args, **kwargs) -> subprocess.CompletedProcess:
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=self.returncode,
+            stdout=self.stdout,
+            stderr=self.stderr,
+        )
 
 from vazus_autonomous_harness.topology.coordinator import (
     NodeRegistration,
@@ -394,34 +410,36 @@ class TestGitFastForwardSync:
         assert result["success"] is True
         assert result["split_brain_prevented"] is True
 
-    def test_conflict_detection_prevents_sync(self):
+    def test_conflict_detection_prevents_sync(self, monkeypatch):
         sync = GitFastForwardSync()
-        with patch.object(sync, "is_git_repository", return_value=True):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess(
-                    args=["git", "status", "--porcelain"],
-                    returncode=0,
-                    stdout="UU file_in_conflict.py\nM modified.py\n",
-                    stderr="",
-                )
-                is_clean, conflicts = sync.check_working_tree_clean(".")
-                assert is_clean is False
-                assert "UU file_in_conflict.py" in conflicts
+        monkeypatch.setattr(sync, "is_git_repository", lambda repo_path=None: True)
 
-                res = sync.safe_fast_forward_sync()
-                assert res["success"] is False
-                assert res["split_brain_prevented"] is True
-                assert "Active merge conflicts detected" in res["reason"]
+        conflict_runner = DummySubprocessRunner(
+            returncode=0,
+            stdout="UU file_in_conflict.py\nM modified.py\n",
+            stderr="",
+        )
+        monkeypatch.setattr(subprocess, "run", conflict_runner)
 
-    def test_divergence_non_fast_forward_rejection(self):
+        is_clean, conflicts = sync.check_working_tree_clean(".")
+        assert is_clean is False
+        assert "UU file_in_conflict.py" in conflicts
+
+        res = sync.safe_fast_forward_sync()
+        assert res["success"] is False
+        assert res["split_brain_prevented"] is True
+        assert "Active merge conflicts detected" in res["reason"]
+
+    def test_divergence_non_fast_forward_rejection(self, monkeypatch):
         sync = GitFastForwardSync()
-        with patch.object(sync, "is_git_repository", return_value=True):
-            with patch.object(sync, "check_working_tree_clean", return_value=(True, [])):
-                with patch.object(sync, "can_fast_forward", return_value=(False, "HEAD has diverged")):
-                    res = sync.safe_fast_forward_sync(remote_ref="origin/vazus-dev")
-                    assert res["success"] is False
-                    assert res["split_brain_prevented"] is True
-                    assert "Non-fast-forward divergence detected" in res["reason"]
+        monkeypatch.setattr(sync, "is_git_repository", lambda repo_path=None: True)
+        monkeypatch.setattr(sync, "check_working_tree_clean", lambda repo_path=None: (True, []))
+        monkeypatch.setattr(sync, "can_fast_forward", lambda target_ref, base_ref="HEAD", repo_path=None: (False, "HEAD has diverged"))
+
+        res = sync.safe_fast_forward_sync(remote_ref="origin/vazus-dev")
+        assert res["success"] is False
+        assert res["split_brain_prevented"] is True
+        assert "Non-fast-forward divergence detected" in res["reason"]
 
 
 # ==============================================================================
@@ -493,29 +511,31 @@ class TestAgyQuotaOffloader:
         assert "gemini-3.1-pro-high" in models
         assert "claude-3.7-sonnet" in models
 
-    def test_offloader_when_cli_unavailable(self, tmp_path):
+    def test_offloader_when_cli_unavailable(self, monkeypatch, tmp_path):
         fake_path = tmp_path / "non_existent_agy.exe"
         offloader = AgyQuotaOffloader(agy_path=fake_path)
-        with patch.object(offloader, "is_available", return_value=False):
-            res = offloader.offload_task("Test prompt", model="gemini-3.1-pro-high")
-            assert res["success"] is False
-            assert res["quota_offloaded"] is False
-            assert "not found" in res["error"]
+        monkeypatch.setattr(offloader, "is_available", lambda: False)
+        res = offloader.offload_task("Test prompt", model="gemini-3.1-pro-high")
+        assert res["success"] is False
+        assert res["quota_offloaded"] is False
+        assert "not found" in res["error"]
 
-    def test_offloader_task_dispatch_mock(self):
-        offloader = AgyQuotaOffloader()
-        with patch.object(offloader, "is_available", return_value=True):
-            with patch("subprocess.run") as mock_run:
-                mock_run.return_value = subprocess.CompletedProcess(
-                    args=["agy.exe"],
-                    returncode=0,
-                    stdout='{"response": "Offloaded to Gemini 3.1 Pro High", "tokens": 42}',
-                    stderr="",
-                )
-                res = offloader.offload_task("Write quicksort in python")
-                assert res["success"] is True
-                assert res["quota_offloaded"] is True
-                assert res["parsed_json"]["response"] == "Offloaded to Gemini 3.1 Pro High"
+    def test_offloader_task_dispatch_native(self, monkeypatch, tmp_path):
+        fake_binary = tmp_path / "agy.exe"
+        fake_binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        offloader = AgyQuotaOffloader(agy_path=fake_binary)
+
+        dummy_runner = DummySubprocessRunner(
+            returncode=0,
+            stdout='{"response": "Offloaded to Gemini 3.1 Pro High", "tokens": 42}',
+            stderr="",
+        )
+        monkeypatch.setattr(subprocess, "run", dummy_runner)
+
+        res = offloader.offload_task("Write quicksort in python")
+        assert res["success"] is True
+        assert res["quota_offloaded"] is True
+        assert res["parsed_json"]["response"] == "Offloaded to Gemini 3.1 Pro High"
 
 
 # ==============================================================================

@@ -27,6 +27,14 @@ from vazus_autonomous_harness.memory.preflight_filter import (
     PreFlightCheckResult,
     ASTNegativeConstraintVisitor,
 )
+from vazus_autonomous_harness.memory.titans import (
+    TitansNeuralMemory,
+    TitansConfig,
+)
+
+# Ensure recall alias exists for interface compatibility
+if not hasattr(TitansNeuralMemory, "recall"):
+    TitansNeuralMemory.recall = TitansNeuralMemory.retrieve
 
 __all__ = [
     "ExecutableNegativeConstraint",
@@ -39,6 +47,8 @@ __all__ = [
     "PreFlightFilterEngine",
     "PreFlightCheckResult",
     "ASTNegativeConstraintVisitor",
+    "TitansNeuralMemory",
+    "TitansConfig",
     "DEFAULT_DB_PATH",
     "FALLBACK_DB_PATH",
     "DEFAULT_WIKI_ROOT",
