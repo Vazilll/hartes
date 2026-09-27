@@ -11,7 +11,10 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import httpx
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 from vazus_autonomous_harness.daemon.vps_daemon import (
     VpsDaemon,
@@ -23,6 +26,8 @@ from vazus_autonomous_harness.daemon.colab_bridge import (
     ColabBridge,
 )
 
+
+pytestmark = pytest.mark.skipif(httpx is None, reason="httpx is not installed")
 
 @pytest.fixture
 def temp_colab_queue(tmp_path):
