@@ -38,8 +38,8 @@ SOCRATIC_INDICATORS = [
 ]
 
 ALLOWED_JAIL_PREFIXES = [
-    Path(r"C:\vazus"),
-    Path(os.path.expanduser("~/.gemini")),
+    r"C:\vazus",
+    os.path.expanduser("~/.gemini"),
 ]
 
 
@@ -125,18 +125,19 @@ class AcademicSovereigntyGuard:
         if not path_str or not path_str.strip():
             return True
 
-        try:
-            target_path = Path(path_str).resolve()
-            for allowed in ALLOWED_JAIL_PREFIXES:
-                try:
-                    allowed_resolved = allowed.resolve()
-                    if target_path == allowed_resolved or allowed_resolved in target_path.parents:
-                        return True
-                except Exception:
-                    continue
+        # Normalize slashes to forward slashes for robust cross-platform string-based checking
+        norm_path = path_str.replace('\\', '/')
+
+        # Block directory traversal attempts explicitly
+        if '/../' in norm_path or norm_path.endswith('/..'):
             return False
-        except Exception:
-            return False
+
+        for allowed in ALLOWED_JAIL_PREFIXES:
+            norm_allowed = allowed.replace('\\', '/')
+            if norm_path == norm_allowed or norm_path.startswith(norm_allowed + '/'):
+                return True
+
+        return False
 
     def verify_response(self, prompt: str, response: str) -> Dict[str, Any]:
         """
