@@ -20,7 +20,7 @@ jobs:
           if [ -n "${{ secrets.CLOUD_RUN_URL }}" ]; then
             echo "url=${{ secrets.CLOUD_RUN_URL }}" >> "$GITHUB_OUTPUT"
           else
-            echo "url=https://gemini-bridge-placeholder.run.app" >> "$GITHUB_OUTPUT"
+            echo "url=https://vazus-mcp-bridge-production.up.railway.app" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Warm ping
