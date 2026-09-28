@@ -23,9 +23,6 @@ dev = [
     "pytest-asyncio>=0.23.0",
 ]
 
-[tool.setuptools.packages.find]
-include = ["vazus_autonomous_harness*"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
