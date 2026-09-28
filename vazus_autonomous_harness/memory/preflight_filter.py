@@ -466,10 +466,10 @@ class PreFlightFilter:
             return 0.0
 
         # ⚡ Bolt: Optimized pure Python math operations.
-        # using map(operator.mul) for dot product and math.hypot for L2 norm
+        # using map(operator.mul) for both dot product and L2 norm (sum of squares)
         dot = sum(map(operator.mul, v1, v2))
-        norm1 = math.hypot(*v1)
-        norm2 = math.hypot(*v2)
+        norm1 = math.sqrt(sum(map(operator.mul, v1, v1)))
+        norm2 = math.sqrt(sum(map(operator.mul, v2, v2)))
 
         if norm1 <= 1e-9 or norm2 <= 1e-9:
             return 0.0
