@@ -1,4 +1,0 @@
-## 2024-09-28 - Command Injection Risk with subprocess shell=True
-**Vulnerability:** Found `subprocess.run(test_command, shell=True)` used for dynamic code execution in `vazus_autonomous_harness/verification/quality_engine.py` evaluating `test_command` passed from user inputs.
-**Learning:** Using `shell=True` with user-provided commands allows trivial command injection attacks (e.g. `test_cmd; cat /etc/passwd`).
-**Prevention:** Avoid `shell=True` in subprocess operations, and use `shlex.split()` to parse the string into argument arrays to prevent execution of injected subshells and concatenated commands.
