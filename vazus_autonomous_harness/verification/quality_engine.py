@@ -13,6 +13,7 @@ Milestone 1 (F1, F3):
 
 import ast
 import logging
+import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -211,9 +212,13 @@ class QualityEvaluationEngine:
             empirical_integrity = 0.0
         elif test_command:
             try:
+                import os
+                # On Windows, subprocess.run(shell=False) natively accepts strings securely.
+                # On POSIX, we need shlex.split to securely parse the string without a shell.
+                cmd_args = test_command if os.name == 'nt' else shlex.split(test_command)
+
                 proc = subprocess.run(
-                    test_command,
-                    shell=True,
+                    cmd_args,
                     capture_output=True,
                     text=True,
                     timeout=30,

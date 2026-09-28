@@ -352,7 +352,7 @@ def test_quality_engine_rejection_on_test_failure():
     engine = QualityEvaluationEngine()
     code = "def add(a, b): return a + b"
     # Mocking test_command with a failing exit code command
-    score = engine.evaluate(candidate_code=code, test_command="exit 1")
+    score = engine.evaluate(candidate_code=code, test_command="python -c 'import sys; sys.exit(1)'")
     assert score.empirical_integrity == 0.0
     assert score.total_score <= 70.0
     assert score.is_admissible is False

@@ -132,6 +132,17 @@ class AcademicSovereigntyGuard:
                     allowed_resolved = allowed.resolve()
                     if target_path == allowed_resolved or allowed_resolved in target_path.parents:
                         return True
+
+                    # On Linux testing Windows paths (like C:\vazus), pathlib.Path handles it as a single string name.
+                    if os.name != 'nt' and '\\' in path_str:
+                        import pathlib
+                        import ntpath
+                        # Resolve path traversals (like ..) in Windows paths on Linux
+                        norm_target_str = ntpath.normpath(path_str)
+                        pure_target = pathlib.PureWindowsPath(norm_target_str)
+                        pure_allowed = pathlib.PureWindowsPath(allowed)
+                        if pure_target == pure_allowed or pure_allowed in pure_target.parents:
+                            return True
                 except Exception:
                     continue
             return False
