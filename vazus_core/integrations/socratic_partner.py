@@ -14,7 +14,7 @@ import json
 import sqlite3
 import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 
 if sys.platform == "win32":
     try:

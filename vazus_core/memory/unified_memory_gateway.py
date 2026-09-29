@@ -14,6 +14,7 @@ Eliminates memory fragmentation, split-brain knowledge, and redundant queries.
 """
 
 import os
+import re
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union

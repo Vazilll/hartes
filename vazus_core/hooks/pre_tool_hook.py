@@ -75,7 +75,7 @@ def _is_dangerous_command(command_str: str) -> bool:
 
 
 from typing import Optional
-from vazus_core.verification.substrate_guard import SubstrateGuard, ToolCallRequest
+from vazus_core.verification.substrate_guard import SubstrateGuard
 
 _DEFAULT_SUBSTRATE_GUARD: Optional[SubstrateGuard] = None
 

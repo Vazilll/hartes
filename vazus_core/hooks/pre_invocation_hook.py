@@ -62,11 +62,11 @@ except Exception as _import_err:
         except Exception as _write_err:
             logger.warning("Failed to write fallback pre-invocation HUD event: %s", _write_err)
 
-# Additional skill directories to search (built-in AGY skills included)
+# Skill search directories (Hermes native skills and Vazus project skills)
 SKILL_SEARCH_DIRS = [
-    r"C:\Users\Vaz\.gemini\config\skills",
-    r"C:\Users\Vaz\.gemini\antigravity-cli\builtin\skills",
-    r"C:\vazus\.agents\skills",
+    r"C:\vazus\skills",
+    r"C:\Users\Vaz\AppData\Local\hermes\hermes-agent\skills",
+    r"C:\Users\Vaz\.gemini\antigravity\builtin\skills",
 ]
 
 MAX_SKILLS_TO_INJECT = 3
@@ -196,9 +196,31 @@ def extract_user_prompt(hook_data: dict) -> str:
 
 
 def auto_select_skills(user_prompt: str) -> list:
-    """Uses DynamicSkillDispatcher to find top-k relevant skills for user prompt."""
-    if not user_prompt or len(user_prompt.strip()) < 10:
+    """Uses NousResearch HermesSkillEngine to dynamically match skills for user prompt."""
+    if not user_prompt or len(user_prompt.strip()) < 5:
         return []
+    try:
+        from vazus_core.skills.hermes_engine import HermesSkillEngine
+        engine = HermesSkillEngine()
+        matched = engine.route_skills(user_prompt, top_k=MAX_SKILLS_TO_INJECT)
+        result = []
+        for m in matched:
+            detail = engine.view_skill(m["name"])
+            if detail.get("success"):
+                content = detail.get("content", "").strip()
+                if len(content) > MAX_SKILL_CONTENT_CHARS:
+                    content = content[:MAX_SKILL_CONTENT_CHARS] + "\n\n[... truncated for context efficiency ...]"
+                result.append({
+                    "name": m["name"],
+                    "path": m.get("path", ""),
+                    "score": 0.95,
+                    "content": content
+                })
+        if result:
+            return result
+    except Exception as exc:
+        logger.debug("Hermes dynamic skill matching error: %s", exc)
+
     try:
         from vazus_core.engine.dynamic_skill_dispatcher import SkillIntentParser
 
@@ -207,7 +229,7 @@ def auto_select_skills(user_prompt: str) -> list:
 
         result = []
         for skill in matched:
-            if skill.score < 0.15:
+            if skill.score < 0.20:
                 continue
             try:
                 with open(skill.skill_md_path, "r", encoding="utf-8", errors="replace") as f:
@@ -230,23 +252,37 @@ def auto_select_skills(user_prompt: str) -> list:
 
 
 def _retrieve_user_profile(invocation_num: int) -> Optional[str]:
-    """Retrieves lean user profile on turn 0."""
+    """Retrieves live state checkpoint and lean user profile on turn 0."""
     if invocation_num != 0:
         return None
+    parts = []
+    
+    # 1. Live State Checkpoint (Level 1 Fast Checkpoint)
+    state_md_path = "C:/vazus/services/memory/STATE.md"
+    if os.path.exists(state_md_path):
+        try:
+            with open(state_md_path, "r", encoding="utf-8", errors="ignore") as f:
+                s_content = f.read().strip()
+                if s_content:
+                    parts.append(f"\n## ⚡ Vazus OS Live State (STATE.md)\n{s_content}\n")
+        except Exception as exc:
+            logger.debug("Failed reading live state: %s", exc)
+
+    # 2. User Profile (Level 3 Permanent Identity & Preferences)
     user_md_path = "C:/vazus/services/memory/USER.md"
-    if not os.path.exists(user_md_path):
-        return None
-    try:
-        with open(user_md_path, "r", encoding="utf-8", errors="ignore") as f:
-            u_content = f.read().strip()
-            max_chars = 2000
-            if len(u_content) > max_chars:
-                u_content = u_content[:max_chars] + "\n\n... [Backlog truncated -> vazus_unified_recall('backlog')]"
-            if u_content:
-                return f"\n## 👤 Vazus OS Profile\n{u_content}\n"
-    except Exception as exc:
-        logger.debug("Failed reading user profile: %s", exc)
-    return None
+    if os.path.exists(user_md_path):
+        try:
+            with open(user_md_path, "r", encoding="utf-8", errors="ignore") as f:
+                u_content = f.read().strip()
+                max_chars = 2000
+                if len(u_content) > max_chars:
+                    u_content = u_content[:max_chars] + "\n\n... [Backlog truncated -> vazus_unified_recall('backlog')]"
+                if u_content:
+                    parts.append(f"\n## 👤 Vazus OS Profile\n{u_content}\n")
+        except Exception as exc:
+            logger.debug("Failed reading user profile: %s", exc)
+            
+    return "\n".join(parts) if parts else None
 
 
 def _retrieve_semantic_mem0_facts(user_prompt: str) -> Optional[str]:
@@ -315,10 +351,73 @@ def _retrieve_recent_traces(invocation_num: int) -> Optional[str]:
     return None
 
 
+def _retrieve_inprocess_memories(user_prompt: str, invocation_num: int) -> Optional[str]:
+    """Retrieves context and matched facts directly from local vazus.db (in-process SQLite WAL, 0.1ms)."""
+    if invocation_num != 0 or not user_prompt or len(user_prompt.strip()) < 3:
+        return None
+    try:
+        import sqlite3
+        db_path = Path("C:/vazus/services/memory/vazus.db")
+        if not db_path.exists():
+            return None
+
+        conn = sqlite3.connect(str(db_path), timeout=2.0)
+        conn.row_factory = sqlite3.Row
+        parts = []
+
+        # 1. Active Academic Milestones / Debts if prompt relates to study
+        prompt_lower = user_prompt.lower()
+        if any(w in prompt_lower for w in ["долг", "мирэа", "матан", "линал", "логик", "сесси", "зачет", "экзамен", "дедлайн"]):
+            cursor = conn.execute(
+                "SELECT subject, milestone_name, status, due_date FROM mirea_milestones WHERE status NOT IN ('PASSED', 'СДАНО', 'DONE', 'COMPLETED') ORDER BY due_date ASC LIMIT 4"
+            )
+            debts = cursor.fetchall()
+            if debts:
+                lines = [f"- {d['subject']} ({d['milestone_name']}): {d['status']} (дедлайн: {d['due_date']})" for d in debts]
+                parts.append("### Активные задачи МИРЭА:\n" + "\n".join(lines))
+
+        # 2. Fast FTS5 semantic search on organic insights
+        safe_words = [w for w in re.findall(r"\w+", prompt_lower) if len(w) > 3]
+        if safe_words:
+            fts_query = " OR ".join(safe_words[:4])
+            try:
+                cursor = conn.execute(
+                    "SELECT category, insight FROM organic_insights_fts WHERE organic_insights_fts MATCH ? LIMIT 3",
+                    (fts_query,)
+                )
+                insights = cursor.fetchall()
+                if insights:
+                    lines = [f"- [{r['category']}] {r['insight']}" for r in insights]
+                    parts.append("### Семантический контекст (FTS5):\n" + "\n".join(lines))
+            except Exception as fts_err:
+                logger.debug("FTS5 query skipped: %s", fts_err)
+
+        conn.close()
+        if parts:
+            return "\n## 🧬 In-Process Memory (SQLite WAL)\n" + "\n\n".join(parts) + "\n"
+    except Exception as exc:
+        logger.debug("In-process memory retrieval skipped: %s", exc)
+    return None
+
+
+def _retrieve_hermes_skills_index(invocation_num: int) -> Optional[str]:
+    """Provides the lean, compact NousResearch Hermes <available_skills> index on turn 0."""
+    if invocation_num != 0:
+        return None
+    try:
+        from vazus_core.skills.hermes_engine import HermesSkillEngine
+        return HermesSkillEngine().build_compact_index(max_skills=15)
+    except Exception as exc:
+        logger.debug("Failed building Hermes skills index: %s", exc)
+        return None
+
+
 def auto_retrieve_memory(user_prompt: str, invocation_num: int) -> str:
-    """Passively retrieves profile, semantic facts, and traces."""
+    """Passively retrieves profile, skills catalog, semantic facts, and traces."""
     blocks = [
         _retrieve_user_profile(invocation_num),
+        _retrieve_hermes_skills_index(invocation_num),
+        _retrieve_inprocess_memories(user_prompt, invocation_num),
         _retrieve_semantic_mem0_facts(user_prompt),
         _retrieve_proactive_suggestions(user_prompt, invocation_num),
         _retrieve_recent_traces(invocation_num),
@@ -384,6 +483,19 @@ def _auto_dream_consolidate() -> None:
         ])
     except Exception as exc:
         logger.debug("Dream consolidate spawn failed: %s", exc)
+
+
+def generate_executive_briefing() -> str:
+    """Generates a high-level JIT executive briefing HUD for Vazus OS."""
+    state_file = Path("C:/vazus/services/memory/STATE.md")
+    content = ""
+    if state_file.exists():
+        content = state_file.read_text(encoding="utf-8", errors="ignore")
+    return (
+        "# 🛡️ Vazus OS — Executive Briefing HUD\n"
+        "Дедлайн 1-й волны МИРЭА: 15.10.2026 | Окно: 15 дней\n\n"
+        + content
+    )
 
 
 def _radon_complexity_hint(user_prompt: str) -> str:

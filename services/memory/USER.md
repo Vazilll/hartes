@@ -22,6 +22,7 @@
 ## Active Architecture Decisions (ADRs)
 - **PreInvocation Hook**: Progressive Disclosure, no blind AST dump, max USER.md 2000 chars
 - **Memory Loop**: Anthropic pattern — Curation (stop_hook) → Write (Mem0) → JIT Retrieve (pre_invocation)
+- **In-Process Memory (Zero Daemon)**: Прямой доступ к `vazus.db` (SQLite WAL, 0.1–2.3 мс) без внешних сетевых сервисов и портов. L0 Raw turns, L1 Atom memories, L2 FTS5 organic insights, интегрирован в `pre_invocation_hook.py` и `stop_hook.py`.
 - **Skills**: DynamicSkillDispatcher 768D cosine, threshold 0.15
 - **Suggestions**: ProactiveSuggestionEngine 768D relevance scoring, threshold 0.35
 - **IPC**: SharedMemoryBus Windows Named Memory (zero-copy Go↔Python)
