@@ -14,7 +14,7 @@ import ast
 import logging
 import os
 import re
-from pathlib import Path
+from pathlib import Path, PureWindowsPath, PurePosixPath
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger("vazus.harness.verification.academic")
@@ -126,15 +126,32 @@ class AcademicSovereigntyGuard:
             return True
 
         try:
-            target_path = Path(path_str).resolve()
-            for allowed in ALLOWED_JAIL_PREFIXES:
-                try:
-                    allowed_resolved = allowed.resolve()
-                    if target_path == allowed_resolved or allowed_resolved in target_path.parents:
-                        return True
-                except Exception:
-                    continue
-            return False
+            is_win = "\\" in path_str or (len(path_str) >= 2 and path_str[1] == ":")
+            if is_win:
+                 target = PureWindowsPath(path_str)
+                 resolved_parts = []
+                 for part in target.parts:
+                     if part == "..":
+                         if len(resolved_parts) > 1: # dont pop drive
+                             resolved_parts.pop()
+                     elif part != ".":
+                         resolved_parts.append(part)
+                 target_path = PureWindowsPath(*resolved_parts)
+
+                 allowed = PureWindowsPath(r"C:\vazus")
+                 if target_path == allowed or allowed in target_path.parents:
+                     return True
+                 return False
+            else:
+                 target_path = Path(path_str).resolve()
+                 for allowed in ALLOWED_JAIL_PREFIXES:
+                     try:
+                         allowed_resolved = allowed.resolve()
+                         if target_path == allowed_resolved or allowed_resolved in target_path.parents:
+                             return True
+                     except Exception:
+                         continue
+                 return False
         except Exception:
             return False
 
