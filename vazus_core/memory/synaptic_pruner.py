@@ -11,11 +11,10 @@ from __future__ import annotations
 import json
 import logging
 import math
-import sqlite3
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from vazus_core.analysis.kg_schema import ensure_kg_schema
 from vazus_core.memory.db import DEFAULT_VAZUS_DB, get_db_connection

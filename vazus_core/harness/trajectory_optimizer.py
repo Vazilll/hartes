@@ -8,19 +8,15 @@ synthesizes targeted micro-rules, and validates against Frozen Baseline Test Sui
 
 from __future__ import annotations
 
-import ast
 import hashlib
-import json
 import logging
 import re
-import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from vazus_core.memory.db import DEFAULT_VAZUS_DB, get_db_connection
-from vazus_core.security.model_armor import ModelArmor
 
 logger = logging.getLogger("vazus_core.harness.trajectory_optimizer")
 

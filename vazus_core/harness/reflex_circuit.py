@@ -9,13 +9,12 @@ Acts as the sensory-motor gating barrier before ascending to Tier-1 Cognitive LL
 from __future__ import annotations
 
 import logging
-import re
 import sqlite3
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 
 from vazus_core.memory.db import DEFAULT_VAZUS_DB
 from vazus_core.memory.j_space_tool_indexer import JSpaceToolIndexer

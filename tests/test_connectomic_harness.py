@@ -20,18 +20,15 @@ Verifies:
 import json
 import sqlite3
 import time
-import pytest
 from unittest.mock import patch
 
 from vazus_core.harness.reflex_circuit import (
     ReflexCircuitController,
     ReflexSignal,
-    ReflexVerdict,
     ReflexActionType,
 )
 from vazus_core.memory.synaptic_pruner import (
     SynapticPruner,
-    PruningMetrics,
     MAX_STABILITY,
     BASE_STABILITY,
 )
@@ -39,7 +36,6 @@ from vazus_core.harness.trajectory_optimizer import (
     TrajectoryOptimizer,
     Trajectory,
     TrajectoryStep,
-    MicroRule,
 )
 from vazus_core.engine.unified_hub import VazusUnifiedHub
 from vazus_core.analysis.kg_schema import ensure_kg_schema
