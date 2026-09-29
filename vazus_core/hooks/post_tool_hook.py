@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 
 sys.path.insert(0, "C:/vazus")
 try:
+    from vazus_core.memory.j_space_tool_indexer import record_j_space_tool_usage
+except Exception:
+    def record_j_space_tool_usage(tool_name: str, db_path: Optional[str] = None) -> bool:
+        return False
+
+try:
     from vazus_core.hooks.hud_writer import write_hud_event
 except Exception as _import_err:
     def write_hud_event(event_type: str, payload: dict) -> None:
@@ -139,9 +145,11 @@ def run_post_tool_hook(
     tool_name: str = "",
     tool_args: Optional[dict] = None,
     raw_output: str = "",
-    **kwargs
+    **_kwargs
 ) -> dict:
     """Captures post-tool execution telemetry and signal metrics."""
+    if tool_name:
+        record_j_space_tool_usage(tool_name)
     return {
         "status": "CAPTURED",
         "session_id": session_id,
@@ -158,6 +166,8 @@ def main():
         input_data = json.load(sys.stdin)
         tool_call = input_data.get("toolCall", {})
         tool_name = tool_call.get("name", "")
+        if tool_name:
+            record_j_space_tool_usage(tool_name)
         args = tool_call.get("args", {})
         target_file = args.get("TargetFile") or args.get("AbsolutePath") or ""
         if target_file:

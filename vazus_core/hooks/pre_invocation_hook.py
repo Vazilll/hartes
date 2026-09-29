@@ -31,6 +31,17 @@ sys.path.insert(0, "C:/vazus")
 
 from vazus_core.hooks.mcp_gateway import DynamicMCPGateway
 from vazus_core.hooks.entropy_governor import EntropyGovernor
+from vazus_core.memory.j_space_tool_indexer import (
+    record_j_space_tool_activation,
+    record_j_space_tool_usage,
+)
+
+__all__ = [
+    "record_j_space_tool_activation",
+    "record_j_space_tool_usage",
+    "handle_pre_invocation",
+    "run_pre_invocation_hook",
+]
 
 try:
     from vazus_core.hooks.hud_writer import write_hud_event
@@ -60,9 +71,6 @@ SKILL_SEARCH_DIRS = [
 
 MAX_SKILLS_TO_INJECT = 3
 MAX_SKILL_CONTENT_CHARS = 3000  # per skill, to avoid context bloat
-
-
-from vazus_core.engine.dynamic_skill_dispatcher import SkillIntentParser as DynamicSkillDispatcher
 
 
 _CANONICAL_DOMAIN_SPECS = {
@@ -96,7 +104,7 @@ _CANONICAL_DOMAIN_SPECS = {
 }
 
 
-def auto_disclose_domain_specs(prompt: str = "", *args, **kwargs) -> str:
+def auto_disclose_domain_specs(prompt: str = "", *args, **_kwargs) -> str:
     """
     Auto-discloses relevant domain specifications based on prompt intent.
     Returns a formatted markdown string (>100 characters) containing domain spec excerpts.
@@ -572,12 +580,55 @@ def main():
         print(json.dumps({}))
 
 
+def handle_pre_invocation(hook_data: dict) -> dict:
+    """Synchronous processor for pre-invocation hook data with Watchdog and J-Space checks."""
+    invocation_num = hook_data.get("invocationNum", 0)
+    user_prompt = extract_user_prompt(hook_data)
+
+    injections = []
+
+    # 1. Context Watchdog check on turn N >= 25
+    if invocation_num >= 25:
+        try:
+            from vazus_core.workers.handoff_generator import check_and_generate_handoff
+            handoff_res = check_and_generate_handoff(turn_index=invocation_num)
+            if handoff_res and handoff_res.get("should_handoff"):
+                msg = f"> ⚠️ **[Context Watchdog]**: Сессия превысила {invocation_num} шагов. Рекомендуется перенос контекста. См. C:\\vazus\\logs\\latest_handoff.md"
+                injections.append(msg)
+        except Exception as exc:
+            logger.debug("Handoff generator check failed: %s", exc)
+
+    # 2. Tool directive check
+    if "бэкап базы данных" in user_prompt.lower() or "db_backup" in user_prompt.lower():
+        record_j_space_tool_activation(
+            tool_name="db_backup",
+            prompt=user_prompt,
+            invocation_num=invocation_num,
+        )
+        injections.append("⚡ [J-Space NPU Tool Activation]: db_backup")
+
+    # 3. Turn 0 memory & skills injection
+    if invocation_num == 0:
+        matched_skills = auto_select_skills(user_prompt)
+        skills_block = build_skills_injection(matched_skills)
+        memory_block = auto_retrieve_memory(user_prompt, invocation_num)
+        radon_hint = _radon_complexity_hint(user_prompt)
+        full = f"{memory_block}{skills_block}{radon_hint}".strip()
+        if full:
+            injections.append(full)
+
+    if not injections:
+        return {}
+
+    return {"injectSteps": [{"message": "\n\n".join(injections)}]}
+
+
 async def run_pre_invocation_hook(
     session_id: str = "unknown",
     user_prompt: str = "",
     turn_index: int = 0,
     messages: Optional[list] = None,
-    **kwargs
+    **_kwargs
 ) -> dict:
     """Async wrapper for pre-invocation hook execution and context injection."""
     hook_eval = run_pre_invocation(messages or [], user_prompt)
@@ -585,7 +636,8 @@ async def run_pre_invocation_hook(
     skills_block = build_skills_injection(matched_skills)
     memory_block = auto_retrieve_memory(user_prompt, turn_index)
     injected_context = f"{memory_block}{skills_block}"
-    return {
+
+    res = {
         "status": "SUCCESS",
         "session_id": session_id,
         "turn_index": turn_index,
@@ -593,6 +645,19 @@ async def run_pre_invocation_hook(
         "matched_skills": matched_skills,
         "hook_eval": hook_eval,
     }
+
+    if turn_index >= 25:
+        try:
+            from vazus_core.workers.handoff_generator import check_and_generate_handoff
+            handoff_res = check_and_generate_handoff(turn_index=turn_index)
+            if handoff_res and handoff_res.get("should_handoff"):
+                watchdog_msg = f"> ⚠️ **[Context Watchdog]**: Сессия превысила {turn_index} шагов. Рекомендуется перенос контекста. См. C:\\vazus\\logs\\latest_handoff.md"
+                res["injected_context"] += f"\n\n{watchdog_msg}"
+                res["injectSteps"] = [{"message": watchdog_msg}]
+        except Exception as exc:
+            logger.debug("Async watchdog check failed: %s", exc)
+
+    return res
 
 
 if __name__ == "__main__":

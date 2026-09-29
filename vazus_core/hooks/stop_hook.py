@@ -9,6 +9,7 @@ into vazus-organic as a structured insight + mem0 fact.
 This is NOT a manual script — it is triggered by hooks.json natively.
 """
 
+import os
 import sys
 import json
 import subprocess
@@ -279,23 +280,26 @@ def _check_termination_gates(conversation_id: str) -> Optional[dict]:
 def _persist_session_memories(conversation_id: str, invocation_num: int, messages: list) -> None:
     """Extracts summary, adds Mem0/organic insights, and authors skills if applicable."""
     user_msgs = extract_all_user_messages(messages)
-    if os.path.exists(r"C:\vazus\.vazus_test.lock") or not user_msgs or invocation_num < 1:
+    if not user_msgs or invocation_num < 1:
         return
 
-    mem0 = Mem0Engine()
-    model_msgs = extract_all_model_responses(messages)
-    summary = build_session_summary(conversation_id=conversation_id, user_msgs=user_msgs, model_msgs=model_msgs, turn_count=invocation_num)
+    is_test_lock = os.path.exists(r"C:\vazus\.vazus_test.lock")
 
-    mem0.add_fact(fact_text=f"[SESSION_END] {summary}", category="session_summary", entity="system")
+    if not is_test_lock:
+        mem0 = Mem0Engine()
+        model_msgs = extract_all_model_responses(messages)
+        summary = build_session_summary(conversation_id=conversation_id, user_msgs=user_msgs, model_msgs=model_msgs, turn_count=invocation_num)
 
-    try:
-        insight_payload = json.dumps({"category": "session_summary", "insight": summary})
-        subprocess.Popen(
-            [r"C:\vazus\.venv\Scripts\python.exe", r"C:\vazus\vazus_core\mcp_client.py", "vazus-organic", "vazus_record_insight", insight_payload],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-    except Exception as e:
-        logger.debug("Subprocess organic insight error: %s", e)
+        mem0.add_fact(fact_text=f"[SESSION_END] {summary}", category="session_summary", entity="system")
+
+        try:
+            insight_payload = json.dumps({"category": "session_summary", "insight": summary})
+            subprocess.Popen(
+                [r"C:\vazus\.venv\Scripts\python.exe", r"C:\vazus\vazus_core\mcp_client.py", "vazus-organic", "vazus_record_insight", insight_payload],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception as e:
+            logger.debug("Subprocess organic insight error: %s", e)
 
     if os.getenv("VAZUS_ENABLE_AUTO_SKILLS", "0") == "1" and invocation_num >= 4 and user_msgs:
         try:
@@ -321,6 +325,19 @@ def _persist_session_memories(conversation_id: str, invocation_num: int, message
     except Exception as e:
         logger.debug("Memory Loop curation error: %s", e)
 
+    if invocation_num >= 20:
+        try:
+            from vazus_core.workers.handoff_generator import check_and_generate_handoff
+            check_and_generate_handoff(turn_index=invocation_num)
+        except Exception as e:
+            logger.debug("Handoff generator in stop_hook failed: %s", e)
+
+    try:
+        from vazus_core.engine.unified_hub import VazusUnifiedHub
+        VazusUnifiedHub().sync_state_to_cloud_file()
+    except Exception as e:
+        logger.debug("Cloud sync in stop_hook failed: %s", e)
+
 
 def main():
     try:
@@ -344,10 +361,30 @@ def main():
 
     except Exception as e:
         logger.warning("Unhandled exception in stop_hook: %s", e)
+        print(json.dumps({"decision": "stop"}))
 
 
-async def run_stop_hook(session_id: str = "unknown", workspace_root: str = "C:/vazus", **kwargs) -> dict:
+async def run_stop_hook(
+    session_id: str = "unknown",
+    workspace_root: str = "C:/vazus",
+    invocation_num: int = 0,
+    messages: Optional[list] = None,
+    **_kwargs
+) -> dict:
     """Async wrapper for stop hook consolidation."""
+    if invocation_num >= 20:
+        try:
+            from vazus_core.workers.handoff_generator import check_and_generate_handoff
+            check_and_generate_handoff(turn_index=invocation_num)
+        except Exception as e:
+            logger.debug("Async handoff generator failed: %s", e)
+
+    try:
+        from vazus_core.engine.unified_hub import VazusUnifiedHub
+        VazusUnifiedHub().sync_state_to_cloud_file()
+    except Exception as e:
+        logger.debug("Async cloud sync failed: %s", e)
+
     return {
         "status": "CONSOLIDATED",
         "session_id": session_id,

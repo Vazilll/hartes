@@ -276,6 +276,29 @@ class JulesClient:
             logger.error(f"[JulesClient] {self.last_error}")
             return {"fallback": True, "reason": self.last_error, "session": None}
 
+    async def list_sessions_async(self, page_size: int = 10) -> Dict[str, Any]:
+        """
+        Lists recent sessions from Google Jules API.
+        Returns:
+            {"fallback": False, "reason": None, "sessions": List[JulesSession]} on success.
+            {"fallback": True, "reason": str, "sessions": []} on fallback.
+        """
+        if self.is_fallback_required():
+            return {"fallback": True, "reason": "Jules offline or credentials missing", "sessions": []}
+
+        url = f"{self.base_url}/sessions"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.get(url, headers=self.headers, params={"pageSize": page_size})
+                if resp.status_code == 200:
+                    data = resp.json()
+                    sessions = [JulesSession.from_dict(s) for s in data.get("sessions", [])]
+                    return {"fallback": False, "reason": None, "sessions": sessions}
+                else:
+                    return {"fallback": True, "reason": f"HTTP {resp.status_code}", "sessions": []}
+        except Exception as e:
+            return {"fallback": True, "reason": str(e), "sessions": []}
+
     async def list_activities_async(self, session_id: str) -> Dict[str, Any]:
         """
         List activity logs for a session from Google Jules API.
