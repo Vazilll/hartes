@@ -13,6 +13,7 @@ Milestone 1 (F1, F3):
 
 import ast
 import logging
+import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -212,8 +213,8 @@ class QualityEvaluationEngine:
         elif test_command:
             try:
                 proc = subprocess.run(
-                    test_command,
-                    shell=True,
+                    shlex.split(test_command),
+                    shell=False,
                     capture_output=True,
                     text=True,
                     timeout=30,
