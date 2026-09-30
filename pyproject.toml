@@ -27,6 +27,3 @@ dev = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["."]
-
-[tool.setuptools]
-packages = ["vazus_autonomous_harness"]

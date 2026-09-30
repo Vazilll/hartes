@@ -465,11 +465,11 @@ class PreFlightFilter:
         if not v1 or not v2 or len(v1) != len(v2):
             return 0.0
 
-        # Optimization: use operator.mul with map instead of zip/comprehension for dot product (~3x faster)
+        # Optimization: use operator.mul with map instead of zip
         dot = sum(map(operator.mul, v1, v2))
-        # Optimization: use math.hypot for L2 norm computation instead of sqrt(sum()) (~3x faster)
-        norm1 = math.hypot(*v1)
-        norm2 = math.hypot(*v2)
+        # Optimization: use operator.mul with map instead of zip
+        norm1 = math.sqrt(sum(map(operator.mul, v1, v1)))
+        norm2 = math.sqrt(sum(map(operator.mul, v2, v2)))
 
         if norm1 <= 1e-9 or norm2 <= 1e-9:
             return 0.0

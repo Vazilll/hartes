@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import math
+import operator
 import os
 import re
 import sqlite3
@@ -225,8 +226,8 @@ class EpisodicMemoryStore:
                 vec[pos2] += 1.5 / math.sqrt(idx + 1)
 
         # L2 Normalize
-        # Optimization: use math.hypot for L2 norm computation instead of sqrt(sum()) (~3x faster)
-        norm = math.hypot(*vec)
+        # Optimization: use operator.mul with map
+        norm = math.sqrt(sum(map(operator.mul, vec, vec))) if vec else 0.0
         if norm > 1e-9:
             vec = [round(x / norm, 6) for x in vec]
         return vec
