@@ -1,0 +1,3 @@
+## 2024-06-25 - Python Dense Vector Math Optimization
+**Learning:** Pure Python performance for dense vector math can be significantly improved by replacing generator expressions like `sum(a * b for a, b in zip(v1, v2))` with `sum(map(operator.mul, v1, v2))`. Furthermore, L2 norm calculations like `math.sqrt(sum(a * a for a, b in zip(v1, v1)))` can be drastically sped up using the C-optimized `math.hypot(*v1)`.
+**Action:** When working on FTS embedding matching or pure Python vector arithmetic, prefer `math.hypot` for norms and `sum(map(operator.mul, ...))` for dot products instead of `zip` and generators.
