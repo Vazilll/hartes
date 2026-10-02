@@ -14,7 +14,7 @@ import ast
 import logging
 import os
 import re
-from pathlib import Path
+from pathlib import Path, PureWindowsPath, PurePosixPath
 from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger("vazus.harness.verification.academic")
@@ -126,14 +126,22 @@ class AcademicSovereigntyGuard:
             return True
 
         try:
-            # Handle cross-platform Windows path comparisons on Linux safely
+            # Handle cross-platform Windows & POSIX path comparisons safely
             path_normalized = path_str.replace('\\', '/')
-            if '..' in path_normalized.split('/'):
+            parts = [p for p in path_normalized.split('/') if p]
+            if '..' in parts:
                 return False
 
+            path_lower = path_normalized.lower()
             for allowed in ALLOWED_JAIL_PREFIXES:
                 allowed_str = str(allowed).replace('\\', '/')
-                if path_normalized == allowed_str or path_normalized.startswith(allowed_str + '/'):
+                allowed_lower = allowed_str.lower()
+                if (
+                    path_normalized == allowed_str
+                    or path_normalized.startswith(allowed_str + '/')
+                    or path_lower == allowed_lower
+                    or path_lower.startswith(allowed_lower + '/')
+                ):
                     return True
             return False
         except Exception:

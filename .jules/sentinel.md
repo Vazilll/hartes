@@ -8,3 +8,8 @@
 **Learning:** This is a critical security vulnerability that allows any untrusted candidate code to have full access to the current process, potentially leaking secrets or corrupting the process.
 **Prevention:** Always isolate the execution of untrusted code using isolated subprocesses with timeouts.
 
+## 2024-05-24 - [Fix Path Traversal in AcademicSovereigntyGuard.check_path_jail]
+**Vulnerability:** Path traversal verification for Windows environments (like `C:\vazus`) failed when the application runs on a Linux host because `pathlib.Path(path).resolve()` uses POSIX parsing, interpreting Windows drive prefixes and backslashes simply as invalid or regular characters rather than directory delimiters.
+**Learning:** Hardcoding standard `pathlib.Path` for cross-platform file validation introduces a vulnerability where input representing paths from a different OS can bypass the directory traversal protections. In this case, Windows-style directory jumps (`..\`) in strings sent to the Linux server were not accurately resolved or rejected.
+**Prevention:** For paths that may come from other Operating Systems or rely on a different OS format, use explicit parsers (`pathlib.PureWindowsPath` or `pathlib.PurePosixPath`) and sanitize traversals before validating if they fall within an approved directory constraint.
+
