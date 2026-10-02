@@ -300,10 +300,10 @@ class BaseDriver(ABC):
     assert has_stubs is False
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Windows specific path logic")
 def test_academic_sovereignty_path_jail():
     guard = AcademicSovereigntyGuard()
     assert guard.check_path_jail(r"C:\vazus\hartes\file.py") is True
+    assert guard.check_path_jail("~/.gemini/config/test.json") is True
     # Escaping to Windows System32 is rejected
     assert guard.check_path_jail(r"C:\Windows\System32\cmd.exe") is False
 

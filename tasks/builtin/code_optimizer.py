@@ -111,7 +111,10 @@ class CodeOptimizerTask(Task):
                     str(self._source_path or ""), tmp_path
                 )
                 result = subprocess.run(
-                    shlex.split(cmd), shell=False, capture_output=True, timeout=60
+                    shlex.split(cmd, posix=(sys.platform != "win32")),
+                    shell=False,
+                    capture_output=True,
+                    timeout=60
                 )
                 if result.returncode == 0:
                     score += 30.0

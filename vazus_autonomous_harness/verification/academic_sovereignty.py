@@ -126,8 +126,10 @@ class AcademicSovereigntyGuard:
             return True
 
         try:
+            # Expand ~ for user home directory references
+            expanded_path = os.path.expanduser(path_str)
             # Handle cross-platform Windows & POSIX path comparisons safely
-            path_normalized = path_str.replace('\\', '/')
+            path_normalized = expanded_path.replace('\\', '/')
             parts = [p for p in path_normalized.split('/') if p]
             if '..' in parts:
                 return False
