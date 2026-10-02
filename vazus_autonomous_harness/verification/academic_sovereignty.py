@@ -126,14 +126,15 @@ class AcademicSovereigntyGuard:
             return True
 
         try:
-            target_path = Path(path_str).resolve()
+            # Handle cross-platform Windows path comparisons on Linux safely
+            path_normalized = path_str.replace('\\', '/')
+            if '..' in path_normalized.split('/'):
+                return False
+
             for allowed in ALLOWED_JAIL_PREFIXES:
-                try:
-                    allowed_resolved = allowed.resolve()
-                    if target_path == allowed_resolved or allowed_resolved in target_path.parents:
-                        return True
-                except Exception:
-                    continue
+                allowed_str = str(allowed).replace('\\', '/')
+                if path_normalized == allowed_str or path_normalized.startswith(allowed_str + '/'):
+                    return True
             return False
         except Exception:
             return False
