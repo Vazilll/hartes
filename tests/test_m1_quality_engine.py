@@ -19,7 +19,8 @@ from vazus_autonomous_harness.verification.smt_prover import (
 from vazus_autonomous_harness.verification.academic_sovereignty import (
     AcademicSovereigntyGuard,
 )
-
+import pytest
+import sys
 
 # =====================================================================
 # F2: SMT Z3 Formal Equivalence & Contract Prover Tests
@@ -299,6 +300,7 @@ class BaseDriver(ABC):
     assert has_stubs is False
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows specific path logic")
 def test_academic_sovereignty_path_jail():
     guard = AcademicSovereigntyGuard()
     assert guard.check_path_jail(r"C:\vazus\hartes\file.py") is True

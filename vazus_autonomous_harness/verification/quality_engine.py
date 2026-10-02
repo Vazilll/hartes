@@ -15,6 +15,7 @@ import ast
 import logging
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -241,14 +242,26 @@ class QualityEvaluationEngine:
                 ]
                 if test_funcs:
                     try:
-                        sandbox_ns: Dict[str, Any] = {}
-                        exec(candidate_code, sandbox_ns)
+                        test_script = candidate_code + "\n\n"
                         for tf in test_funcs:
-                            sandbox_ns[tf]()
-                        empirical_integrity = 30.0
-                    except AssertionError as ae:
+                            test_script += f"{tf}()\n"
+
+                        proc = subprocess.run(
+                            [sys.executable, "-c", test_script],
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                            cwd=str(Path.cwd())
+                        )
+                        if proc.returncode == 0:
+                            empirical_integrity = 30.0
+                        else:
+                            empirical_integrity = 0.0
+                            err_snippet = (proc.stderr or proc.stdout or "").strip()[:200]
+                            violation_reasons.append(f"Inline assertion test failed (exit {proc.returncode}): {err_snippet}")
+                    except subprocess.TimeoutExpired:
                         empirical_integrity = 0.0
-                        violation_reasons.append(f"Inline assertion test failed: {ae}")
+                        violation_reasons.append("Inline test execution timed out after 30 seconds")
                     except Exception as exc:
                         empirical_integrity = 0.0
                         violation_reasons.append(f"Inline test error: {exc}")
