@@ -24,10 +24,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e .
-        pip install pytest pytest-asyncio z3-solver pydantic sympy httpx psutil
+        pip install -e ".[dev]"
+        pip install pytest pytest-asyncio z3-solver pydantic sympy httpx psutil openpyxl
 
     - name: Run SMT Z3 Substrate-Guard & Epistemic Tests
       run: |
         export PYTHONPATH=.
-        pytest tests/ -v
+        pytest tests/ -v --tb=short
