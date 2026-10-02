@@ -19,6 +19,7 @@ Usage via CLI:
 from __future__ import annotations
 
 import ast
+import shlex
 import subprocess
 import sys
 import textwrap
@@ -110,7 +111,7 @@ class CodeOptimizerTask(Task):
                     str(self._source_path or ""), tmp_path
                 )
                 result = subprocess.run(
-                    cmd, shell=True, capture_output=True, timeout=60
+                    shlex.split(cmd), shell=False, capture_output=True, timeout=60
                 )
                 if result.returncode == 0:
                     score += 30.0
