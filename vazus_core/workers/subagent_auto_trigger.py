@@ -388,12 +388,15 @@ class GoSubagentBusClient:
     """
     def __init__(
         self,
-        binary_path: str = r"C:\vazus\services\subagent_bus\subagent_bus.exe",
+        binary_path: Optional[str] = None,
         sse_url: Optional[str] = None,
         timeout: float = 10.0
     ):
-        if not os.path.exists(binary_path) and os.path.exists(r"C:\vazus\tools\bin\subagent_bus.exe"):
-            binary_path = r"C:\vazus\tools\bin\subagent_bus.exe"
+        if binary_path is None:
+            if os.path.exists(r"C:\vazus\services\subagent_bus\subagent_bus.exe"):
+                binary_path = r"C:\vazus\services\subagent_bus\subagent_bus.exe"
+            else:
+                binary_path = r"C:\vazus\tools\bin\subagent_bus.exe"
         self.binary_path = os.path.normpath(binary_path)
         self.sse_url = sse_url
         self.timeout = timeout
