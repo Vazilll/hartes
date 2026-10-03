@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/verification`  
 > **Path**: `vazus_core/verification`  
-> **Last Auto-Synchronized**: 2026-10-03 14:03:06  
+> **Last Auto-Synchronized**: 2026-10-03 15:43:53  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission
@@ -424,7 +424,7 @@ def verify_no_external_api_quota(code: str) -> VerificationResult: ...
 - **`run_gate_3_smt_z3_contracts()`** (`precommit_gate.py`): Gate 3: SMT Z3 Formal Contract & Memory Safety Verification.
 - **`run_gate_4_concordia_jury()`** (`precommit_gate.py`): Gate 4: LLM escalation for UNVERIFIED candidates — Jury-B critic, BATCHED.
 - **`run_gate_4a_evidence_jury()`** (`precommit_gate.py`): Gate 4a: deterministic EvidenceJury (Jury-A). ZERO LLM calls.
-- **`run_gate_5_dead_code()`** (`precommit_gate.py`): Gate 5: Detect dead code (unused imports/vars/unreachable modules) via vulture.
+- **`run_gate_5_dead_code()`** (`precommit_gate.py`): Gate 5: Detect dead code. Skipped by default (handled by Ruff F401/F841 in Gate 6)
 - **`run_gate_6_ruff_lint()`** (`precommit_gate.py`): Gate 6: Fast static lint via ruff — unused imports (F401), unused
 - **`run_gate_6b_deep_scan()`** (`precommit_gate.py`): Gate 6b (opt-in via VAZUS_GATE_DEEP_SCAN=1): deptry (unused/missing
 - **`run_gate_7_mypy()`** (`precommit_gate.py`): Gate 7: mypy static type checking on staged Python files.
