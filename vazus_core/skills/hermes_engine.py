@@ -38,13 +38,11 @@ if HERMES_ROOT.exists() and str(HERMES_ROOT) not in sys.path:
 
 # Import Hermes native utilities
 try:
-    from agent.skill_utils import SKILL_PROMPT_DESC_LIMIT
     from tools.skills_tool import skill_view as _hermes_skill_view
     _HERMES_NATIVE_AVAILABLE = True
 except Exception as _import_err:
     logger.warning("Could not import native Hermes Agent modules: %s", _import_err)
     _HERMES_NATIVE_AVAILABLE = False
-    SKILL_PROMPT_DESC_LIMIT = 60
 
 VALID_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 
@@ -214,7 +212,7 @@ class HermesSkillEngine:
             if desc_overlap > 0:
                 score += 1.0 * desc_overlap
 
-            if score > 1.5:
+            if score >= 3.0:
                 scored.append((score, sk))
 
         scored.sort(key=lambda x: x[0], reverse=True)

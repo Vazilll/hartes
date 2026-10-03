@@ -11,9 +11,9 @@ sources: [ASTPruner, SuperGraph OS]
 # AST Pruned Skeleton for `db.py`
 
 ## Core Metrics
-- **Total AST Nodes**: 3009
+- **Total AST Nodes**: 3004
 - **Pruned AST Nodes**: 448
-- **Token Reduction**: 89.83%
+- **Token Reduction**: 89.82%
 - **Syntax Valid**: `True`
 
 ## Pruned Signatures

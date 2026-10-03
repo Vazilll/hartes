@@ -91,3 +91,6 @@ auth_token.json
 services/sandbox_bridge/antigravity_appdata/
 services/memory/backups/
 templates/
+
+tools/nixos_vm/nixos_vm_key*
+*.b64

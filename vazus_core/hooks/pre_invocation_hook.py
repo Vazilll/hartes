@@ -255,7 +255,7 @@ def auto_select_skills(user_prompt: str) -> list:
 
         result = []
         for skill in matched:
-            if skill.score < 0.20:
+            if skill.score < 0.45:
                 continue
             try:
                 with open(skill.skill_md_path, "r", encoding="utf-8", errors="replace") as f:
@@ -629,6 +629,46 @@ def run_pre_invocation(trajectory: List[Dict[str, Any]], query: str) -> Dict[str
     }
 
 
+_PROMPT_STATE_PATH = Path("C:/vazus/logs/.hook_prompt_state.json")
+_PROMPT_STATE_MAX_CONVERSATIONS = 64
+
+
+def _effective_turn(hook_data: dict, user_prompt: str, invocation_num: int) -> int:
+    """Return 0 when this model step starts a NEW user prompt, else ``invocation_num``.
+
+    Antigravity increments ``invocationNum`` on every model step (tool call), not per user
+    message, so ``invocationNum == 0`` only happens for the first message of a conversation.
+    Heavy injections (skills, memory, System-1 router) must run once per user prompt, so we
+    remember a hash of the last prompt seen per ``conversationId``. Without a conversation id
+    (unit tests, legacy callers) the raw ``invocation_num`` is returned unchanged.
+    """
+    conv_id = hook_data.get("conversationId") if isinstance(hook_data, dict) else None
+    if not conv_id or not user_prompt:
+        return invocation_num
+    import hashlib
+
+    digest = hashlib.sha256(user_prompt.strip().encode("utf-8", errors="ignore")).hexdigest()
+    state: Dict[str, str] = {}
+    try:
+        if _PROMPT_STATE_PATH.exists():
+            state = json.loads(_PROMPT_STATE_PATH.read_text(encoding="utf-8")) or {}
+    except Exception as read_err:
+        logger.debug("Prompt state read failed: %s", read_err)
+        state = {}
+    if state.get(conv_id) == digest:
+        return invocation_num if invocation_num != 0 else 1
+    state[conv_id] = digest
+    if len(state) > _PROMPT_STATE_MAX_CONVERSATIONS:
+        for stale in list(state)[: len(state) - _PROMPT_STATE_MAX_CONVERSATIONS]:
+            state.pop(stale, None)
+    try:
+        _PROMPT_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PROMPT_STATE_PATH.write_text(json.dumps(state), encoding="utf-8")
+    except Exception as write_err:
+        logger.debug("Prompt state write failed: %s", write_err)
+    return 0
+
+
 def _update_rolling_invocation_counter(invocation_num: int) -> int:
     """Increments and persists invocation counter, returning updated count."""
     if invocation_num != 0:
@@ -739,21 +779,26 @@ def main():
         invocation_num = hook_data.get("invocationNum", 0)
         user_prompt = extract_user_prompt(hook_data)
         messages = hook_data.get("messages", [])
+        # 0 == first model step of a NEW user prompt; anything else == continuation step.
+        turn = _effective_turn(hook_data, user_prompt, invocation_num)
 
         hook_eval = run_pre_invocation(messages, user_prompt)
-        matched_skills = auto_select_skills(user_prompt)
-        skills_block = build_skills_injection(matched_skills)
-        memory_block = auto_retrieve_memory(user_prompt, invocation_num)
-        system_one_block = _build_system_one_speculative_block(user_prompt, invocation_num)
+        if turn == 0:
+            matched_skills = auto_select_skills(user_prompt)
+            skills_block = build_skills_injection(matched_skills)
+            memory_block = auto_retrieve_memory(user_prompt, turn)
+            system_one_block = _build_system_one_speculative_block(user_prompt, turn)
+        else:
+            matched_skills, skills_block, memory_block, system_one_block = [], "", "", ""
 
-        count = _update_rolling_invocation_counter(invocation_num)
+        count = _update_rolling_invocation_counter(turn)
         if count > 0:
             if count % 20 == 0:
                 _auto_candidate_harvest()
             if count % 50 == 0:
                 _auto_dream_consolidate()
 
-        radon_hint = _radon_complexity_hint(user_prompt) if invocation_num == 0 else ""
+        radon_hint = _radon_complexity_hint(user_prompt) if turn == 0 else ""
         full_message = f"{system_one_block}{memory_block}{skills_block}{radon_hint}"
 
         _log_pre_invocation_hud(
