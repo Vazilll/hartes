@@ -111,8 +111,44 @@ def _init_core_tables(conn: sqlite3.Connection | SharedConnectionProxy) -> None:
             node_id TEXT UNIQUE,
             category TEXT,
             insight TEXT,
-            timestamp REAL
+            timestamp REAL,
+            created_at TEXT DEFAULT (datetime('now'))
         );
+
+        CREATE TRIGGER IF NOT EXISTS trg_organic_insights_sync_ins
+        AFTER INSERT ON organic_insights
+        FOR EACH ROW
+        BEGIN
+            UPDATE organic_insights
+            SET created_at = CASE
+                    WHEN NEW.created_at IS NOT NULL AND instr(CAST(NEW.created_at AS TEXT), '-') > 0 THEN NEW.created_at
+                    WHEN NEW.timestamp IS NOT NULL THEN datetime(NEW.timestamp, 'unixepoch')
+                    ELSE datetime('now')
+                END,
+                timestamp = CASE
+                    WHEN NEW.timestamp IS NOT NULL THEN NEW.timestamp
+                    WHEN NEW.created_at IS NOT NULL AND instr(CAST(NEW.created_at AS TEXT), '-') > 0 THEN unixepoch(NEW.created_at)
+                    ELSE unixepoch()
+                END
+            WHERE id = NEW.id AND (created_at IS NULL OR timestamp IS NULL OR (NEW.timestamp IS NULL AND instr(CAST(timestamp AS TEXT), '-') > 0));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_organic_insights_sync_upd
+        AFTER UPDATE OF created_at, timestamp ON organic_insights
+        FOR EACH ROW
+        WHEN (NEW.created_at IS NULL AND NEW.timestamp IS NOT NULL) OR (NEW.timestamp IS NULL AND NEW.created_at IS NOT NULL)
+        BEGIN
+            UPDATE organic_insights
+            SET created_at = CASE
+                    WHEN NEW.created_at IS NULL AND NEW.timestamp IS NOT NULL THEN datetime(NEW.timestamp, 'unixepoch')
+                    ELSE NEW.created_at
+                END,
+                timestamp = CASE
+                    WHEN NEW.timestamp IS NULL AND NEW.created_at IS NOT NULL AND instr(CAST(NEW.created_at AS TEXT), '-') > 0 THEN unixepoch(NEW.created_at)
+                    ELSE NEW.timestamp
+                END
+            WHERE id = NEW.id;
+        END;
 
         CREATE TABLE IF NOT EXISTS kg_nodes (
             id TEXT PRIMARY KEY,
@@ -150,7 +186,23 @@ def _init_core_tables(conn: sqlite3.Connection | SharedConnectionProxy) -> None:
 
 
 def _init_vector_tables(conn: sqlite3.Connection | SharedConnectionProxy) -> None:
-    """Initializes sqlite-vec virtual tables and triggers."""
+    """Initializes sqlite-vec virtual tables, triggers, and self-healing mechanisms."""
+    # Self-healing check: verify if vec_kg_nodes virtual table is registered and healthy
+    try:
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+        if "vec_kg_nodes" in tables:
+            try:
+                conn.execute("SELECT count(*) FROM vec_kg_nodes;").fetchone()
+            except sqlite3.OperationalError:
+                # Corrupted virtual table: recreate dummy shadow tables to satisfy SQLite DROP TABLE
+                for shadow in ["rowids", "info", "chunks"]:
+                    conn.execute(f"CREATE TABLE IF NOT EXISTS vec_kg_nodes_{shadow} (id INT);")
+                conn.execute("DROP TABLE IF EXISTS vec_kg_nodes;")
+                for shadow in ["rowids", "info", "chunks"]:
+                    conn.execute(f"DROP TABLE IF EXISTS vec_kg_nodes_{shadow};")
+    except Exception:
+        pass
+
     conn.executescript("""
         CREATE VIRTUAL TABLE IF NOT EXISTS vec_kg_nodes USING vec0(
             node_id TEXT KEY,
@@ -160,6 +212,7 @@ def _init_vector_tables(conn: sqlite3.Connection | SharedConnectionProxy) -> Non
         CREATE TRIGGER IF NOT EXISTS trg_kg_nodes_insert AFTER INSERT ON kg_nodes
         WHEN NEW.embedding_json IS NOT NULL AND NEW.embedding_json != '[]'
         BEGIN
+            DELETE FROM vec_kg_nodes WHERE node_id = NEW.id;
             INSERT INTO vec_kg_nodes(node_id, embedding)
             VALUES(NEW.id, NEW.embedding_json);
         END;
@@ -168,6 +221,7 @@ def _init_vector_tables(conn: sqlite3.Connection | SharedConnectionProxy) -> Non
         WHEN NEW.embedding_json IS NOT NULL AND NEW.embedding_json != '[]'
         BEGIN
             DELETE FROM vec_kg_nodes WHERE node_id = OLD.id;
+            DELETE FROM vec_kg_nodes WHERE node_id = NEW.id;
             INSERT INTO vec_kg_nodes(node_id, embedding)
             VALUES(NEW.id, NEW.embedding_json);
         END;
@@ -177,6 +231,21 @@ def _init_vector_tables(conn: sqlite3.Connection | SharedConnectionProxy) -> Non
             DELETE FROM vec_kg_nodes WHERE node_id = OLD.id;
         END;
     """)
+
+    # Backfill if kg_nodes exists and has unindexed embeddings
+    try:
+        tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+        if "kg_nodes" in tables:
+            conn.execute("""
+                INSERT OR IGNORE INTO vec_kg_nodes(node_id, embedding)
+                SELECT id, embedding_json FROM kg_nodes
+                WHERE embedding_json IS NOT NULL AND embedding_json != '[]'
+                  AND id NOT IN (SELECT node_id FROM vec_kg_nodes);
+            """)
+    except Exception:
+        pass
+
+
 
 
 def _init_schema_indexes(conn: sqlite3.Connection | SharedConnectionProxy) -> None:
@@ -290,7 +359,7 @@ def _resolve_target_db_path(db_path: str | Path | None = None, read_only: bool =
     if db_path is None:
         db_path = os.getenv("VAZUS_DB_PATH", DEFAULT_VAZUS_DB)
     path_str = str(db_path)
-    if not read_only and os.getenv("VAZUS_TEST_ISOLATION") == "1" and path_str != ":memory:":
+    if os.getenv("VAZUS_TEST_ISOLATION") == "1" and path_str != ":memory:":
         try:
             canonical_resolved = str(Path(r"C:\vazus\services\memory\vazus.db").resolve()).lower()
             target_resolved = str(Path(path_str).resolve()).lower()

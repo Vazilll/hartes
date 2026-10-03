@@ -1,0 +1,45 @@
+{
+ "ckb_launch": [
+  {
+   "title": "docforge/sourcegraph: Universal code search (self-hosted) - GitHub",
+   "url": "https://github.com/docforge/sourcegraph"
+  },
+  {
+   "title": "GitHub - mjang/sourcegraph: Code Intelligence Platform",
+   "url": "https://github.com/mjang/sourcegraph"
+  },
+  {
+   "title": "GitHub - productinfo/sourcegraph: Code search and intelligence, self ...",
+   "url": "https://github.com/productinfo/sourcegraph"
+  },
+  {
+   "title": "GitHub - ximmy/sourcegraph: Universal code search (self-hosted)",
+   "url": "https://github.com/ximmy/sourcegraph"
+  },
+  {
+   "title": "Sourcegraph — Code Understanding, Oversight and Evolution",
+   "url": "https://sourcegraph.com/"
+  },
+  {
+   "title": "Sourcegraph docs",
+   "url": "https://sourcegraph.com/docs"
+  }
+ ],
+ "ckb_what": [],
+ "mem0_dream": [],
+ "lazygraphrag30": [],
+ "langmem": [],
+ "sqlitevec_ann": [],
+ "claude_mem": [],
+ "codex_mem": [],
+ "gemini_mem": [],
+ "letta_blocks": [],
+ "amem": [],
+ "chroma26": [],
+ "qdrant_ctx": [],
+ "lancedb_acq": [],
+ "graphrag30": [],
+ "openmemory": [],
+ "mem0_con": [],
+ "neoj_graphrag": []
+}

@@ -5,6 +5,7 @@ Interactive Confirmation Gate, and Background Subagent Dispatcher.
 Fulfills Requirement R1 for Vazus OS Milestone M1.
 """
 
+import json
 import logging
 import os
 import re
@@ -167,6 +168,7 @@ class TaskSpec:
     log_file: str | None = None
     auto_confirm: bool = False
     dry_run: bool = False
+    backend: str = "auto"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -183,6 +185,8 @@ class SubagentDispatchHandle:
     created_at: float = field(default_factory=time.time)
     result: dict[str, Any] | None = None
     process: subprocess.Popen | None = field(default=None, repr=False)
+    backend: str = "subprocess"
+    go_client: Any = field(default=None, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
@@ -203,10 +207,19 @@ class SubagentDispatchHandle:
 
     @property
     def is_background(self) -> bool:
-        return self.process is not None or self.pid > 0
+        return self.process is not None or self.pid > 0 or self.backend == "go_bus"
 
     def is_alive(self) -> bool:
         """Checks if background subagent process is actively running."""
+        if self.go_client is not None and self.backend == "go_bus":
+            try:
+                st_res = self.go_client.get_status(self.task_id)
+                curr_status = st_res.get("status", self.status)
+                self.status = curr_status
+                return curr_status in ("CREATED", "RUNNING", "PAUSED")
+            except Exception:
+                return self.status in ("DISPATCHED", "RUNNING")
+
         if self.process is not None:
             poll_res = self.process.poll()
             if poll_res is None:
@@ -220,6 +233,16 @@ class SubagentDispatchHandle:
         """Non-blocking status check."""
         self.is_alive()
         return self.status
+
+    def poll_events(self, since_seq: int = 0, limit: int = 50) -> list[dict[str, Any]]:
+        """Polls events emitted by subagent."""
+        if self.go_client is not None and self.backend == "go_bus":
+            try:
+                res = self.go_client.poll_events(self.task_id, since_seq=since_seq, limit=limit)
+                return res.get("events", [])
+            except Exception as exc:
+                logger.debug("Go bus poll_events error: %s", exc)
+        return []
 
     def get_result(self, timeout: float = 0.0) -> dict[str, Any] | None:
         """Non-blocking or bounded result getter."""
@@ -266,6 +289,15 @@ class SubagentDispatchHandle:
         with self._lock:
             if self.result is not None:
                 return self.result
+            if self.go_client is not None and self.backend == "go_bus":
+                t_end = time.time() + (timeout or 300)
+                while time.time() < t_end:
+                    if not self.is_alive():
+                        break
+                    time.sleep(0.1)
+                self.result = {"task_id": self.task_id, "status": self.status}
+                return self.result
+
             if self.process is not None:
                 try:
                     stdout, stderr = self.process.communicate(timeout=timeout)
@@ -292,10 +324,21 @@ class SubagentDispatchHandle:
                     return self.result
             return {"task_id": self.task_id, "status": self.status, "result": self.result}
 
+    def cancel(self, reason: str = "") -> bool:
+        """Cancels background subagent execution."""
+        with self._lock:
+            if self.go_client is not None and self.backend == "go_bus":
+                try:
+                    self.go_client.cancel(self.task_id, reason=reason)
+                except Exception as exc:
+                    logger.debug("Go bus cancel error: %s", exc)
+                self.status = "CANCELLED"
+                return True
+            return self._kill_unlocked()
+
     def kill(self) -> bool:
         """Terminates background subagent process or thread task."""
-        with self._lock:
-            return self._kill_unlocked()
+        return self.cancel("process killed")
 
     def _kill_unlocked(self) -> bool:
         if self.process is not None:
@@ -333,8 +376,216 @@ class SubagentDispatchHandle:
             "log_file": self.log_file,
             "created_at": self.created_at,
             "start_time": self.start_time,
-            "result": self.result
+            "result": self.result,
+            "backend": self.backend
         }
+
+
+class GoSubagentBusClient:
+    """
+    Client adapter communicating with the Go Subagent Actor Bus (subagent_bus.exe)
+    over JSON-RPC 2.0 Stdio or SSE transport.
+    """
+    def __init__(
+        self,
+        binary_path: str = r"C:\vazus\bin\subagent_bus.exe",
+        sse_url: Optional[str] = None,
+        timeout: float = 10.0
+    ):
+        self.binary_path = os.path.normpath(binary_path)
+        self.sse_url = sse_url
+        self.timeout = timeout
+        self._proc: Optional[subprocess.Popen] = None
+        self._lock = threading.Lock()
+        self._req_id = 0
+
+    def is_available(self) -> bool:
+        """Checks if the subagent_bus.exe binary exists or SSE URL is configured."""
+        if self.sse_url:
+            return True
+        return os.path.isfile(self.binary_path)
+
+    def _ensure_proc(self):
+        """Ensures that the Go subagent bus background process is running."""
+        if self._proc is None or self._proc.poll() is not None:
+            self._proc = subprocess.Popen(
+                [self.binary_path],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+            )
+
+    def close(self):
+        """Terminates persistent Go subagent bus session."""
+        with self._lock:
+            if self._proc is not None:
+                try:
+                    if self._proc.stdin:
+                        self._proc.stdin.close()
+                    self._proc.terminate()
+                    self._proc.wait(timeout=2.0)
+                except Exception:
+                    pass
+                self._proc = None
+
+    def __del__(self):
+        self.close()
+
+    def call_tool(self, tool_name: str, arguments: dict[str, Any], timeout: Optional[float] = None) -> dict[str, Any]:
+        """Calls an MCP tool on the Go bus over persistent Stdio JSON-RPC 2.0 session."""
+        if not self.is_available():
+            raise RuntimeError(f"Go subagent bus binary not available at {self.binary_path}")
+
+        with self._lock:
+            self._ensure_proc()
+            self._req_id += 1
+            req_id = self._req_id
+
+            req = json.dumps({
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "method": "tools/call",
+                "params": {
+                    "name": tool_name,
+                    "arguments": arguments,
+                }
+            }) + "\n"
+
+            try:
+                assert self._proc is not None and self._proc.stdin is not None
+                self._proc.stdin.write(req)
+                self._proc.stdin.flush()
+                assert self._proc.stdout is not None
+                line = self._proc.stdout.readline()
+            except Exception as e:
+                self.close()
+                raise RuntimeError(f"Communication error with Go subagent bus: {e}")
+
+            if not line:
+                stderr = self._proc.stderr.read() if self._proc and self._proc.stderr else ""
+                self.close()
+                raise RuntimeError(f"Empty response from Go subagent bus: stderr={stderr}")
+
+            resp = json.loads(line)
+            if "error" in resp:
+                raise RuntimeError(f"MCP tool error ({resp['error'].get('code')}): {resp['error'].get('message')}")
+
+            result = resp.get("result", {})
+            if result.get("isError"):
+                err_msg = ""
+                for c in result.get("content", []):
+                    if c.get("type") == "text":
+                        err_msg += c.get("text", "")
+                raise RuntimeError(f"MCP tool returned error: {err_msg}")
+
+            # Extract text content and parse if JSON
+            content_items = result.get("content", [])
+            for c in content_items:
+                if c.get("type") == "text":
+                    text = c.get("text", "")
+                    try:
+                        return json.loads(text)
+                    except Exception:
+                        return {"text": text}
+
+            return result
+
+    def spawn_actor(
+        self,
+        task_id: str,
+        subagent_name: str,
+        prompt: str,
+        role: str = "worker",
+        params: Optional[dict[str, Any]] = None,
+        timeout_sec: int = 300,
+        mailbox_cap: int = 256,
+        auto_start: bool = True
+    ) -> dict[str, Any]:
+        """Spawns an actor goroutine via subagent_spawn."""
+        args = {
+            "id": task_id,
+            "name": subagent_name,
+            "role": role,
+            "prompt": prompt,
+            "params": params or {},
+            "timeout_sec": timeout_sec,
+            "mailbox_cap": mailbox_cap,
+            "auto_start": auto_start,
+        }
+        return self.call_tool("subagent_spawn", args)
+
+    def send_message(
+        self,
+        subagent_id: str,
+        content: str,
+        message_type: str = "instruction",
+        sender: str = "orchestrator",
+        payload: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """Delivers a message to the target actor's mailbox."""
+        args = {
+            "subagent_id": subagent_id,
+            "type": message_type,
+            "sender": sender,
+            "content": content,
+            "payload": payload or {},
+        }
+        return self.call_tool("subagent_send_message", args)
+
+    def broadcast(
+        self,
+        content: str,
+        message_type: str = "instruction",
+        sender: str = "orchestrator",
+        role_filter: str = "",
+        payload: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
+        """Broadcasts a message across subagents with optional role filter."""
+        args = {
+            "content": content,
+            "type": message_type,
+            "sender": sender,
+            "role_filter": role_filter,
+            "payload": payload or {},
+        }
+        return self.call_tool("subagent_broadcast", args)
+
+    def poll_events(
+        self,
+        subagent_id: str,
+        since_seq: int = 0,
+        limit: int = 50
+    ) -> dict[str, Any]:
+        """Polls events from actor ring buffer."""
+        args = {
+            "subagent_id": subagent_id,
+            "since_seq": since_seq,
+            "limit": limit,
+        }
+        return self.call_tool("subagent_poll_events", args)
+
+    def cancel(self, subagent_id: str, reason: str = "") -> dict[str, Any]:
+        """Cancels an actor."""
+        args = {
+            "subagent_id": subagent_id,
+            "reason": reason or "cancelled by client",
+        }
+        return self.call_tool("subagent_cancel", args)
+
+    def get_status(self, subagent_id: str) -> dict[str, Any]:
+        """Queries status and telemetry for an actor."""
+        return self.call_tool("subagent_get_status", {"subagent_id": subagent_id})
+
+    def list_subagents(self, status: str = "all", role: str = "") -> dict[str, Any]:
+        """Lists subagents registered in bus."""
+        return self.call_tool("subagent_list", {"status": status, "role": role})
+
+    def reap(self, max_age_sec: int = 3600) -> dict[str, Any]:
+        """Reaps terminated subagents."""
+        return self.call_tool("subagent_reap", {"max_age_sec": max_age_sec})
 
 
 class HermesTaskIntentEvaluator:
@@ -552,7 +803,7 @@ class InteractiveConfirmationGate:
         safe_print("=" * 72)
         safe_print(f" Prompt Preview   : \"{prompt_preview}\"")
         safe_print(f" Complexity Score : {evaluation.complexity_score:.2f} / 1.00  [{evaluation.estimated_effort.upper()}]")
-        safe_print(f" Requires Subagents: YES")
+        safe_print(" Requires Subagents: YES")
         safe_print(f" Target Subagents : {subagent_str}")
         safe_print(f" Rationale        : {evaluation.reasoning_summary}")
         safe_print("-" * 72)
@@ -604,6 +855,7 @@ class SubagentBackgroundDispatcher:
         self.log_dir = Path(log_dir or os.path.join(WORKSPACE_ROOT, "logs", "subagents"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.engine = DeclarativeSubagentEngine()
+        self.go_client = GoSubagentBusClient()
         self._active_handles: dict[str, SubagentDispatchHandle] = {}
 
     def _normalize_task_spec(self, task_spec: dict[str, Any] | TaskSpec) -> TaskSpec:
@@ -619,7 +871,8 @@ class SubagentBackgroundDispatcher:
                 timeout=task_spec.get("timeout", 300),
                 log_file=task_spec.get("log_file", None),
                 auto_confirm=task_spec.get("auto_confirm", False),
-                dry_run=task_spec.get("dry_run", False)
+                dry_run=task_spec.get("dry_run", False),
+                backend=task_spec.get("backend", "auto")
             )
         else:
             spec = task_spec
@@ -698,7 +951,9 @@ class SubagentBackgroundDispatcher:
         log_file_path: Path,
         *,
         proc: Optional[subprocess.Popen] = None,
-        result: Optional[dict] = None
+        result: Optional[dict] = None,
+        backend: str = "subprocess",
+        go_client: Optional[Any] = None
     ) -> SubagentDispatchHandle:
         """Constructs and registers dispatch handle in active handle registry and DB."""
         handle = SubagentDispatchHandle(
@@ -709,7 +964,9 @@ class SubagentBackgroundDispatcher:
             log_path=str(log_file_path),
             created_at=time.time(),
             process=proc,
-            result=result
+            result=result,
+            backend=backend,
+            go_client=go_client
         )
         self._active_handles[spec.task_id] = handle
         try:
@@ -726,6 +983,32 @@ class SubagentBackgroundDispatcher:
         spec = self._normalize_task_spec(task_spec)
         log_file_path = Path(spec.log_file) if spec.log_file else self.log_dir / f"{spec.task_id}.log"
         log_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        use_go = (
+            getattr(spec, "backend", "auto") == "go_bus"
+            or (os.environ.get("USE_GO_SUBAGENT_BUS", "0") == "1" and getattr(spec, "backend", "auto") != "subprocess")
+        )
+        if use_go and self.go_client.is_available() and spec.background and not spec.dry_run:
+            try:
+                res = self.go_client.spawn_actor(
+                    task_id=spec.task_id,
+                    subagent_name=spec.subagent_name,
+                    prompt=spec.prompt,
+                    role=spec.subagent_name,
+                    params=spec.params,
+                    timeout_sec=spec.timeout,
+                )
+                logger.info("[Dispatcher] Spawned actor in Go Subagent Bus: %s", res)
+                return self._create_and_register_handle(
+                    spec,
+                    "RUNNING",
+                    os.getpid(),
+                    log_file_path,
+                    backend="go_bus",
+                    go_client=self.go_client
+                )
+            except Exception as e:
+                logger.warning("[Dispatcher] Go Bus spawn failed, falling back to subprocess: %s", e)
 
         bridge_map = {
             "open_deep_researcher": "scripts/subagent_research_bridge.py",

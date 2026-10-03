@@ -8,7 +8,6 @@ following NousResearch Hardline standards:
   - indexed in vazus.db
 """
 
-from pathlib import Path
 from typing import Dict, Any
 from vazus_core.skills.hermes_engine import HermesSkillEngine
 
@@ -25,9 +24,13 @@ def create_autonomous_skill(
     Autonomously creates a new SKILL.md file following NousResearch standards
     and registers it into vazus.db.
     """
-    return _engine.create_skill(
+    res = _engine.create_skill(
         name=skill_name,
         description=description,
         instructions=instructions_markdown,
         category=category
     )
+    if isinstance(res, dict) and "status" not in res:
+        res["status"] = "SUCCESS" if res.get("success") else "FAILED"
+    return res
+

@@ -29,12 +29,14 @@
 - **DB**: SQLite WAL 256MB MMAP + sqlite-vec 768D vectors
 - **Code Intel**: cbm (C-based) primary; CKB deprecated (60-300s hangs)
 - **Visibility**: hook outputs visible in chat via `message` (not ephemeralMessage)
+- **Web UI/UX Standard (ADR-UI-01)**: Dark Neo-Brutalism (Aeza/Annet standard, `#08090c`, hairline borders `border-white/[0.07]`, Bento Grid, font-mono telemetry, Playwright closed-loop verification). SSOT: `C:\vazus\services\memory\DESIGN_SYSTEM.md`
 
 ## Hard Rules for Agent
 - Никогда не создавать заглушки (stubs) или фасады
 - Не отключать системы без явного согласования пользователя
 - Не делать слепые дампы данных в контекст
 - Не удалять файлы без проверки зависимостей (vulture + grep)
+- **Качество фронтенда**: Запрещено выдавать шаблонный аляповатый UI. Любой веб-интерфейс/дашборд обязан строго следовать стандарту `DESIGN_SYSTEM.md` и верифицироваться через headless Playwright перед сдачей.
 - **Учеба в МИРЭА (Педагогический суверенитет)**: Запрещено решать задачи/лабораторные/контрольные за пользователя и отдавать готовые решения по институту. Пользователь обучается сам. Агент помогает с учебой только по прямому запросу в роли Сократического тьютора (наводящие вопросы, разбор концепций, подсказка формул/ошибок). Иногда мягко напоминать о дедлайнах и долгах, чтобы не накапливались хвосты.
 - **Автономный фокус агента**: Разрешено и поощряется делать всё, что НЕ связано с учебой в МИРЭА — системная инженерия, архитектура Vazus OS, парсеры и боты (Госзакупки, ИИ-салон), оптимизация производительности, фриланс.
 - Полный бэклог → vazus_unified_recall("backlog") или C:\vazus\services\memory\BACKLOG.md

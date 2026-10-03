@@ -16,6 +16,11 @@ import subprocess
 import sys
 from typing import Optional
 
+if hasattr(sys.stdin, "reconfigure"):
+    sys.stdin.reconfigure(encoding="utf-8")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 logger = logging.getLogger(__name__)
 
 sys.path.insert(0, "C:/vazus")

@@ -21,7 +21,8 @@ _SUBPKG_MAP = {
     "utils": "engine", "supergraph_master_orchestrator": "engine", "supergraph_linker": "engine",
     "dynamic_skill_dispatcher": "engine", "unified_reasoning_pipeline": "engine", "ast_repo_mapper": "engine",
     "operator_dag": "engine", "silicon_orchestrator": "engine", "gemma4_npu_engine": "engine",
-    "graphify_engine": "engine", "global_j_workspace": "engine",
+    "graphify_engine": "engine", "global_j_workspace": "engine", "hardware_profiler": "engine",
+    "resilience": "engine", "skill_state_runtime": "engine",
     # verification
     "smt_z3_verifier": "verification", "concordia_jury": "verification", "sota2027_jury": "verification",
     "ast_pruner": "verification", "git_provenance": "verification", "safety_guardrail": "verification",
@@ -35,13 +36,15 @@ _SUBPKG_MAP = {
     "zettelkasten_exporter": "memory", "j_space_vector_index": "memory",
     "dream_consolidator": "memory", "agent_memory_bank": "memory",
     "magma_graph": "memory", "whitelist_manager": "memory",
-    "unified_memory_gateway": "memory",
+    "unified_memory_gateway": "memory", "rust_embedder_bridge": "memory",
     # workers
     "repl_engine": "workers", "self_healing_repl": "workers", "subagent_auto_trigger": "workers",
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
     "background_review_hook": "workers", "daemon_sidecar": "workers", "system_daemon": "workers",
     "jules_client": "workers", "subagent_verifier_bridge": "workers",
     "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers", "subprocess_repl": "workers",
+    # skills
+    "hermes_engine": "skills", "hermes_agent_engine": "skills", "hermes_skill_syncer": "skills",
     # evolution
     "darwinian_evolver": "evolution", "synaptic_evolver": "evolution",
     # integrations
@@ -57,7 +60,9 @@ _SUBPKG_MAP = {
     "gemma_local_processor": "integrations", "repo_indexer": "integrations",
     "cli_pixel_visualizer": "integrations", "tui_preview_renderer": "integrations",
     "agy_customizations_hud": "integrations", "skill_author": "integrations",
-    "socratic_partner": "integrations"
+    "socratic_partner": "integrations", "google_sync_engine": "integrations",
+    "grpc_health_servicer": "integrations", "nutrition_tracker": "integrations",
+    "langgraph_health_workflow": "integrations"
 }
 
 class _VazusCoreAliasLoader(importlib.abc.InspectLoader):

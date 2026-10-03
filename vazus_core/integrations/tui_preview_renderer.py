@@ -468,13 +468,13 @@ def render_terminal_harness_hud(
     """
     skills_str = ", ".join(active_skills) if active_skills else "none (progressive index ready)"
     lines = [
-        f"┌── 🤖 VAZUS SUPERGRAPH OS HARNESS [TERMINAL LIVE HUD] ──────────────────────────┐",
+        "┌── 🤖 VAZUS SUPERGRAPH OS HARNESS [TERMINAL LIVE HUD] ──────────────────────────┐",
         f"│ 🧩 Skill Auto-Loaded : [{skills_str}]",
         f"│ ✂️ AST Token Pruner  : -{ast_saved_pct:.1f}% Tokens Saved",
         f"│ 🛡️ SMT Z3 Verifier   : {smt_status}",
         f"│ 🏛️ Concordia Jury    : {jury_consensus}",
         f"│ ⚡ Execution Gateway : {execution_route}",
-        f"└────────────────────────────────────────────────────────────────────────────────┘"
+        "└────────────────────────────────────────────────────────────────────────────────┘"
     ]
     return "\n".join(lines)
 

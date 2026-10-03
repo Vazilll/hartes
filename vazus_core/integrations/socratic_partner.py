@@ -10,7 +10,6 @@ vazus_core.integrations.socratic_partner
 
 import sys
 import os
-import json
 import sqlite3
 import datetime
 from pathlib import Path
@@ -58,7 +57,7 @@ class SocraticPartner:
                     "text": r[1],
                     "timestamp": r[2]
                 })
-        except Exception as e:
+        except Exception:
             victories.append({"category": "system", "text": "Стабильная работа системы и сборка ядра", "timestamp": ""})
 
         return victories

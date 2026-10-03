@@ -244,6 +244,39 @@ class AntigravityWorktreeSandbox:
             logger.error(f"[WorktreeSandbox] Failed to promote mutation into {target_branch}: {e}")
             return False
 
+    def execute_task(
+        self,
+        command: Any,
+        timeout: int = 30,
+        mode: str = "tempdir",
+        env: Optional[Dict[str, str]] = None,
+    ) -> WorktreeTaskResult:
+        """
+        Executes a task inside an isolated worktree/sandbox with Win32 Job Object confinement.
+        Returns WorktreeTaskResult.
+        """
+        import time
+        import shlex
+        if isinstance(command, str):
+            cmd = shlex.split(command) if (" " in command and not os.path.exists(command)) else [command]
+        else:
+            cmd = list(command)
+
+        t0 = time.perf_counter()
+        with self.create_sandbox(prefix="task", mode=mode) as sb_path:
+            res = self.run_sandboxed_command(cmd, worktree_path=sb_path, timeout=timeout, env=env)
+            dt = time.perf_counter() - t0
+            return WorktreeTaskResult(
+                success=res.get("success", False),
+                returncode=res.get("returncode", -1),
+                stdout=res.get("stdout", ""),
+                stderr=res.get("stderr", ""),
+                error=res.get("stderr", ""),
+                duration_s=round(dt, 3),
+                duration_sec=round(dt, 3),
+                worktree_path=str(sb_path),
+            )
+
 
 # Global singleton instance
 worktree_sandbox = AntigravityWorktreeSandbox()

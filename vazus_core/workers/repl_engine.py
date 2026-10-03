@@ -5,7 +5,9 @@ Provides LocalREPL execution and automated error recovery for Vazus SuperGraph O
 
 import ast
 import copy
+import ctypes
 import io
+import json
 import logging
 import os
 import re
@@ -16,6 +18,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger("LocalREPL")
@@ -86,6 +89,106 @@ class _AnswerDict(dict):
 class REPLSandboxSecurityError(Exception):
     """Raised when code violates REPL sandbox security policies."""
     pass
+
+
+class ZigSandboxBridge:
+    """
+    In-process capability bridge linking native vazus_runner.dll via ctypes.
+    Achieves sub-millisecond capability validation and sandboxed evaluation
+    with 100% transparent fallback to pure Python if uncompiled or missing.
+    """
+
+    def __init__(self, temp_dir: Optional[str] = None, workspace_root: str = "C:/vazus"):
+        self.temp_dir = temp_dir
+        self.workspace_root = workspace_root
+        self._lib = None
+        self._ctx = None
+        self._load_native_library()
+
+    def _load_native_library(self):
+        candidates = [
+            Path("C:/vazus/bin/vazus_runner.dll"),
+            Path("C:/vazus/sandbox/zig_runner/zig-out/bin/vazus_runner.dll"),
+            Path("C:/vazus/sandbox/zig_runner/zig-out/lib/vazus_runner.dll"),
+        ]
+        dll_path = None
+        for p in candidates:
+            if p.is_file():
+                dll_path = p
+                break
+        if not dll_path:
+            return
+
+        try:
+            lib = ctypes.CDLL(str(dll_path))
+            lib.check_path_allowed.argtypes = [ctypes.c_char_p]
+            lib.check_path_allowed.restype = ctypes.c_int
+            lib.vazus_sandbox_init.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+            lib.vazus_sandbox_init.restype = ctypes.c_void_p
+            lib.vazus_sandbox_validate_path.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_bool]
+            lib.vazus_sandbox_validate_path.restype = ctypes.c_int
+            lib.vazus_sandbox_eval.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t]
+            lib.vazus_sandbox_eval.restype = ctypes.c_int
+            lib.vazus_sandbox_free.argtypes = [ctypes.c_void_p]
+            lib.vazus_sandbox_free.restype = None
+
+            granted = [self.workspace_root]
+            if self.temp_dir:
+                granted.append(self.temp_dir)
+            write_roots = [self.temp_dir] if self.temp_dir else []
+
+            ctx = lib.vazus_sandbox_init(
+                json.dumps(granted).encode("utf-8"),
+                json.dumps(write_roots).encode("utf-8"),
+            )
+            self._lib = lib
+            self._ctx = ctx
+        except Exception as e:
+            logger.debug("ZigSandboxBridge native load error: %s", e)
+            self._lib = None
+            self._ctx = None
+
+    @property
+    def is_available(self) -> bool:
+        return self._lib is not None
+
+    def check_path_allowed(self, path: str) -> bool:
+        if not self._lib:
+            return True
+        try:
+            res = self._lib.check_path_allowed(str(path).encode("utf-8"))
+            return res == 1
+        except Exception:
+            return True
+
+    def validate_path(self, path: str, is_write: bool = False) -> bool:
+        if not self._lib or not self._ctx:
+            return True
+        try:
+            res = self._lib.vazus_sandbox_validate_path(self._ctx, str(path).encode("utf-8"), is_write)
+            return res == 0
+        except Exception:
+            return True
+
+    def eval_snippet(self, code: str) -> Optional[str]:
+        if not self._lib or not self._ctx:
+            return None
+        try:
+            out_buf = ctypes.create_string_buffer(65536)
+            res = self._lib.vazus_sandbox_eval(self._ctx, code.encode("utf-8"), out_buf, 65536)
+            if res >= 0:
+                return out_buf.value.decode("utf-8", errors="replace")
+            return None
+        except Exception:
+            return None
+
+    def cleanup(self):
+        if self._lib and self._ctx:
+            try:
+                self._lib.vazus_sandbox_free(self._ctx)
+            except Exception:
+                pass
+            self._ctx = None
 
 
 FORBIDDEN_ATTRIBUTES = {
@@ -274,6 +377,7 @@ class LocalREPL:
         self.temp_dir = tempfile.mkdtemp(prefix=f"vazus_repl_{uuid.uuid4().hex[:8]}_")
         self._lock = threading.Lock()
         self.custom_tools = custom_tools or {}
+        self.zig_bridge = ZigSandboxBridge(temp_dir=self.temp_dir)
         self.setup()
 
         if context_payload is not None:
@@ -293,6 +397,7 @@ class LocalREPL:
         self._last_final_answer: Optional[str] = None
 
         temp_dir = self.temp_dir
+        zig_bridge = getattr(self, "zig_bridge", None)
 
         def _safe_open(file, mode="r", buffering=-1, *, encoding=None, errors=None, newline=None, closefd=True, opener=None):
             file_str = str(file)
@@ -303,6 +408,13 @@ class LocalREPL:
 
             real_target = os.path.realpath(target_path)
             real_temp_dir = os.path.realpath(temp_dir)
+
+            is_write = any(m in mode for m in ("w", "a", "x", "+"))
+
+            # Native Zig sandbox validation if available
+            if zig_bridge and zig_bridge.is_available:
+                if not zig_bridge.validate_path(real_target, is_write=is_write):
+                    raise PermissionError(f"Access to path '{file_str}' rejected by Zig capability sandbox.")
 
             if not (real_target == real_temp_dir or real_target.startswith(real_temp_dir + os.sep)):
                 raise PermissionError(f"Access to path '{file_str}' outside REPL sandbox '{temp_dir}' is denied.")
@@ -543,6 +655,11 @@ class LocalREPL:
 
     def cleanup(self):
         """Cleanup temporary execution files."""
+        if hasattr(self, "zig_bridge") and self.zig_bridge:
+            try:
+                self.zig_bridge.cleanup()
+            except Exception as exc:
+                logger.debug("zig_bridge cleanup error: %s", exc)
         try:
             shutil.rmtree(self.temp_dir)
         except Exception as exc:

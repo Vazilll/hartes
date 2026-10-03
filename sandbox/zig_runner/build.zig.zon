@@ -1,0 +1,13 @@
+.{
+    .name = .vazus_runner,
+    .version = "1.0.0",
+    .fingerprint = 0xc50c1df8872541c4,
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+        ".gitignore",
+    },
+}

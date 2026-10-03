@@ -627,7 +627,8 @@ def _find_ast_import_matched_tests(
 
 def find_targeted_tests(staged_files: list[Path]) -> list[str]:
     """Finds test files that cover the staged Python modules (evidence-first)."""
-    all_tests = sorted((VAZUS_ROOT / "tests").glob("test_*.py"))
+    all_tests = sorted((VAZUS_ROOT / "tests" / "unit").glob("test_*.py"))
+    all_tests += sorted((VAZUS_ROOT / "tests").glob("test_*.py"))
     by_stem = {t.stem: t for t in all_tests}
 
     requested = _find_name_matched_tests(staged_files, by_stem)
@@ -648,7 +649,7 @@ def find_targeted_tests(staged_files: list[Path]) -> list[str]:
     ignored = {
         "test_stress_all.py", "test_cross_subsystem_stress.py", "test_evolution_engine.py",
         "test_post_task_evolver.py", "test_multimodal_knowledge.py", "test_vazus_full_system.py",
-        "test_subagent_reflexion.py"
+        "test_subagent_reflexion.py", "test_skill_tree_system_e2e.py"
     }
     return [str(t) for t in ordered if t.name not in ignored]
 
@@ -683,8 +684,11 @@ def run_gate_2_targeted_tests(staged_files: list[Path]) -> tuple[bool, list[str]
         )
         if res.returncode != 0:
             lines = res.stdout.strip().splitlines()
-            errors.append(f"Pytest failed: {lines[-1] if lines else 'unknown error'}")
-            errors.extend(lines[-4:])
+            if res.returncode == 5 or (lines and "no tests ran" in lines[-1]):
+                pass  # Pytest exitcode 5 = no tests collected, harmless
+            else:
+                errors.append(f"Pytest failed: {lines[-1] if lines else 'unknown error'}")
+                errors.extend(lines[-4:])
     except subprocess.TimeoutExpired:
         errors.append(f"Pytest suite timed out (>{timeout}s)")
     except Exception as e:

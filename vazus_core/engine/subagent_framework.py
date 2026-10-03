@@ -361,7 +361,7 @@ async def harness_security_on_start_hook(ctx: SubagentContext):
         return loaded_skill_names, hud_box
 
     loaded_skill_names, hud_box = await asyncio.to_thread(_sync_skill_load)
-    ctx.logs.append(f"[Harness Hook] Injected SYSTEM_HARNESS_POLICY into context.")
+    ctx.logs.append("[Harness Hook] Injected SYSTEM_HARNESS_POLICY into context.")
     if loaded_skill_names:
         ctx.logs.append(f"[Skill Auto-Load] Dynamically sub-loaded skills: {loaded_skill_names}")
     ctx.logs.append(hud_box)

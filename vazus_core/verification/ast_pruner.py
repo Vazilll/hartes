@@ -15,6 +15,15 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
+# Native Rust acceleration hook (Requirement R1 & R4)
+try:
+    import vazus_native_ast
+    _NATIVE_AST_AVAILABLE = True
+except ImportError:
+    vazus_native_ast = None
+    _NATIVE_AST_AVAILABLE = False
+
+
 
 class DocstringAndBodyPruner(ast.NodeTransformer):
     """
@@ -325,7 +334,15 @@ class ASTPruner:
         """
         Prunes Python source code AST by removing function bodies and handling docstrings.
         Returns (pruned_code, stats_dict).
+        Uses native Rust tree-sitter engine when available (>10x faster) with automatic fallback.
         """
+        if _NATIVE_AST_AVAILABLE and vazus_native_ast is not None:
+            try:
+                pruned_code, stats = vazus_native_ast.prune_code_string(source_code, docstring_mode)
+                return pruned_code, dict(stats)
+            except Exception as exc:
+                logger.debug("Native AST pruner failed, falling back to Python: %s", exc)
+
         try:
             tree = ast.parse(source_code)
             total_nodes = len(list(ast.walk(tree)))
@@ -763,3 +780,13 @@ def prune_universal_file(file_path: str, **kwargs) -> Tuple[str, Dict[str, Any]]
         return "", {"error": "File not found"}
     lang = UniversalASTPruner.detect_language(p)
     return UniversalASTPruner.prune_code(p.read_text(encoding="utf-8", errors="replace"), language=lang, **kwargs)
+
+
+def prune_code_string(source_code: str, docstring_mode: str = "summary") -> Tuple[str, Dict[str, Any]]:
+    """
+    Prunes Python source code AST by removing function bodies and handling docstrings.
+    Accelerated by native Rust engine with automatic Python fallback.
+    Returns (pruned_code, stats_dict).
+    """
+    return ASTPruner.prune_code_string(source_code, docstring_mode=docstring_mode)
+

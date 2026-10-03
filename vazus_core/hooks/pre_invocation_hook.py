@@ -16,6 +16,7 @@ Triggered by hooks.json — NOT a manual script.
 """
 
 import datetime
+import io
 import json
 import logging
 import os
@@ -23,6 +24,11 @@ from pathlib import Path
 import re
 import sys
 from typing import List, Dict, Any, Optional
+
+if sys.stdout and hasattr(sys.stdout, "buffer"):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "buffer"):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 logger = logging.getLogger(__name__)
 
@@ -187,6 +193,26 @@ def extract_user_prompt(hook_data: dict) -> str:
                             return clean_user_prompt("\n".join(parts))
                     elif isinstance(content, str) and content.strip():
                         return clean_user_prompt(content)
+
+    # Antigravity native transcript file
+    transcript_path = hook_data.get("transcriptPath")
+    if transcript_path and Path(transcript_path).exists():
+        try:
+            with open(transcript_path, "r", encoding="utf-8", errors="ignore") as tf:
+                lines = tf.readlines()
+            for line in reversed(lines):
+                if not line.strip():
+                    continue
+                step = json.loads(line)
+                role = str(step.get("role", "")).lower()
+                source = str(step.get("source", "")).lower()
+                stype = str(step.get("type", "")).lower()
+                if role in ("user", "user_explicit") or "user" in source or "user" in stype:
+                    content = step.get("content", "")
+                    if isinstance(content, str) and content.strip():
+                        return clean_user_prompt(content)
+        except Exception as err:
+            logger.debug("Failed reading transcriptPath in extract_user_prompt: %s", err)
 
     for k, v in hook_data.items():
         if isinstance(v, str) and "<USER_REQUEST>" in v:
@@ -645,6 +671,55 @@ def _log_pre_invocation_hud(
     })
 
 
+import contextlib
+
+@contextlib.contextmanager
+def _suppress_stdout_fd():
+    """Redirects OS-level file descriptor 1 to stderr to catch C/PyTorch prints during dispatch."""
+    try:
+        sys.stdout.flush()
+        real_stdout_fd = os.dup(1)
+        os.dup2(2, 1)
+        try:
+            yield
+        finally:
+            sys.stdout.flush()
+            os.dup2(real_stdout_fd, 1)
+            os.close(real_stdout_fd)
+    except Exception:
+        yield
+
+
+def _build_system_one_speculative_block(user_prompt: str, invocation_num: int) -> str:
+    """Invokes Julia NPU System-1 router and TimesFM speculative tool predictor on turn 0."""
+    if invocation_num != 0 or not user_prompt or len(user_prompt.strip()) < 3:
+        return ""
+    try:
+        from vazus_core.engine.hybrid_mcp_dispatcher import HybridMCPDispatcher
+        dispatcher = HybridMCPDispatcher()
+        with _suppress_stdout_fd():
+            plan = dispatcher.dispatch(user_prompt)
+
+        lines = [
+            "\n## ⚡ Vazus System-1 NPU Gateway & Speculative Router\n",
+            f"- **Domain (NPU)**: `{plan.canonical_domain}` (confidence: {plan.confidence:.2f})",
+            f"- **Tier**: `{plan.tier}` | **Hub**: `{plan.hub_name}`",
+            f"- **Routing Summary**: {plan.routing_summary}",
+        ]
+        if plan.speculative_prediction and plan.speculative_prediction.predicted_tools:
+            lines.append(
+                f"- **TimesFM Speculative Tools**: `{plan.speculative_prediction.predicted_tools}` "
+                f"(confidence: {plan.speculative_prediction.confidence:.2f}, {plan.speculative_prediction.latency_ms:.0f}ms)"
+            )
+        if plan.direct_execution_result:
+            lines.append(f"- **Tier-0 Local Reflex Result**: `{plan.direct_execution_result}`")
+
+        return "\n".join(lines) + "\n\n"
+    except Exception as exc:
+        logger.debug("System-1 speculative block build failed: %s", exc)
+        return ""
+
+
 def main():
     try:
         raw = sys.stdin.read()
@@ -669,6 +744,7 @@ def main():
         matched_skills = auto_select_skills(user_prompt)
         skills_block = build_skills_injection(matched_skills)
         memory_block = auto_retrieve_memory(user_prompt, invocation_num)
+        system_one_block = _build_system_one_speculative_block(user_prompt, invocation_num)
 
         count = _update_rolling_invocation_counter(invocation_num)
         if count > 0:
@@ -678,7 +754,7 @@ def main():
                 _auto_dream_consolidate()
 
         radon_hint = _radon_complexity_hint(user_prompt) if invocation_num == 0 else ""
-        full_message = f"{memory_block}{skills_block}{radon_hint}"
+        full_message = f"{system_one_block}{memory_block}{skills_block}{radon_hint}"
 
         _log_pre_invocation_hud(
             invocation_num, user_prompt, hook_eval, matched_skills, memory_block, full_message
@@ -719,13 +795,14 @@ def handle_pre_invocation(hook_data: dict) -> dict:
         )
         injections.append("⚡ [J-Space NPU Tool Activation]: db_backup")
 
-    # 3. Turn 0 memory & skills injection
+    # 3. Turn 0 memory, skills & System-1 speculative router injection
     if invocation_num == 0:
+        system_one_block = _build_system_one_speculative_block(user_prompt, invocation_num)
         matched_skills = auto_select_skills(user_prompt)
         skills_block = build_skills_injection(matched_skills)
         memory_block = auto_retrieve_memory(user_prompt, invocation_num)
         radon_hint = _radon_complexity_hint(user_prompt)
-        full = f"{memory_block}{skills_block}{radon_hint}".strip()
+        full = f"{system_one_block}{memory_block}{skills_block}{radon_hint}".strip()
         if full:
             injections.append(full)
 

@@ -1,0 +1,99 @@
+{
+  "ast_fuzzing": {
+    "unicode_identifier_with_comment": {
+      "status": "FAIL",
+      "error": "'utf-8' codec can't encode character '\\udc81' in position 30: surrogates not allowed"
+    },
+    "unicode_emojis_in_docstrings": {
+      "status": "FAIL",
+      "error": "'utf-8' codec can't encode character '\\udc81' in position 64: surrogates not allowed"
+    },
+    "deep_nesting": {
+      "status": "PASS",
+      "elapsed_ms": 185.78,
+      "notes": []
+    },
+    "pathological_quotes_contracts": {
+      "status": "FAIL",
+      "error": "unterminated triple-quoted string literal (detected at line 12) (<unknown>, line 11)"
+    },
+    "syntax_variations": {
+      "status": "PASS",
+      "elapsed_ms": 176.9,
+      "notes": []
+    },
+    "multiline_return": {
+      "status": "PASS",
+      "elapsed_ms": 180.8,
+      "notes": []
+    },
+    "two_space_indent": {
+      "status": "PASS",
+      "elapsed_ms": 165.67,
+      "notes": []
+    },
+    "nested_scope_return_theft": {
+      "status": "PASS",
+      "elapsed_ms": 195.99,
+      "notes": []
+    },
+    "huge_file": {
+      "status": "PASS",
+      "elapsed_ms": 297.13,
+      "notes": []
+    }
+  },
+  "z3_concurrency": {
+    "batch_parallel": {
+      "status": "PASS",
+      "verified_count": 20,
+      "elapsed_ms": 43.94
+    },
+    "threaded_stress": {
+      "status": "PASS",
+      "threads": 16,
+      "total_solver_invocations": 480,
+      "elapsed_ms": 702.14,
+      "throughput_invocations_sec": 683.63
+    },
+    "extreme_bounds": {
+      "status": "FAIL"
+    }
+  },
+  "cosine_math": {
+    "random_gaussian_vs_numpy": {
+      "status": "PASS",
+      "max_abs_diff": 1.862645149230957e-08
+    },
+    "batch_throughput": {
+      "status": "PASS",
+      "vectors_evaluated": 5000,
+      "elapsed_ms": 81.9,
+      "vectors_per_second": 61047.0
+    }
+  },
+  "latency_benchmark": {
+    "status": "FAIL",
+    "results": {
+      "precommit_gate.py": {
+        "file_size_bytes": 51325,
+        "lines": 1257,
+        "python_median_ms": 37.6,
+        "native_median_ms": 14.678,
+        "speedup_factor": 2.56,
+        "meets_10x": false
+      },
+      "ast_pruner.py": {
+        "file_size_bytes": 29984,
+        "lines": 792,
+        "python_median_ms": 21.636,
+        "native_median_ms": 10.5,
+        "speedup_factor": 2.06,
+        "meets_10x": false
+      }
+    }
+  },
+  "findings": [
+    "Z3 bounds check failed on (0, 0, 0)"
+  ]
+}

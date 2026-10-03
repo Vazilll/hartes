@@ -1,0 +1,93 @@
+[
+  {
+    "id": 1,
+    "timestamp": "2026-08-20T21:02:24.745860",
+    "weight_kg": 78.7,
+    "impedance_ohms": 0,
+    "body_fat_pct": 15.2,
+    "muscle_mass_kg": 56.6,
+    "water_pct": 61.1,
+    "visceral_fat_grade": 10,
+    "bmr_kcal": 1860,
+    "raw_source": "Direct_BLE_MiScale_2_Stabilized",
+    "bmi": 24.8
+  },
+  {
+    "id": 2,
+    "timestamp": "2026-08-20T21:49:46.407803",
+    "weight_kg": 87.2,
+    "impedance_ohms": 0,
+    "body_fat_pct": 15.2,
+    "muscle_mass_kg": 62.7,
+    "water_pct": 61.1,
+    "visceral_fat_grade": 10,
+    "bmr_kcal": 1973,
+    "raw_source": "Direct_BLE_MiScale_2",
+    "bmi": 27.5
+  },
+  {
+    "id": 3,
+    "timestamp": "2026-09-04T14:32:14.803584",
+    "weight_kg": 80.2,
+    "impedance_ohms": 0,
+    "body_fat_pct": 15.2,
+    "muscle_mass_kg": 57.7,
+    "water_pct": 61.1,
+    "visceral_fat_grade": 10,
+    "bmr_kcal": 1880,
+    "raw_source": "Direct_BLE_MiScale_2",
+    "bmi": 25.3
+  },
+  {
+    "id": 4,
+    "timestamp": "2026-09-04T14:35:57.547816",
+    "weight_kg": 80.2,
+    "impedance_ohms": 0,
+    "body_fat_pct": 15.2,
+    "muscle_mass_kg": 57.8,
+    "water_pct": 61.1,
+    "visceral_fat_grade": 10,
+    "bmr_kcal": 1881,
+    "raw_source": "Direct_BLE_MiScale_2",
+    "bmi": 25.3
+  },
+  {
+    "id": 5,
+    "timestamp": "2026-09-04T14:40:45.186723",
+    "weight_kg": 80.25,
+    "impedance_ohms": 0,
+    "body_fat_pct": 15.2,
+    "muscle_mass_kg": 57.8,
+    "water_pct": 61.1,
+    "visceral_fat_grade": 10,
+    "bmr_kcal": 1881,
+    "raw_source": "Direct_BLE_MiScale_2",
+    "bmi": 25.3
+  },
+  {
+    "id": 6,
+    "timestamp": "2026-09-04T14:40:48.538411",
+    "weight_kg": 80.25,
+    "impedance_ohms": 65534,
+    "body_fat_pct": 15.2,
+    "muscle_mass_kg": 57.8,
+    "water_pct": 61.1,
+    "visceral_fat_grade": 10,
+    "bmr_kcal": 1881,
+    "raw_source": "Direct_BLE_MiScale_2",
+    "bmi": 25.3
+  },
+  {
+    "id": 7,
+    "timestamp": "2026-09-04T14:40:49.478537",
+    "weight_kg": 80.25,
+    "impedance_ohms": 429,
+    "body_fat_pct": 24.1,
+    "muscle_mass_kg": 51.8,
+    "water_pct": 54.6,
+    "visceral_fat_grade": 12,
+    "bmr_kcal": 1881,
+    "raw_source": "Direct_BLE_MiScale_2",
+    "bmi": 25.3
+  }
+]

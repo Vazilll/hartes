@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" xml:lang="en-US">
+  <id>tag:github.com,2008:https://github.com/asg017/sqlite-vec/releases</id>
+  <link type="text/html" rel="alternate" href="https://github.com/asg017/sqlite-vec/releases"/>
+  <link type="application/atom+xml" rel="self" href="https://github.com/asg017/sqlite-vec/releases.atom"/>
+  <title>Release notes from sqlite-vec</title>
+  <updated>2026-05-18T06:50:43Z</updated>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.10-alpha.4</id>
+    <updated>2026-05-18T06:54:24Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.10-alpha.4"/>
+    <title>v0.1.10-alpha.4</title>
+    <content type="html">&lt;ul&gt;
+&lt;li&gt;Fix bug that made &lt;code&gt;ALTER TABLE RENAME&lt;/code&gt; to fail on &lt;code&gt;vec0&lt;/code&gt; that use the new ivf/diskann features - thanks &lt;a class=&quot;user-mention notranslate&quot; data-hovercard-type=&quot;user&quot; data-hovercard-url=&quot;/users/rolf-moz/hovercard&quot; data-octo-click=&quot;hovercard-link-click&quot; data-octo-dimensions=&quot;link_type:self&quot; href=&quot;https://github.com/rolf-moz&quot;&gt;@rolf-moz&lt;/a&gt;!&lt;/li&gt;
+&lt;li&gt;Fix a cached statement bug on DiskANN that caused statements to not clean up properly&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.10-alpha.3</id>
+    <updated>2026-04-01T06:41:04Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.10-alpha.3"/>
+    <title>v0.1.10-alpha.3</title>
+    <content type="html">&lt;p&gt;Proper &lt;code&gt;INSERT OR REPLACE INTO&lt;/code&gt; support.&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.10-alpha.2</id>
+    <updated>2026-04-01T06:14:27Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.10-alpha.2"/>
+    <title>v0.1.10-alpha.2</title>
+    <content type="html">&lt;ul&gt;
+&lt;li&gt;Various bug fixes, unit tests, and integration test across flat/ANN indexes&lt;/li&gt;
+&lt;li&gt;New &quot;insert command&quot; structure similar to FTS5 commands, for rescore/DiskANN parameter updates&lt;/li&gt;
+&lt;li&gt;Fix data leaking via un-deleted compressed neighbor vectors in DiskANN. This causes DELETEs to be quite expensive, but something we can fix in a later release.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ALTER TABLE RENAME&lt;/code&gt; support&lt;/li&gt;
+&lt;/ul&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.10-alpha.1</id>
+    <updated>2026-03-31T08:34:26Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.10-alpha.1"/>
+    <title>v0.1.10-alpha.1</title>
+    <content type="html">&lt;p&gt;Initial alpha release of &lt;code&gt;sqlite-vec&lt;/code&gt; with new ANN indexes: rescore, ivf (experimental, not enabled), and DiskANN.&lt;/p&gt;
+&lt;p&gt;Proper docs/examples coming soon! for now reference &lt;a class=&quot;issue-link js-issue-link&quot; data-error-text=&quot;Failed to load title&quot; data-id=&quot;4174872859&quot; data-permission-text=&quot;Title is private&quot; data-url=&quot;https://github.com/asg017/sqlite-vec/issues/276&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/asg017/sqlite-vec/pull/276/hovercard&quot; href=&quot;https://github.com/asg017/sqlite-vec/pull/276&quot;&gt;#276&lt;/a&gt;, &lt;a class=&quot;issue-link js-issue-link&quot; data-error-text=&quot;Failed to load title&quot; data-id=&quot;4176210782&quot; data-permission-text=&quot;Title is private&quot; data-url=&quot;https://github.com/asg017/sqlite-vec/issues/277&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/asg017/sqlite-vec/pull/277/hovercard&quot; href=&quot;https://github.com/asg017/sqlite-vec/pull/277&quot;&gt;#277&lt;/a&gt;, &lt;a class=&quot;issue-link js-issue-link&quot; data-error-text=&quot;Failed to load title&quot; data-id=&quot;4176886194&quot; data-permission-text=&quot;Title is private&quot; data-url=&quot;https://github.com/asg017/sqlite-vec/issues/278&quot; data-hovercard-type=&quot;pull_request&quot; data-hovercard-url=&quot;/asg017/sqlite-vec/pull/278/hovercard&quot; href=&quot;https://github.com/asg017/sqlite-vec/pull/278&quot;&gt;#278&lt;/a&gt;&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.9</id>
+    <updated>2026-03-31T08:03:06Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.9"/>
+    <title>v0.1.9 Bug fix for DELETE operations</title>
+    <content type="html">&lt;p&gt;Fixes &lt;a class=&quot;issue-link js-issue-link&quot; data-error-text=&quot;Failed to load title&quot; data-id=&quot;4173981198&quot; data-permission-text=&quot;Title is private&quot; data-url=&quot;https://github.com/asg017/sqlite-vec/issues/274&quot; data-hovercard-type=&quot;issue&quot; data-hovercard-url=&quot;/asg017/sqlite-vec/issues/274/hovercard&quot; href=&quot;https://github.com/asg017/sqlite-vec/issues/274&quot;&gt;#274&lt;/a&gt;, which discovered that &lt;code&gt;DELETE&lt;/code&gt; operations on &lt;code&gt;vec0&lt;/code&gt; tables with metadata text columns that are long (&amp;gt;12chars) would erronuously report a &lt;code&gt;SQLItE_DONE&lt;/code&gt; error.&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.9-alpha.1</id>
+    <updated>2026-03-30T23:43:24Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.9-alpha.1"/>
+    <title>v0.1.9-alpha.1</title>
+    <content type="html">&lt;p&gt;Attempted fix of broken &lt;code&gt;DELETE&lt;/code&gt;s on &lt;code&gt;vec0&lt;/code&gt; rows with large metdata text column values, as reported in &lt;a class=&quot;issue-link js-issue-link&quot; data-error-text=&quot;Failed to load title&quot; data-id=&quot;4173981198&quot; data-permission-text=&quot;Title is private&quot; data-url=&quot;https://github.com/asg017/sqlite-vec/issues/274&quot; data-hovercard-type=&quot;issue&quot; data-hovercard-url=&quot;/asg017/sqlite-vec/issues/274/hovercard&quot; href=&quot;https://github.com/asg017/sqlite-vec/issues/274&quot;&gt;#274&lt;/a&gt;&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.8</id>
+    <updated>2026-03-30T02:05:24Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.8"/>
+    <title>v0.1.8</title>
+    <content type="html">&lt;p&gt;Minor fix to the &lt;code&gt;sqlite-vec&lt;/code&gt; NPM package, fixing &lt;a class=&quot;issue-link js-issue-link&quot; data-error-text=&quot;Failed to load title&quot; data-id=&quot;4110534710&quot; data-permission-text=&quot;Title is private&quot; data-url=&quot;https://github.com/asg017/sqlite-vec/issues/272&quot; data-hovercard-type=&quot;issue&quot; data-hovercard-url=&quot;/asg017/sqlite-vec/issues/272/hovercard&quot; href=&quot;https://github.com/asg017/sqlite-vec/issues/272&quot;&gt;#272&lt;/a&gt;. If youv&#39;e ever had a problem &lt;code&gt;npm install&lt;/code&gt;&#39;ing &lt;code&gt;sqlite-vec&lt;/code&gt;, now&lt;br&gt;
+&#39;s a great time to try again!&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.8-alpha.1</id>
+    <updated>2026-03-21T04:14:10Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.8-alpha.1"/>
+    <title>v0.1.8-alpha.1</title>
+    <content type="html">&lt;p&gt;Attempt to fix Node.js package distribution by bumping &lt;code&gt;sqlite-dist&lt;/code&gt; in the release process.&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.7</id>
+    <updated>2026-03-17T07:42:06Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.7"/>
+    <title>`sqlite-vec` is back: `v0.1.7`</title>
+    <content type="html">&lt;p&gt;&lt;code&gt;sqlite-vec&lt;/code&gt; is back! After a long hiatus, I am now working again on making &lt;code&gt;sqlite-vec&lt;/code&gt; as fast and easy-to-use as possible.&lt;/p&gt;
+&lt;p&gt;I&#39;d like to especially thank Mozilla for graciously supporting me in improving &lt;code&gt;sqlite-vec&lt;/code&gt;!&lt;/p&gt;
+&lt;p&gt;This &lt;code&gt;v0.1.7&lt;/code&gt; release fixes some long-standing bugs and introduces a few small new features, namely:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Proper &lt;code&gt;DELETE&lt;/code&gt; support&lt;/strong&gt;: Deleting vectors will now clear up space (if you DELETE enough to clear out a chunk, ~1024 vectors).&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Constraint support on &lt;code&gt;constraint&lt;/code&gt; column in KNN queries&lt;/strong&gt;: You can now use &lt;code&gt;&amp;gt;&lt;/code&gt;/&lt;code&gt;&amp;gt;=&lt;/code&gt;/&lt;code&gt;&amp;lt;&lt;/code&gt;/&lt;code&gt;&amp;lt;=&lt;/code&gt; constraints on the distance column in &lt;code&gt;vec0&lt;/code&gt; KNN queries, which allows you to &quot;paginate&quot; through KNN queries. This isn&#39;t &quot;real&quot; pagination, but if you ever wanted to scroll through vector search results without a giant &lt;code&gt;k&lt;/code&gt; value and doing it manually, this may help!&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;But overall, this release is about reviving old workflows, updating runners, fixing tests, and other housekeeping tasks. I now have proper fuzz testing on sqlite-vec, which has caught a few memory related, rare bugs.&lt;/p&gt;
+&lt;p&gt;There&#39;s still much to do: the documentation site is stale, docs are out-of-date, some old Go/ncruces bindings are paused. Feel free to file issues as you see fit, I&#39;m finding it hard to see which bugs are still oustanding.&lt;/p&gt;
+&lt;p&gt;But the biggest update coming soon: &lt;strong&gt;ANN support.&lt;/strong&gt; Look for the first release of DiskANN in sqlite-vec coming very soon!&lt;/p&gt;
+&lt;p&gt;And to end this: a big thanks to everyone who have used and continue to use &lt;code&gt;sqlite-vec&lt;/code&gt;. I do apologize greatly for the long time between releases. This project got quite large very fast, and I do appreicate though who offered support and patched (big shoutout to &lt;a class=&quot;user-mention notranslate&quot; data-hovercard-type=&quot;user&quot; data-hovercard-url=&quot;/users/vlasky/hovercard&quot; data-octo-click=&quot;hovercard-link-click&quot; data-octo-dimensions=&quot;link_type:self&quot; href=&quot;https://github.com/vlasky&quot;&gt;@vlasky&lt;/a&gt; who&#39;s &lt;a href=&quot;https://github.com/vlasky/sqlite-vec/&quot;&gt;maintained a fork&lt;/a&gt;!).&lt;/p&gt;</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+  <entry>
+    <id>tag:github.com,2008:Repository/789538509/v0.1.7-alpha.13</id>
+    <updated>2026-03-17T07:22:15Z</updated>
+    <link rel="alternate" type="text/html" href="https://github.com/asg017/sqlite-vec/releases/tag/v0.1.7-alpha.13"/>
+    <title>v0.1.7-alpha.13</title>
+    <content>No content.</content>
+    <author>
+      <name>asg017</name>
+    </author>
+    <media:thumbnail height="30" width="30" url="https://avatars.githubusercontent.com/u/15178711?s=60&amp;v=4"/>
+  </entry>
+</feed>

@@ -13,8 +13,8 @@ Implements the official NousResearch Hermes Agent skill protocol:
      - Persists and tracks skills in C:/vazus/skills and vazus.db.
 """
 
-import os
 import sys
+import os
 import re
 import json
 import logging
@@ -24,9 +24,13 @@ from typing import Dict, List, Any, Optional, Tuple
 
 logger = logging.getLogger("hermes_skill_engine")
 
+
 HERMES_ROOT = Path(r"C:\Users\Vaz\AppData\Local\hermes\hermes-agent")
 VAZUS_SKILLS_DIR = Path(r"C:\vazus\skills")
-VAZUS_DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
+
+def _get_vazus_db_path() -> Path:
+    return Path(os.environ.get("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db"))
+
 
 # Add hermes-agent to sys.path for direct native execution
 if HERMES_ROOT.exists() and str(HERMES_ROOT) not in sys.path:
@@ -34,9 +38,8 @@ if HERMES_ROOT.exists() and str(HERMES_ROOT) not in sys.path:
 
 # Import Hermes native utilities
 try:
-    from agent.skill_utils import parse_frontmatter, SKILL_PROMPT_DESC_LIMIT
-    from tools.skills_tool import skills_list as _hermes_skills_list, skill_view as _hermes_skill_view
-    from tools.skill_manager_tool import skill_manage as _hermes_skill_manage
+    from agent.skill_utils import SKILL_PROMPT_DESC_LIMIT
+    from tools.skills_tool import skill_view as _hermes_skill_view
     _HERMES_NATIVE_AVAILABLE = True
 except Exception as _import_err:
     logger.warning("Could not import native Hermes Agent modules: %s", _import_err)
@@ -327,7 +330,7 @@ class HermesSkillEngine:
 
         # Index in vazus.db
         try:
-            conn = sqlite3.connect(str(VAZUS_DB_PATH), timeout=3.0)
+            conn = sqlite3.connect(str(_get_vazus_db_path()), timeout=3.0)
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS skill_registry (

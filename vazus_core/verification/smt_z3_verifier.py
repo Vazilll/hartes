@@ -4,9 +4,21 @@ Redirects to unified vazus_core.safety_guardrail module.
 """
 
 import ast
+import os
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
+
+# Native Rust acceleration hook (Requirement R1 & R4)
+try:
+    _z3_lib_dir = r"C:\vazus\.venv\Lib\site-packages\z3\lib"
+    if os.path.exists(_z3_lib_dir) and hasattr(os, "add_dll_directory"):
+        os.add_dll_directory(_z3_lib_dir)
+    import vazus_native_z3
+    _NATIVE_Z3_AVAILABLE = True
+except Exception:
+    vazus_native_z3 = None
+    _NATIVE_Z3_AVAILABLE = False
 
 from vazus_core.verification.safety_guardrail import (
     SMTZ3Verifier,
@@ -74,15 +86,47 @@ class SMTZ3VerifierAlias(SMTZ3Verifier):
         """
         Proves input/output functional equivalence between original and candidate optimized code variants
         using symbolic AST Z3 expressions.
+        Fast path uses native Rust Z3 solver releasing GIL when available.
         """
         if orig_code.strip() == opt_code.strip():
             return VerificationResult(verified=True, smt_solver_status="UNSAT", contract_satisfied=True)
+
+        if getattr(self, "z3_available", True) and _NATIVE_Z3_AVAILABLE and vazus_native_z3 is not None:
+            try:
+                n_res = vazus_native_z3.verify_functional_equivalence_native(orig_code, opt_code, func_name or "f")
+                if n_res.smt_solver_status in ("UNSAT", "SAT"):
+                    return VerificationResult(
+                        verified=n_res.verified,
+                        smt_solver_status=n_res.smt_solver_status,
+                        contract_satisfied=n_res.contract_satisfied,
+                        proof_type=n_res.proof_type,
+                        counterexample=n_res.counterexample,
+                        solver_status=n_res.solver_status,
+                    )
+            except Exception:
+                pass
+
         return super().verify_functional_equivalence(orig_code, opt_code, func_name=func_name)
 
     def verify_memory_safety(self, offset: int, length: int, capacity: int) -> VerificationResult:
         """
         Formally verifies buffer bounds safety: offset >= 0 and length >= 0 and offset + length <= capacity.
+        Fast path uses native Rust verifier with transparent Python fallback.
         """
+        if _NATIVE_Z3_AVAILABLE and vazus_native_z3 is not None:
+            try:
+                native_res = vazus_native_z3.verify_memory_safety_native(offset, length, capacity)
+                return VerificationResult(
+                    verified=native_res.verified,
+                    smt_solver_status=native_res.smt_solver_status,
+                    contract_satisfied=native_res.contract_satisfied,
+                    proof_type="MEMORY_SAFETY",
+                    counterexample=native_res.counterexample,
+                    solver_status=native_res.solver_status,
+                )
+            except Exception:
+                pass
+
         safe = (0 <= offset) and (0 <= length) and (offset + length <= capacity)
         counterexample = None if safe else {
             "offset": offset,
@@ -98,6 +142,20 @@ class SMTZ3VerifierAlias(SMTZ3Verifier):
             counterexample=counterexample,
             solver_status="UNSAT" if safe else "SAT"
         )
+
+    def verify_contracts_parallel(self, contracts_json: str) -> str:
+        """Parallel multi-contract verification releasing Python GIL via rayon."""
+        if _NATIVE_Z3_AVAILABLE and vazus_native_z3 is not None:
+            return vazus_native_z3.verify_contracts_parallel(contracts_json)
+        return "[]"
+
+
+def verify_contracts_parallel(contracts_json: str) -> str:
+    """Parallel multi-contract verification releasing Python GIL via rayon."""
+    if _NATIVE_Z3_AVAILABLE and vazus_native_z3 is not None:
+        return vazus_native_z3.verify_contracts_parallel(contracts_json)
+    return "[]"
+
 
 
 # Set enhanced class as primary SMTZ3Verifier

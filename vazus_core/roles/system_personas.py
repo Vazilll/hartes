@@ -7,7 +7,7 @@ Unifies subagent definitions across:
   3. Official `google.antigravity` Python SDK (`Agent(config)`)
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Canonical System Prompts

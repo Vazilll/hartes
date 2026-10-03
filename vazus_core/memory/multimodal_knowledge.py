@@ -618,22 +618,6 @@ def load_audio_16k_mono(file_path: str) -> np.ndarray:
     return np.array([], dtype=np.float32)
 
 
-def transcribe_media_high_precision(
-    file_path: str,
-    model_name: str = "large-v3-turbo",
-    output_thumbnail_dir: str = "C:/vazus/knowledge/.thumbnails"
-) -> List[Dict[str, Any]]:
-    """
-    High-precision ASR pipeline with language='ru', vad_filter=True, compute_type='int8',
-    Russian text normalization, hallucination garbage filtering, and hybrid semantic chunking.
-    Returns scene dictionaries: [scene_id, source_file, start_sec, end_sec, transcript, thumbnail_path, ...]
-    """
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Media file not found: {file_path}")
-
-    os.makedirs(output_thumbnail_dir, exist_ok=True)
-    _file_ext = os.path.splitext(file_path)[1].lower()
-
 def _transcribe_with_whisper_model(model: Any, file_path: str) -> List[Dict[str, Any]]:
     """Runs primary Whisper model transcription on 16kHz audio."""
     raw_segments = []

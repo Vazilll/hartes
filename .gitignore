@@ -72,3 +72,22 @@ archive/
 *.zip
 
 
+
+# --- Build artefacts, binaries, runtime state (added by cleanup 2026-10-03) ---
+target/
+vazus_core/native/target/
+*.exe
+*.dll
+*.pyd
+*.wasm
+*.rlib
+*.db
+.mypy_cache/
+.hypothesis/
+.agents/teamwork/
+.stop_hook_state.json
+auth_token.json
+*Trust Tokens*
+services/sandbox_bridge/antigravity_appdata/
+services/memory/backups/
+templates/

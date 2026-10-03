@@ -4,7 +4,6 @@ Scans the codebase to detect unreferenced symbols, orphan files, and matches cap
 """
 
 import ast
-import os
 import re
 import shutil
 import logging

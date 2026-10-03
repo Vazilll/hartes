@@ -109,8 +109,24 @@ def _get_persona_prompts() -> dict[str, str]:
             "Respond ONLY with a valid JSON object matching this schema:\n"
             "{\"agent\": \"Verifier_Worker\", \"approved\": true, \"verdict\": \"PASS\", \"reason\": \"<summary>\"}\n"
         ),
+        "AdversarialFalsifier": (
+            "You are the Concordia Adversarial Falsifier Subagent (Agent #4) for Vazus OS.\n"
+            "Your ONLY job is to find counterexamples.\n"
+            "Assume the proposed code/claim is WRONG and find minimal inputs that break it.\n"
+            "If you cannot find a counterexample after exhaustive search, output: NO_COUNTEREXAMPLE_FOUND.\n\n"
+            "Respond ONLY with a valid JSON object matching this schema:\n"
+            "{\"agent\": \"AdversarialFalsifier\", \"approved\": true, \"verdict\": \"PASS\", \"reason\": \"NO_COUNTEREXAMPLE_FOUND\"}\n"
+        ),
     }
 
+
+ADVERSARIAL_FALSIFIER_PERSONA_PROMPT = (
+    "You are the Concordia Adversarial Falsifier Subagent (Agent #4) for Vazus OS.\n"
+    "Your ONLY job is to find counterexamples. "
+    "Assume the proposed code/claim is WRONG and find minimal inputs that break it. "
+    "If you cannot find a counterexample after exhaustive search, output: NO_COUNTEREXAMPLE_FOUND. "
+    "Respond strictly in JSON matching the schema."
+)
 
 from vazus_core.roles.system_personas import (
     PLANNER_PERSONA_PROMPT,
@@ -406,6 +422,7 @@ class ConcordiaJury:
                 {"agent": "Planner", "verdict": "FAIL", "reason": rejection_reasons[0]},
                 {"agent": "RLM_Coder", "verdict": "FAIL", "reason": rejection_reasons[0]},
                 {"agent": "Verifier_Worker", "verdict": "FAIL", "reason": rejection_reasons[0]},
+                {"agent": "AdversarialFalsifier", "verdict": "FAIL", "reason": rejection_reasons[0]},
             ]
         elif AdaptiveComplexityGate.classify(proposal, orig_code) == ChangeComplexity.TRIVIAL:
             # Fast path for trivial non-structural changes: skip LLM tokens and fast-approve
@@ -413,6 +430,7 @@ class ConcordiaJury:
                 {"agent": "Planner", "verdict": "PASS", "approved": True, "reason": "AdaptiveComplexityGate: TRIVIAL non-structural change auto-passed"},
                 {"agent": "RLM_Coder", "verdict": "PASS", "approved": True, "reason": "AdaptiveComplexityGate: AST valid and safe"},
                 {"agent": "Verifier_Worker", "verdict": "PASS", "approved": True, "reason": "AdaptiveComplexityGate: Zero contract risk"},
+                {"agent": "AdversarialFalsifier", "verdict": "PASS", "approved": True, "reason": "NO_COUNTEREXAMPLE_FOUND (TRIVIAL change)"},
             ]
         else:
             agent_votes = await self._evaluate_subagent_votes_async(proposal, file_path=file_path)
@@ -652,15 +670,17 @@ class ConcordiaJury:
     async def _evaluate_subagent_votes_async(
         self, proposal: str, file_path: str = "proposal.py"
     ) -> List[Dict[str, Any]]:
-        """Executes 3 independent LLM subagent evaluations with diverse personas and temperatures."""
+        """Executes 4 independent LLM subagent evaluations including AdversarialFalsifier with diverse personas."""
         planner_model = os.getenv("VAZUS_JURY_PLANNER_MODEL", "gemini-3.6-flash")
         coder_model = os.getenv("VAZUS_JURY_CODER_MODEL", "gemini-3.6-flash")
         verifier_model = os.getenv("VAZUS_JURY_VERIFIER_MODEL", "gemini-3.6-flash")
+        falsifier_model = os.getenv("VAZUS_JURY_FALSIFIER_MODEL", "gemini-3.6-flash")
 
         tasks = [
             self._call_subagent_eval_async("Planner", PLANNER_PERSONA_PROMPT, proposal, file_path, model=planner_model, temperature=0.2),
             self._call_subagent_eval_async("RLM_Coder", RLM_CODER_PERSONA_PROMPT, proposal, file_path, model=coder_model, temperature=0.0),
             self._call_subagent_eval_async("Verifier_Worker", VERIFIER_WORKER_PERSONA_PROMPT, proposal, file_path, model=verifier_model, temperature=0.0),
+            self._call_subagent_eval_async("AdversarialFalsifier", ADVERSARIAL_FALSIFIER_PERSONA_PROMPT, proposal, file_path, model=falsifier_model, temperature=0.3),
         ]
         results = await asyncio.gather(*tasks)
         return list(results)
@@ -744,6 +764,15 @@ class ConcordiaJury:
             except Exception as smt_exc:
                 return {"agent": agent_name, "approved": False, "verdict": "FAIL",
                         "reason": f"SMT check exception — abstaining (Fallback: {smt_exc})", "is_mock": True}
+
+        if agent_name == "AdversarialFalsifier":
+            return {
+                "agent": agent_name,
+                "approved": False,
+                "verdict": "FAIL",
+                "reason": f"AdversarialFalsifier LLM unavailable — fail-closed safety rejection (Fallback: {error_msg})",
+                "is_mock": True,
+            }
 
         # CVE-V3: LLM call failure is not a vote of confidence. Returning PASS on error would
         # allow 2 failed agents to push 66% consensus on broken code. FAIL = safe default.

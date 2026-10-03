@@ -6,13 +6,11 @@ Bypasses unofficial API blocks by interacting with keep.google.com directly
 using user's persistent Chrome profile or CDP debugging session.
 """
 
-import os
 import sys
-import json
 import time
 import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 if sys.platform == "win32":
     try:

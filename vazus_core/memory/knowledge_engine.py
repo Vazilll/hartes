@@ -11,7 +11,6 @@ vazus SuperGraph OS v4.0 Unified Architecture
 
 import os
 import ast
-import datetime
 import logging
 import sqlite3
 import time
@@ -197,4 +196,3 @@ class FullWorkspaceIndexer:
 
 
 
-from vazus_core.memory.zettelkasten_exporter import ZettelkastenExporter  # Canonical SOTA exporter

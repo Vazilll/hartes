@@ -65,8 +65,10 @@ class UnifiedMemoryGateway:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS organic_insights (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    node_id TEXT UNIQUE,
                     category TEXT,
                     insight TEXT,
+                    timestamp REAL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -214,8 +216,10 @@ class UnifiedMemoryGateway:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS organic_insights (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        node_id TEXT UNIQUE,
                         category TEXT,
                         insight TEXT,
+                        timestamp REAL,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                     )
                 """)

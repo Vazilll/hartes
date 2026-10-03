@@ -1,90 +1,129 @@
 # Original User Request
 
-## 2026-08-09T17:16:41Z
+## Initial Request — 2026-09-04T02:24:31Z
 
-Execute Hermes-style Multi-Agent Coordination, Automatic Prompt Mutation, and LEANN Memory Persistence for Vazus OS in C:/vazus.
+Комплексный рефрейминг и глубокий рефакторинг архитектуры Vazus OS: формализация парадигмы самообучающегося суперорганизма в Obsidian Wiki и сквозная оптимизация кодовой базы (замыкание контуров Eval Quality Flywheel, устранение деградации ОЗУ/индексации, ликвидация регрессий в SPEC.md и 100% прохождение гейтов верификации).
 
-Requirements:
-R1. Hermes-Style Interactive Multi-Agent Auto-Triggering: Evaluate intent for complex tasks, prompt user for confirmation when deep analysis is needed, and delegate execution to non-blocking background subagents via invoke_subagent.
-R2. Post-Task Automatic Prompt Mutation & Reflexion: Upon task completion, run VazusAutoImprover and vazus_darwinian_evolve to mutate prompt templates, evaluate fitness scores, and persist lessons into vazus.db (reflexion_lessons) and AGENTS.md.
-R3. LEANN 768D Vector Memory & Anti-Amnesia: Store user preferences, corrections, and architectural decisions in vazus.db via vazus_record_insight and LEANN vector index.
+Key Requirements:
+R1. Концептуальный рефрейминг в Obsidian Wiki:
+- Создать и интегрировать в SuperGraph иерархическое дерево заметок в C:\vazus\services\memory\semantic\wiki\ с валидным YAML-frontmatter и двусторонними ссылками [[wikilinks]].
+- Темы: Eval Quality Flywheel, метрики авто-судей (LLM-as-a-Judge, Trajectory Quality, Tool Use Quality), семантическая кластеризация потерь и таксономия ошибок, 3-уровневая модель оптимизации (Prompt Auto-Tuning, Dynamic Few-Shot In-Context DPO, SFT/LoRA), арбитраж и защита от регрессий (AutoSxS, Concordia Jury).
+- Интегрировать граф смыслов с SuperGraph OS через векторные узлы (без dangling references).
 
-Acceptance Criteria:
-- Concordia 3-subagent teamwork satisfies >=66% consensus.
-- SMT Z3 contract proof verified UNSAT.
-- Core test suite 23/23 passed (100%).
-- AST token compression >70%.
-- Zero unhandled stubs or dummy mocks.
+R2. Ликвидация утечки ОЗУ и защита от мультиплексирования процессов индексации:
+- Оптимизировать C:\vazus\pyrightconfig.json, исключив тяжелые сторонние библиотеки (services/inference/llama.cpp/**, tests/**, tools/**, scratch/**), сократив число индексируемых файлов с 1 154 до ~150.
+- Внедрить Concurrency Mutex / Lock (.ckb/indexing.lock) и системную проверку активных процессов в C:\vazus\vazus_core\maintenance\auto_index_runner.py, запрещающую запуск параллельных копий ckb index / scip-python.
+- Изолировать вызов SCIP-индексации от микро-хука C:\vazus\vazus_core\hooks\post_tool_hook.py, чтобы редактирование отдельных файлов не запускало компиляцию глобального индекса.
+- Гарантировать: время полной фоновой индексации ckb index <= 30 с; не более 1 одновременного процесса scip-python/node.exe; память <= 300 МБ.
 
-## 2026-08-12T17:57:00Z
+R3. Устранение циклической регрессии в генераторе SPEC.md:
+- Модифицировать метод generate_spec_markdown в C:\vazus\vazus_core\maintenance\auto_index_runner.py, добавив автогенерацию ключевых разделов (## Mission & Domain Scope, ## Level 1..5 Capability Maturity, ## Known Bottlenecks & Failure Modes).
+- Синхронизировать спецификации C:\vazus\vazus_core\engine\SPEC.md, C:\vazus\vazus_core\memory\SPEC.md и C:\vazus\vazus_core\hooks\SPEC.md.
+- Гарантировать прохождение теста tests/test_skill_tree_system_e2e.py::TestTier1FeatureCoverage::test_r2_domain_spec_contracts_structure_and_criteria (100% PASSED).
 
-Refactor and upgrade the core engine of Vazus OS (`vazus_core`) to eliminate the top 3 architectural bottlenecks identified in the 2026 SOTA audit: convert the runtime loop to `asyncio`-native, replace static `fix_fn` heuristics with true LLM-based Reflexion, and wire the 768-dim vector embeddings directly into `LessonMemoryBank` and dynamic skill retrieval.
+R4. Программное замыкание контуров обратной связи (Feedback Loops):
+- Обеспечить трансформацию детекции ошибок из тестов и рантайма в структурированные уроки памяти (reflexion_lessons / mem0_facts).
+- Сквозной набор тестов pytest tests/ должен выполняться без ошибок и регрессий.
+
+Orchestrator Protocol:
+- Maintain plan.md, progress.md, context.md in C:\vazus\.agents\orchestrator_1.
+- Update progress.md regularly with milestones and mtime.
+- Dispatch subagents as needed for parallel audit, implementation, and verification.
+- When all acceptance criteria are met and verified, report completion to the Sentinel.
+
+## 2026-09-04T10:31:55Z — Lead Architect Notice
+
+[Lead Architect Notice to teamwork_preview]:
+The canonical database SHA-256 updated to `4a7d1cef7106bb8a81c64d7aa7881051fe2ca1ee75391d973e4134b5dc2fa967` because the user explicitly mandated recording the MIREA pedagogical tutoring policy (`fact_1788515403046` in mem0_facts and `insight_8ec4ba8754c09169` in organic_insights) into vazus.db during this session, followed by a clean WAL checkpoint + VACUUM.
+The `EXPECTED_SHA256` constant in `tests/benchmarks/test_challenger_final_3_adversarial.py` should be updated to `4a7d1cef7106bb8a81c64d7aa7881051fe2ca1ee75391d973e4134b5dc2fa967` as the new verified baseline. All 48 tables and user data remain 100% intact with zero AST bloat.
+
+## Follow-up — 2026-09-04T13:27:22Z
+
+# Teamwork Project Prompt
+
+> Status: Launched
+> Goal: Execute 3-stage architectural evolution with zero-stub proven mechanisms
+> Requested team: Полномасштабная команда агентов (SMT formal verifiers, engine engineers, test auditors)
+
+Комплексная реализация и интеграция 8 доказанных математических механизмов верификации, оптимизации и непрерывного самоулучшения (AlphaProof SMT Gate, Self-Anchored Consensus, O(1) RES Runtime, OmegaPRM MCTS, Hardened Sandbox, FunSearch) в архитектуру Vazus SuperGraph OS v5.2 с абсолютным запретом на упрощения и заглушки.
 
 Working directory: C:\vazus
 Integrity mode: development
 
+## 🔒 Ключевой Инвариант: Только Доказанные Механизмы (Zero-Stub Invariant)
+Запрещены любые заглушки (stubs), симуляции, моки (mocks) или упрощенные эвристики вместо реальных алгоритмов:
+1. **SMT Z3**: Реальное решение систем ограничений в Z3 C-API / Python API с генерацией и валидацией доказательств выполнимости (SAT) и невыполнимости (UNSAT) с вычислением Minimal Unsatisfiable Cores (MUC).
+2. **SAC (Self-Anchored Consensus)**: Честная $(F+1)$-робастная топология графа и Receiver-Side перекрестная оценка, а не доверие к самооценке отправителя.
+3. **RES Runtime**: Честное разделение $\mathcal{O}(1)$ контекста: Reasoner $\to$ детерминированный Executor $\to$ Synthesizer с Ephemeral Reasoning Ejection.
+4. **Эволюция кода**: Честный дисковый оверлей в `darwinian_evolver.py` с гарантированным прогоном `pytest` над реальным измененным байт-кодом мутанта.
+
+---
+
 ## Requirements
 
-### R1. `asyncio`-Native Core Architecture
-Convert `subagent_framework.py`, `unified_reasoning_pipeline.py`, `auto_improver.py`, and `model_selector.py` to be fully `asyncio`-native. Implement asynchronous execution loops, non-blocking tool calls, and timeout guards (`asyncio.timeout(300)`).
+### R1. Детерминированная Песочница, Устранение Бага в `darwinian_evolver.py` и SMT-Шлюз
+- **R1.1. Изоляция мутаций в `darwinian_evolver.py`**: Устранить дефект строк 214–219. Записывать `mutated_code` в изолированный виртуальный каталог (`tmp_path`) с подменой `PYTHONPATH` перед вызовом `evaluate_variant_pytest()`. Доказать тестом, что `pytest` фиксирует результат исполнения именно мутированного кода, а не базового репозитория.
+- **R1.2. Аппаратный контроллер Windows Sandbox (`wsb.exe`)**: Реализовать программный контроллер сессий `wsb_sandbox_controller.py` с принудительными директивами: `<ProtectedClient>Enable</ProtectedClient>`, полным физическим отключением сети `<Networking>Disable</Networking>` (защита от APT-эксфильтрации) и Read-Only кэшем зависимостей `pip`.
+- **R1.3. Шлюз безопасности `substrate-guard` (SMT Z3 Hard Gate)**: Реализовать модуль `vazus_core/verification/substrate_guard.py`. Все аргументы инструментов субагентов строго типизировать (Pydantic) и транслировать в предикаты SMT-LIB2. Время проверки $\le 2$ мс. При нарушении инварианта генерировать Minimal Unsatisfiable Core (MUC) для детерминированной одношаговой коррекции.
 
-### R2. LLM-Powered Reflexion Loop & Real Jury
-Replace the stub static `_ast_fix_fn` in `subagent_framework.py` / `auto_improver.py` with an actual async LLM call (`_llm_fix_fn`) that passes error critiques and historical failure lessons to Gemini 3.6 Flash. Fix `unified_reasoning_pipeline.py` so Concordia jury voting executes 3 real, independent LLM evaluation calls in parallel instead of deriving votes from a single SMT boolean.
+### R2. Инвариантный Рантайн $O(1)$ Состояний и Робастный Консенсус SAC
+- **R2.1. Рантайн $O(1)$ SKILL.state & Паттерн Reasoner-Executor-Synthesizer (RES)**: Реализовать `vazus_core/engine/skill_state_runtime.py`. Изолировать контекст LLM от сырых записей базы данных и дампов AST: детерминированный исполнитель агрегирует выборку в срез фиксированного размера $\le 1500$ токенов. После фиксации дельты $\Delta \Sigma_t$ производить Ephemeral Reasoning Ejection (стирание CoT), исключая квадратичный рост затрат токенов.
+- **R2.2. Self-Anchored Consensus (SAC) для Concordia Jury**: Модифицировать `vazus_core/verification/concordia_jury.py`. Устранить зависимость от заявленной уверенности отправителя. Внедрить Receiver-Side Evaluation в $(F+1)$-робастном графе с MSR-фильтрацией выбросов, гарантирующей устойчивость к византийским и галлюцинирующим агентам.
+- **R2.3. Символический интерфейс AMTFV (Tool-Flow Verification)**: Реализовать интерфейс `<tool_flow>` для математических и логических преобразований, передающий символические вычисления в SymPy и Z3 вместо генерации монолитных хрупких скриптов проверки.
 
-### R3. Vector Embeddings Wiring & Cosine Lesson Retrieval
-Connect `vazus_core/embeddings.py` (768-dim vector engine) directly to `LessonMemoryBank` in `auto_improver.py`. Replace raw `SQL LIKE '%Error%'` queries with cosine similarity top-k vector search over embedded failure signatures.
+### R3. Пошаговая Модель Наград (OmegaPRM) и Авто-Формализация
+- **R3.1. Инлайн Process Reward Model (OmegaPRM) в MCTS (Test-Time Compute)**: Интегрировать в `vazus_core/engine/reasoning_effort_controller.py` пошаговый скорер веток рассуждений. В режиме высокого усилия (`xhigh`/`ultra`) дерево MCTS оценивает каждый шаг $r_t \in [0, 1]$ и отсекает ветви с $r_t < 0.6$ до обращения к внешним инструментам или компилятору.
+- **R3.2. Авто-формализатор AlphaProof / Google CEL**: Реализовать `vazus_core/compiler/auto_formalizer.py` для автоматической трансляции бизнес-требований и спецификаций в формальные леммы Z3 и предикаты Google CEL.
+- **R3.3. Островная модель популяций FunSearch**: Расширить генетический движок поддержкой независимых популяционных островов с периодической миграцией элитных особей.
+
+---
 
 ## Acceptance Criteria
 
-- Async Runtime Check: pytest C:\vazus\tests or standalone verification script executes all core pipeline methods asynchronously without blocking or thread deadlocks.
-- AST & Syntax Integrity: python -m py_compile and ast.parse() pass for all modified files in C:\vazus\vazus_core\.
-- LLM Reflexion Integration: Unit test confirms auto_improver.py invokes LLM generation on failure critique and produces improved code.
-- Vector Retrieval Integration: Unit test confirms LessonMemoryBank uses 768D cosine similarity search and returns relevant top-k failure lessons.
-- Zero Regressions: 100% of existing vazus_core tests pass with zero broken imports or missing attributes.
+### Security & Formal Verification (SMT & SAC)
+- [ ] Все операции модификации файлов и выполнения системных команд валидируются через `substrate_guard` за $\le 5$ мс с гарантией Fail-Closed.
+- [ ] При попытке выхода за пределы jail-периметра Z3 вычисляет и возвращает корректный MUC.
+- [ ] При инжекции византийского агента с фиктивной максимальной уверенностью 1.0 протокол SAC сохраняет $\ge 90\%$ честный консенсус (в отличие от старого CP-WBFT).
 
-## Follow-up — 2026-08-12T18:12:20Z
+### Runtime Performance & Context Invariance
+- [ ] Расход токенов в многошаговых сессиях с RES-рантаймом инвариантен к размеру выборки БД ($\mathcal{O}(1)$, плотность $\le 2000$ токенов на шаг).
+- [ ] Эволюционный цикл `darwinian_evolver.py` подтвержден тестом: мутированный код изолируется в `tmp_path`, а `pytest` фиксирует реальные изменения покрытия/результатов мутанта.
 
-CRITICAL DIRECTIVE FROM USER:
-Incorporate a dedicated "Web Intelligence & Antigravity Compliance Auditor" agent role into EVERY phase/milestone of the project.
+### Repository Health & Stability
+- [ ] 100% прохождение сквозного набора тестов репозитория (`pytest tests/`).
+- [ ] Нулевая деградация существующего SuperGraph (873 узла, 1 890 связей, 0 dangling edges).
+- [ ] Полное соответствие инвариантам формальной логики Челпанова и Zero-Artifact Protocol (0 временных файлов на диске после завершения).
 
-At each milestone (R1, R2, R3, Verification):
-1. **Web Research & SOTA Benchmarking**: Search the web for existing high-performance open-source solutions, libraries, or patterns before writing custom code. Compare the proposed design against top implementations and adopt superior features.
-2. **Antigravity Rule & Plugin Alignment**: Verify every architectural decision against official Google Antigravity standards (plugin schema, hooks.json, MCP server specs, skill standards). Ensure 100% compliance without violating Antigravity rules.
-3. **Feature Integration**: If a better pre-existing solution or library exists on PyPI or GitHub, integrate it into vazus_core rather than rebuilding from scratch.
+## 2026-09-20T14:02:32Z
 
-Please update the project plan, notify all active sub-orchestrators, and spawn/assign an Auditor agent for each milestone.
+<USER_REQUEST>
+An automated, fail-closed academic verification and synchronization engine for Vazus OS that binds student profile, academic debts, live schedules, and Moodle tests to authoritative university endpoints (LKS SSO, Moodle LMS, schedule-of.mirea.ru).
 
-## Follow-up — 2026-08-12T21:10:38Z
+Working directory: C:\vazus\services\academic_verification
+Integrity mode: development
 
-DIRECTIVE: Registered Requirement R5 (12 SOTA Resilience & Optimization Engine). Launched Wave 1 of 5 sequential deep component interaction auditing subagents to verify zero over-simplified stubs and test real inter-module interactions.
+## Requirements
 
-## Follow-up — 2026-08-12T23:05:58Z
+### R1. Authoritative Identity & Debt Synchronization
+Implement a single-source-of-truth sync pipeline that authenticates against `lk.mirea.ru` via Keycloak SSO session and pulls the verified student profile (Жуков Максим Дмитриевич, `ИВБО-22-25`, личный номер `25И0566`, направление `09.03.01`) and the 18 active academic debts with their official Stage 1 deadline (15.10.2026).
 
-Execute as Project Orchestrator for Vazus OS.
+### R2. Official Live Schedule Ingestion (schedule-of.mirea.ru)
+Integrate the official RTU MIREA schedule API (`https://schedule-of.mirea.ru/schedule/api/ical/1/5528?includeMeta=true` and `api/baseinfo?id=5528`), replacing all legacy/defunct scrapers (`api.mirea.ninja`). Sync parsed lectures, labs, and classrooms into `vazus.db` (`mirea_schedule`).
 
-Task Objectives:
-1. Integrate Google Jules REST API for cloud VM pre-commit verification (R1):
-   - Build async client `vazus_core/jules_client.py` connecting to `https://jules.googleapis.com/v1alpha/`.
-   - Authenticate via `X-Goog-Api-Key` header (`JULES_API_KEY` env var).
-   - Implement `/sources` listing and `/sessions` job creation for remote repository analysis in Google Cloud VMs.
-   - Add fallback handling when `JULES_API_KEY` is not present or when API returns rate limits (falling back gracefully to local SMT/Jury verification).
+### R3. Moodle LMS Course & Test Discovery (Read-Only)
+Query `online-edu.mirea.ru` using authenticated Moodle 4 AJAX API (`core_course_get_enrolled_courses_by_timeline_classification`) to resolve real course IDs (e.g. 16479, 16480, 16486, 16017) instead of examination sheet numbers, and extract available quiz/test links.
 
-2. REPL Sandbox Hardening & Escape Prevention (R2):
-   - Remediate verified vulnerabilities in `vazus_core/repl_engine.py`:
-     * V-01 Fix: Neutralize `__subclasses__` gadget chain traversal on object/type classes (`type(chr).__mro__[1].__subclasses__()`).
-     * V-03 Fix: Block `importlib`, `ctypes`, and dynamic module loading gadgets (`import importlib`, `import ctypes`).
-   - Enforce strict AST validation or RestrictedPython policy so malicious code returns explicit errors instead of escaping to host environment.
+### R4. Read-Only Safety Guardrail (Strict Invariant)
+Under no circumstances may the system submit answers, complete quizzes, or upload files to the user's remote MIREA account without explicit, interactive confirmation. All operations against university servers must remain strictly read-only and exploratory.
 
-3. Git Provenance & Branch Merge Sprint (R3):
-   - Align repository branches in `C:\vazus`:
-     * Merge changes from `feature/antigravity-tui-vision` and active feature branches into `vazus-dev`.
-     * Fast-forward / merge `vazus-dev` into `vazus-main` to maintain clean git history for Jules GitHub App integration.
-   - Ensure `git status` is clean with no uncommitted files or orphaned scratch scripts.
+### R5. Dead Code & Stub Scrubber
+Purge all hardcoded `ИКБО-01-23` fallback constants and dummy schedules across `vazus_core/integrations/mirea_student_manager.py` and test suites, enforcing fail-closed behavior when session tokens are absent.
 
-Verification & Acceptance Criteria:
-- Unit test for Jules API client session lifecycle management passes.
-- Fallback to local SMT/Jury verification works when API key is missing.
-- `type(chr).__mro__[1].__subclasses__()`, `import importlib`, and `import ctypes` in LocalREPL are blocked (status != SUCCESS).
-- `git status` is clean and `git log vazus-main..vazus-dev --oneline` shows 0 unmerged commits.
-- Core test suite passes with 0 errors.
+## Acceptance Criteria
 
+### Automated Verification
+- [ ] Pytest integration suite (`tests/test_academic_truth_engine.py`) executes and passes with 100% success.
+- [ ] Zero instances of hardcoded `ИКБО-01-23` or `api.mirea.ninja` remain in active `vazus_core` code (verified via ripgrep).
+- [ ] Validated local SQLite storage: `mirea_milestones` and `mirea_schedule` in `vazus.db` contain verified `ИВБО-22-25` records.
+- [ ] Read-only invariant: Unit tests assert that no HTTP POST mutating remote course submissions or file uploads can execute without explicit override flags.
+</USER_REQUEST>

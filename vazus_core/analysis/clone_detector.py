@@ -525,7 +525,7 @@ class CloneDetector:
         label = type_labels.get(clone_type, f"Type {clone_type}")
         parts = [
             f"[{label}] {fa}:{line_a} ≈ {fb}:{line_b}",
-            f"  → Extract shared logic into a utility function in vazus_core/analysis/",
+            "  → Extract shared logic into a utility function in vazus_core/analysis/",
         ]
         if extra:
             parts.append(f"  → {extra}")

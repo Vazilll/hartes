@@ -15,6 +15,11 @@ import json
 import logging
 from pathlib import Path
 
+if hasattr(sys.stdin, "reconfigure"):
+    sys.stdin.reconfigure(encoding="utf-8")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 WORKSPACE_ROOTS = [
     Path("C:/vazus").resolve(),
     Path.home() / ".gemini",
@@ -99,17 +104,21 @@ def main():
             print(json.dumps({"decision": "deny", "reason": "[SECURITY] PreToolHook: Empty stdin received. Fail-closed."}))
             return
         input_data = json.loads(raw_stdin)
+        if not isinstance(input_data, dict):
+            input_data = {}
+        tool_call = input_data.get("toolCall", {})
+        if not isinstance(tool_call, dict):
+            tool_call = {}
+        tool_name = tool_call.get("name", "unknown")
+        args = tool_call.get("args", {})
+        if not isinstance(args, dict):
+            args = {}
+
+        response = run_pre_tool(tool_name, args)
+        print(json.dumps({"decision": response.get("decision", "deny"), "reason": response.get("reason", "")}))
     except Exception as e:
-        # FAIL-CLOSED on stdin parse error
-        print(json.dumps({"decision": "deny", "reason": f"[SECURITY] PreToolHook parse error ({e}). Fail-closed."}))
-        return
-
-    tool_call = input_data.get("toolCall", {})
-    tool_name = tool_call.get("name", "unknown")
-    args = tool_call.get("args", {})
-
-    response = run_pre_tool(tool_name, args)
-    print(json.dumps({"decision": response.get("decision", "deny"), "reason": response.get("reason", "")}))
+        # FAIL-CLOSED on any error
+        print(json.dumps({"decision": "deny", "reason": f"[SECURITY] PreToolHook error ({e}). Fail-closed."}))
 
 
 def _validate_security_policies(tool_name: str, tool_input: dict) -> tuple[bool, str]:

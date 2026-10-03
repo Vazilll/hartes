@@ -573,7 +573,7 @@ class ReflexionEvaluator:
             "lesson_text": f"Diagnosed {err_type}: {err_msg}",
             "anti_pattern": err_msg,
             "recommended_pattern": f"Apply robust verification for {task_objective or err_type}",
-            "solution": f"use vazus_core.verification.ast_pruner for all ASTPruner imports",
+            "solution": "use vazus_core.verification.ast_pruner for all ASTPruner imports",
             "task_objective": task_objective,
         }
 

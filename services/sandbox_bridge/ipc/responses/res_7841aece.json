@@ -1,0 +1,12 @@
+﻿{
+    "pong":  true,
+    "action":  "ping",
+    "id":  "7841aece",
+    "success":  true,
+    "timestamp":  "2026-09-01T20:38:35.9034987+03:00",
+    "screen":  {
+                   "height":  728,
+                   "width":  1214
+               },
+    "bridge_dir":  "C:\\Users\\WDAGUtilityAccount\\Desktop\\sandbox_bridge"
+}

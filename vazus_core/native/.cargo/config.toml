@@ -1,0 +1,11 @@
+[build]
+rustflags = ["-C", "linker=rust-lld", "-C", "link-self-contained=yes"]
+
+[target.x86_64-pc-windows-gnu]
+linker = "rust-lld"
+rustflags = ["-C", "link-self-contained=yes"]
+
+[env]
+CC = { value = "C:\\vazus\\vazus_core\\native\\build_tools\\zig-cc.cmd", force = true }
+CC_x86_64_pc_windows_gnu = { value = "C:\\vazus\\vazus_core\\native\\build_tools\\zig-cc.cmd", force = true }
+AR = { value = "zig ar", force = true }

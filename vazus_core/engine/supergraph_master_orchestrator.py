@@ -16,20 +16,23 @@ from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-from typing import Optional, Union, List, Dict, Any
+from typing import TYPE_CHECKING, Optional, Union, List, Dict, Any
 
-from vazus_core.integrations.health_telemetry_pipeline import VazusHealthPipelineManager
-from vazus_core.integrations.tinkoff_finance_manager import TinkoffFinanceManager
-from vazus_core.integrations.self_employed_order_hunter import SelfEmployedManager
-from vazus_core.integrations.mirea_student_manager import MireaStudentManager
-from vazus_core.integrations.gemma_local_processor import GoogleGemmaLocalEngine
-from vazus_core.langgraph_health_workflow import LangGraphHealthMultiAgentWorkflow
-from vazus_core.workers.self_healing_repl import SelfHealingREPLManager
+if TYPE_CHECKING:
+    pass
 
 DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"C:\vazus\services\memory\vazus.db"
 
 class SuperGraphMasterOrchestrator:
     def __init__(self, db_path=None):
+        from vazus_core.integrations.health_telemetry_pipeline import VazusHealthPipelineManager
+        from vazus_core.integrations.tinkoff_finance_manager import TinkoffFinanceManager
+        from vazus_core.integrations.self_employed_order_hunter import SelfEmployedManager
+        from vazus_core.integrations.mirea_student_manager import MireaStudentManager
+        from vazus_core.integrations.gemma_local_processor import GoogleGemmaLocalEngine
+        from vazus_core.integrations.langgraph_health_workflow import LangGraphHealthMultiAgentWorkflow
+        from vazus_core.workers.self_healing_repl import SelfHealingREPLManager
+
         env_db = os.environ.get("VAZUS_DB_PATH")
         self.db_path = db_path or env_db or DB_PATH
         self.pipeline_mgr = VazusHealthPipelineManager()

@@ -18,11 +18,12 @@ from typing import List, Optional, Tuple, Union
 
 from vazus_core.analysis.kg_schema import ensure_kg_schema
 from vazus_core.memory.db import DEFAULT_VAZUS_DB, get_db_connection
+from vazus_core.memory.decay_policy import (
+    BASE_STABILITY,
+    MAX_STABILITY,
+)
 
 logger = logging.getLogger("vazus_core.memory.synaptic_pruner")
-
-BASE_STABILITY = 86400.0 * 3.0     # 3 days base stability
-MAX_STABILITY  = 86400.0 * 180.0   # 180 days ceiling
 
 
 @dataclass
@@ -179,6 +180,7 @@ class SynapticPruner:
             cur.execute("""
                 DELETE FROM kg_nodes
                 WHERE id NOT IN (SELECT source_id FROM kg_edges UNION SELECT target_id FROM kg_edges)
+                  AND COALESCE(domain, '') NOT IN ('memory_wiki', 'organic_memory', 'health', 'kgb_analytics', 'core', 'academic')
                   AND COALESCE(json_extract(properties, '$.immutable'), 0) NOT IN (1, 'true', '1')
                   AND (properties NOT LIKE '%"immutable": true%' OR properties IS NULL)
                   AND (properties NOT LIKE '%"immutable": 1%' OR properties IS NULL)
