@@ -94,9 +94,9 @@ class OpenVINOGenAIPipeline:
         candidates = [
             model_dir,
             os.environ.get("OPENVINO_MODEL_PATH"),
-            r"C:\vazus\models\Qwen2.5-7B-Instruct-int4-ov",
-            r"C:\vazus\models\Phi-3.5-mini-instruct-int4-ov",
-            r"C:\vazus\models\openvino_genai",
+            r"C:\vazus\data\models\Qwen2.5-7B-Instruct-int4-ov",
+            r"C:\vazus\data\models\Phi-3.5-mini-instruct-int4-ov",
+            r"C:\vazus\data\models\openvino_genai",
         ]
         chosen = None
         for c in candidates:

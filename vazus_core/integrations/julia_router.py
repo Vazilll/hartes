@@ -409,7 +409,7 @@ class JuliaONNXClassifier:
         # Resolve paths
         self.model_path = self._resolve_model_path(model_path)
         self.tokenizer_path = self._resolve_tokenizer_path(tokenizer_path)
-        self.cache_dir = Path(cache_dir or "C:/vazus/cache/openvino")
+        self.cache_dir = Path(cache_dir or "C:/vazus/data/cache/openvino")
 
         # Load tokenizer
         self._load_tokenizer()
@@ -427,7 +427,7 @@ class JuliaONNXClassifier:
             return str(user_path)
 
         candidates = [
-            Path("C:/vazus/models/julia_router/julia_classifier.onnx"),
+            Path("C:/vazus/data/models/julia_router/julia_classifier.onnx"),
             Path(__file__).resolve().parents[2] / "models" / "julia_router" / "julia_classifier.onnx",
             Path("models/julia_router/julia_classifier.onnx"),
         ]
@@ -441,7 +441,7 @@ class JuliaONNXClassifier:
             return str(user_path)
 
         candidates = [
-            Path("C:/vazus/models/openvino_npu/tokenizer/tokenizer.json"),
+            Path("C:/vazus/data/models/openvino_npu/tokenizer/tokenizer.json"),
             Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "tokenizer" / "tokenizer.json",
             Path("models/openvino_npu/tokenizer/tokenizer.json"),
         ]

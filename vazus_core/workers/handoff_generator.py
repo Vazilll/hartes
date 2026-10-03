@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("handoff_generator")
 
 HANDOFF_THRESHOLD_TURNS = 20
-LATEST_HANDOFF_FILE = Path(r"C:\vazus\logs\latest_handoff.md")
+LATEST_HANDOFF_FILE = Path(r"C:\vazus\data\logs\latest_handoff.md")
 
 
 def check_and_generate_handoff(

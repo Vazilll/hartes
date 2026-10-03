@@ -23,7 +23,7 @@
         },
         "telegram-mcp": {
             "command": "C:\\vazus\\.venv\\Scripts\\python.exe",
-            "args": ["C:/vazus/scripts/mcp_servers/telegram_mcp.py"],
+            "args": ["C:/vazus/tools/scripts/mcp_servers/telegram_mcp.py"],
             "description": "Telegram user account integration: media downloader, history, dialogs"
         }
     }

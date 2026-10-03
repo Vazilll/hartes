@@ -249,7 +249,7 @@ def _check_adversary_objections(conversation_id: str) -> Optional[dict]:
     Blocks stopping if there are open DISAGREE_EVIDENCE / OBJECTION items
     (up to 2 rounds per conversation, fail-open afterwards).
     """
-    verdict_path = Path("C:/vazus/logs/review/review_verdict.json")
+    verdict_path = Path("C:/vazus/data/logs/review/review_verdict.json")
     if not verdict_path.exists():
         return None
     try:

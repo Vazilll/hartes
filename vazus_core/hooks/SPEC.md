@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/hooks`  
 > **Path**: `vazus_core/hooks`  
-> **Last Auto-Synchronized**: 2026-10-03 15:43:53  
+> **Last Auto-Synchronized**: 2026-10-03 15:57:09  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission

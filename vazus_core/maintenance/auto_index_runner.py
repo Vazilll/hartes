@@ -964,7 +964,7 @@ class SCIPIndexSynchronizer:
 
         ckb_cmd = shutil.which("ckb.cmd") or shutil.which("ckb")
         if not ckb_cmd:
-            for cand in [r"C:\Users\Vaz\AppData\Roaming\npm\ckb.cmd", r"C:\vazus\bin\ckb.cmd"]:
+            for cand in [r"C:\Users\Vaz\AppData\Roaming\npm\ckb.cmd", r"C:\vazus\tools\bin\ckb.cmd"]:
                 if os.path.exists(cand):
                     ckb_cmd = cand
                     break

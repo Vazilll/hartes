@@ -35,7 +35,7 @@ try:
 except Exception as _import_err:
     def write_hud_event(event_type: str, payload: dict) -> None:
         """Standalone fallback HUD event writer that persists events to disk."""
-        hud_log_path = Path("C:/vazus/logs/hud_session.jsonl")
+        hud_log_path = Path("C:/vazus/data/logs/hud_session.jsonl")
         try:
             hud_log_path.parent.mkdir(parents=True, exist_ok=True)
             event_record = {
@@ -118,7 +118,7 @@ def _append_review_feed(
     session_id: str = "",
 ) -> None:
     """Appends file modification event to review feed for parallel adversary reviewer."""
-    feed_path = Path("C:/vazus/logs/review_feed.jsonl")
+    feed_path = Path("C:/vazus/data/logs/review_feed.jsonl")
     try:
         feed_path.parent.mkdir(parents=True, exist_ok=True)
         rec = {
@@ -149,7 +149,7 @@ def _resolve_canonical_tool_name(raw_name: str, args: dict) -> str:
 
 def _bump_tool_usage_counter() -> None:
     """Tracks tool usages and periodically triggers dynamic tool reweighting."""
-    counter_path = Path("C:/vazus/logs/.tool_usage_counter")
+    counter_path = Path("C:/vazus/data/logs/.tool_usage_counter")
     try:
         cnt = int(counter_path.read_text(encoding="utf-8").strip()) if counter_path.exists() else 0
         cnt += 1

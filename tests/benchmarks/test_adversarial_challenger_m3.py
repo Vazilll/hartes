@@ -297,8 +297,8 @@ class TestPreInvocationBenchmarks:
 class TestSkillCacheCorruptionRecovery:
     """Challenge 3: Corrupt logs/.skill_index_cache.json and verify graceful rebuild without crashing."""
 
-    CACHE_PATH = Path(r"C:\vazus\logs\.skill_index_cache.json")
-    BACKUP_PATH = Path(r"C:\vazus\logs\.skill_index_cache.json.bak_challenger")
+    CACHE_PATH = Path(r"C:\vazus\data\logs\.skill_index_cache.json")
+    BACKUP_PATH = Path(r"C:\vazus\data\logs\.skill_index_cache.json.bak_challenger")
 
     @classmethod
     def setup_class(cls):

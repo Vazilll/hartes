@@ -54,7 +54,7 @@ try:
 except Exception as _import_err:
     def write_hud_event(event_type: Optional[str] = None, payload: Optional[dict] = None) -> None:
         """Standalone fallback HUD event writer that persists pre-invocation telemetry."""
-        hud_log_path = Path("C:/vazus/logs/hud_session.jsonl")
+        hud_log_path = Path("C:/vazus/data/logs/hud_session.jsonl")
         try:
             hud_log_path.parent.mkdir(parents=True, exist_ok=True)
             event_record = {
@@ -629,7 +629,7 @@ def run_pre_invocation(trajectory: List[Dict[str, Any]], query: str) -> Dict[str
     }
 
 
-_PROMPT_STATE_PATH = Path("C:/vazus/logs/.hook_prompt_state.json")
+_PROMPT_STATE_PATH = Path("C:/vazus/data/logs/.hook_prompt_state.json")
 _PROMPT_STATE_MAX_CONVERSATIONS = 64
 
 
@@ -673,7 +673,7 @@ def _update_rolling_invocation_counter(invocation_num: int) -> int:
     """Increments and persists invocation counter, returning updated count."""
     if invocation_num != 0:
         return 0
-    counter_path = Path("C:/vazus/logs/.hook_invocation_count")
+    counter_path = Path("C:/vazus/data/logs/.hook_invocation_count")
     count = 0
     try:
         if counter_path.exists():
@@ -787,7 +787,7 @@ def main():
 
         hook_data = json.loads(raw)
         try:
-            debug_path = Path("C:/vazus/logs/pre_invocation_raw.jsonl")
+            debug_path = Path("C:/vazus/data/logs/pre_invocation_raw.jsonl")
             debug_path.parent.mkdir(parents=True, exist_ok=True)
             with open(debug_path, "a", encoding="utf-8") as df:
                 df.write(json.dumps({"keys": list(hook_data.keys()), "raw": raw[:500]}, ensure_ascii=False) + "\n")
@@ -844,7 +844,7 @@ def handle_pre_invocation(hook_data: dict) -> dict:
             from vazus_core.workers.handoff_generator import check_and_generate_handoff
             handoff_res = check_and_generate_handoff(turn_index=invocation_num)
             if handoff_res and handoff_res.get("should_handoff"):
-                msg = f"> ⚠️ **[Context Watchdog]**: Сессия превысила {invocation_num} шагов. Рекомендуется перенос контекста. См. C:\\vazus\\logs\\latest_handoff.md"
+                msg = f"> ⚠️ **[Context Watchdog]**: Сессия превысила {invocation_num} шагов. Рекомендуется перенос контекста. См. C:\\vazus\\data\\logs\\latest_handoff.md"
                 injections.append(msg)
         except Exception as exc:
             logger.debug("Handoff generator check failed: %s", exc)
@@ -903,7 +903,7 @@ async def run_pre_invocation_hook(
             from vazus_core.workers.handoff_generator import check_and_generate_handoff
             handoff_res = check_and_generate_handoff(turn_index=turn_index)
             if handoff_res and handoff_res.get("should_handoff"):
-                watchdog_msg = f"> ⚠️ **[Context Watchdog]**: Сессия превысила {turn_index} шагов. Рекомендуется перенос контекста. См. C:\\vazus\\logs\\latest_handoff.md"
+                watchdog_msg = f"> ⚠️ **[Context Watchdog]**: Сессия превысила {turn_index} шагов. Рекомендуется перенос контекста. См. C:\\vazus\\data\\logs\\latest_handoff.md"
                 res["injected_context"] += f"\n\n{watchdog_msg}"
                 res["injectSteps"] = [{"message": watchdog_msg}]
         except Exception as exc:

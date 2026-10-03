@@ -19,7 +19,7 @@ print(result["result"])
 # Also print global memory to verify GameMaster logged it
 print("\n[GameMaster Log]")
 try:
-    with open("C:/vazus/logs/global_memory.json", "r") as f:
+    with open("C:/vazus/data/logs/global_memory.json", "r") as f:
         print(f.read())
 except Exception as e:
     print("Could not read global memory:", e)

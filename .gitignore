@@ -94,3 +94,14 @@ templates/
 
 tools/nixos_vm/nixos_vm_key*
 *.b64
+
+# Restructured paths
+projects/
+study/practicals/
+tools/bin/*
+!tools/bin/*.py
+data/models/
+data/cache/
+data/backups/
+data/logs/
+data/archive/

@@ -246,7 +246,7 @@ class CustomizationScanner:
 
     def _check_status(self, name: str, cmd: str, args: List[str]) -> str:
         if "vazus_organic_mcp" in " ".join(args):
-            return "ready" if Path(r"C:\vazus\scripts\vazus_organic_mcp.py").exists() else "missing"
+            return "ready" if Path(r"C:\vazus\tools\scripts\vazus_organic_mcp.py").exists() else "missing"
         if "playwright" in " ".join(args):
             return "lazy"
         return "configured"

@@ -15,7 +15,7 @@ import time
 import psutil
 import pytest
 
-BINARY_PATH = r"C:\vazus\bin\subagent_bus.exe"
+BINARY_PATH = r"C:\vazus\tools\bin\subagent_bus.exe"
 
 
 class McpProcessClient:

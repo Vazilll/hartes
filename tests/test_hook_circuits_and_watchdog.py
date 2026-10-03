@@ -61,7 +61,7 @@ def test_turn_n_context_watchdog_warning_direct():
         message = result["injectSteps"][0].get("message", "")
         assert "> ⚠️ **[Context Watchdog]**:" in message
         assert "25 шагов" in message
-        assert r"C:\vazus\logs\latest_handoff.md" in message
+        assert r"C:\vazus\data\logs\latest_handoff.md" in message
 
         # Verify check_and_generate_handoff was called with turn_index=25
         mock_handoff.assert_called_once()

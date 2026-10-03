@@ -28,8 +28,8 @@ except ImportError:
 
 logger = logging.getLogger("vazus_core.engine.gemma4_npu")
 
-DEFAULT_MODEL_DIR = Path("C:/vazus/models/gemma-4-e2b-it-int4-ov")
-DEFAULT_CACHE_DIR = Path("C:/vazus/models/.ov_cache")
+DEFAULT_MODEL_DIR = Path("C:/vazus/data/models/gemma-4-e2b-it-int4-ov")
+DEFAULT_CACHE_DIR = Path("C:/vazus/data/models/.ov_cache")
 
 
 @dataclass
@@ -298,7 +298,7 @@ class Gemma4NPUEngine:
         tok_candidates = [
             self.model_path,
             self.model_path / "tokenizer",
-            Path("C:/vazus/models/openvino_npu/tokenizer"),
+            Path("C:/vazus/data/models/openvino_npu/tokenizer"),
         ]
         for c in tok_candidates:
             if (c / "tokenizer.json").exists():
@@ -321,7 +321,7 @@ class Gemma4NPUEngine:
         embed_xml = self._find_model_xml(
             [
                 self.model_path / "openvino_text_embeddings_model.xml",
-                Path("C:/vazus/models/openvino_npu/embedder_768d.xml"),
+                Path("C:/vazus/data/models/openvino_npu/embedder_768d.xml"),
             ]
         )
         if embed_xml and embed_xml.with_suffix(".bin").exists():

@@ -69,7 +69,7 @@ class OpenVINONPUEmbedder:
 
         if model_path is None:
             cands = [
-                Path("C:/vazus/models/openvino_npu/embedder_768d.xml"),
+                Path("C:/vazus/data/models/openvino_npu/embedder_768d.xml"),
                 Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "embedder_768d.xml",
                 Path("models/openvino_npu/embedder_768d.xml"),
             ]
@@ -77,7 +77,7 @@ class OpenVINONPUEmbedder:
                 if c.exists():
                     model_path = str(c)
                     break
-        self.model_path = str(model_path or "C:/vazus/models/openvino_npu/embedder_768d.xml")
+        self.model_path = str(model_path or "C:/vazus/data/models/openvino_npu/embedder_768d.xml")
 
         # Fast local Rust tokenizer (loads in 12ms instead of 8s transformers overhead)
         self._fast_tokenizer = None
@@ -98,7 +98,7 @@ class OpenVINONPUEmbedder:
 
         try:
             self.core = ov.Core()
-            cache_dir = Path("C:/vazus/cache/openvino")
+            cache_dir = Path("C:/vazus/data/cache/openvino")
             cache_dir.mkdir(parents=True, exist_ok=True)
             try:
                 self.core.set_property({"CACHE_DIR": str(cache_dir)})

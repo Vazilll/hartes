@@ -3,7 +3,7 @@
 vazus_core.hooks.hud_writer — Lightweight HUD log writer.
 
 Called by ALL hooks to append a timestamped entry to a JSON-Lines
-session log at C:\\vazus\\logs\\hud_session.jsonl
+session log at C:\\vazus\\data\\logs\\hud_session.jsonl
 This log is consumed and displayed by the Vazus HUD monitor.
 """
 
@@ -11,7 +11,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-HUD_LOG = Path(r"C:\vazus\logs\hud_session.jsonl")
+HUD_LOG = Path(r"C:\vazus\data\logs\hud_session.jsonl")
 
 
 def write_hud_event(event_type: str, payload: dict) -> None:

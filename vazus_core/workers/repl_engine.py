@@ -107,9 +107,9 @@ class ZigSandboxBridge:
 
     def _load_native_library(self):
         candidates = [
-            Path("C:/vazus/bin/vazus_runner.dll"),
-            Path("C:/vazus/sandbox/zig_runner/zig-out/bin/vazus_runner.dll"),
-            Path("C:/vazus/sandbox/zig_runner/zig-out/lib/vazus_runner.dll"),
+            Path("C:/vazus/tools/bin/vazus_runner.dll"),
+            Path("C:/vazus/tools/sandbox/zig_runner/zig-out/bin/vazus_runner.dll"),
+            Path("C:/vazus/tools/sandbox/zig_runner/zig-out/lib/vazus_runner.dll"),
         ]
         dll_path = None
         for p in candidates:
