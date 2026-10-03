@@ -118,7 +118,7 @@ def is_cosine_simd_available() -> bool:
 
 def is_go_bus_binary_present() -> bool:
     """Checks if subagent_bus.exe binary exists or go.mod exists."""
-    bin_path = WORKSPACE_ROOT / "bin" / "subagent_bus.exe"
+    bin_path = WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe"
     return bin_path.is_file()
 
 
@@ -130,20 +130,20 @@ def is_go_bus_source_present() -> bool:
 
 def is_zig_runner_binary_present() -> bool:
     """Checks if vazus_runner.exe CLI binary exists."""
-    bin_path = WORKSPACE_ROOT / "bin" / "vazus_runner.exe"
+    bin_path = WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe"
     return bin_path.is_file()
 
 
 def is_zig_runner_dll_present() -> bool:
     """Checks if vazus_runner.dll C-ABI shared library exists."""
-    bin_dll = WORKSPACE_ROOT / "bin" / "vazus_runner.dll"
-    zig_dll = WORKSPACE_ROOT / "sandbox" / "zig_runner" / "zig-out" / "lib" / "vazus_runner.dll"
+    bin_dll = WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.dll"
+    zig_dll = WORKSPACE_ROOT / "tools" / "sandbox" / "zig_runner" / "zig-out" / "lib" / "vazus_runner.dll"
     return bin_dll.is_file() or zig_dll.is_file()
 
 
 def is_zig_runner_source_present() -> bool:
     """Checks if Zig runner source exists in sandbox/zig_runner/."""
-    build_zig = WORKSPACE_ROOT / "sandbox" / "zig_runner" / "build.zig"
+    build_zig = WORKSPACE_ROOT / "tools" / "sandbox" / "zig_runner" / "build.zig"
     return build_zig.is_file()
 
 
@@ -644,14 +644,14 @@ def test_tier1_f06_go_binary_executable_exists():
             pytest.skip("Go subagent bus binary not yet built; progressive milestone M2")
         # Try compiling if source present
         res = subprocess.run(
-            ["go", "build", "-o", str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe"), "./cmd/subagent_bus"],
+            ["go", "build", "-o", str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe"), "./cmd/subagent_bus"],
             cwd=str(WORKSPACE_ROOT / "services" / "subagent_bus"),
             capture_output=True,
             text=True,
         )
         if res.returncode != 0:
             pytest.skip(f"Go compilation pending: {res.stderr}")
-    bin_path = WORKSPACE_ROOT / "bin" / "subagent_bus.exe"
+    bin_path = WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe"
     assert bin_path.is_file(), "bin/subagent_bus.exe must be present"
 
 
@@ -675,7 +675,7 @@ def test_tier1_f06_go_binary_help_and_version_flags():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     res = subprocess.run([bin_path, "--help"], capture_output=True, text=True, timeout=5)
     assert res.returncode in (0, 2), "Binary must respond to help flag"
 
@@ -834,7 +834,7 @@ def test_tier1_f08_mcp_protocol_initialize_and_ping():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
     # Spawn subagent_bus in stdio mode and send initialize JSON-RPC
     proc = subprocess.Popen(
-        [str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")],
+        [str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -872,7 +872,7 @@ def test_tier1_f08_mcp_tools_list_roster():
         "subagent_list", "subagent_reap"
     }
     proc = subprocess.Popen(
-        [str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")],
+        [str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -1059,7 +1059,7 @@ def test_tier1_f10_zig_project_build_file_exists():
     """
     if not is_zig_runner_source_present():
         pytest.skip("Zig runner source not yet created; progressive milestone M3")
-    build_zig = WORKSPACE_ROOT / "sandbox" / "zig_runner" / "build.zig"
+    build_zig = WORKSPACE_ROOT / "tools" / "sandbox" / "zig_runner" / "build.zig"
     content = build_zig.read_text(encoding="utf-8")
     assert "build" in content, "build.zig must define pub fn build"
 
@@ -1071,7 +1071,7 @@ def test_tier1_f10_zig_native_cli_executable():
     """
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
-    bin_path = WORKSPACE_ROOT / "bin" / "vazus_runner.exe"
+    bin_path = WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe"
     assert bin_path.is_file(), "bin/vazus_runner.exe must exist"
 
 
@@ -1082,7 +1082,7 @@ def test_tier1_f10_zig_wasi_target_configuration():
     """
     if not is_zig_runner_source_present():
         pytest.skip("Zig runner source not yet created; progressive milestone M3")
-    build_zig = WORKSPACE_ROOT / "sandbox" / "zig_runner" / "build.zig"
+    build_zig = WORKSPACE_ROOT / "tools" / "sandbox" / "zig_runner" / "build.zig"
     content = build_zig.read_text(encoding="utf-8")
     assert "wasi" in content.lower(), "build.zig must configure WASI target"
 
@@ -1096,8 +1096,8 @@ def test_tier1_f10_zig_dynamic_library_c_abi():
     if not is_zig_runner_dll_present():
         pytest.skip("vazus_runner.dll not yet compiled; progressive milestone M3")
     import ctypes
-    bin_dll = WORKSPACE_ROOT / "bin" / "vazus_runner.dll"
-    zig_dll = WORKSPACE_ROOT / "sandbox" / "zig_runner" / "zig-out" / "lib" / "vazus_runner.dll"
+    bin_dll = WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.dll"
+    zig_dll = WORKSPACE_ROOT / "tools" / "sandbox" / "zig_runner" / "zig-out" / "lib" / "vazus_runner.dll"
     dll_path = str(bin_dll if bin_dll.is_file() else zig_dll)
     dll = ctypes.CDLL(dll_path)
     assert hasattr(dll, "check_path_allowed"), "DLL must export check_path_allowed"
@@ -1111,7 +1111,7 @@ def test_tier1_f10_zig_cli_eval_command():
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
     res = subprocess.run(
-        [str(WORKSPACE_ROOT / "bin" / "vazus_runner.exe"), "--root", "C:\\vazus", "--eval", "1 + 1"],
+        [str(WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe"), "--root", "C:\\vazus", "--eval", "1 + 1"],
         capture_output=True,
         text=True,
         timeout=5,
@@ -1644,7 +1644,7 @@ def test_tier2_f06_go_service_invalid_flags():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     res = subprocess.run([bin_path, "--invalid-flag-xyz"], capture_output=True, text=True, timeout=5)
     assert res.returncode != 0
 
@@ -1661,7 +1661,7 @@ def test_tier2_f06_go_service_port_collision_handling():
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     try:
-        bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+        bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
         res = subprocess.run(
             [bin_path, "-transport", "sse", "-port", str(port)],
             capture_output=True,
@@ -1681,7 +1681,7 @@ def test_tier2_f06_go_service_rapid_start_and_terminate():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     proc = subprocess.Popen([bin_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     proc.stdin.close()
     proc.wait(timeout=5)
@@ -1695,7 +1695,7 @@ def test_tier2_f06_go_service_path_traversal_flag_rejection():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     res = subprocess.run([bin_path, "--workdir", "C:\\Windows"], capture_output=True, text=True, timeout=5)
     assert res.returncode != 0 or "denied" in res.stderr.lower()
 
@@ -1707,7 +1707,7 @@ def test_tier2_f06_go_service_empty_args_defaults():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     proc = subprocess.Popen([bin_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     assert proc.poll() is None, "Process should be running and waiting on stdin"
     proc.terminate()
@@ -1851,7 +1851,7 @@ def test_tier2_f08_mcp_malformed_json_rpc():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     proc = subprocess.Popen([bin_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     stdout, _ = proc.communicate(input="invalid_json_rpc\n", timeout=5)
     resp = json.loads(stdout.strip().splitlines()[0])
@@ -1866,7 +1866,7 @@ def test_tier2_f08_mcp_nonexistent_tool_call():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     proc = subprocess.Popen([bin_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     req = json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "ghost_tool"}}) + "\n"
     stdout, _ = proc.communicate(input=req, timeout=5)
@@ -1881,7 +1881,7 @@ def test_tier2_f08_mcp_invalid_arguments_schema():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     proc = subprocess.Popen([bin_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     req = json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "subagent_spawn", "arguments": {}}}) + "\n"
     stdout, _ = proc.communicate(input=req, timeout=5)
@@ -1896,7 +1896,7 @@ def test_tier2_f08_mcp_large_json_payload():
     """
     if not is_go_bus_binary_present():
         pytest.skip("subagent_bus.exe not yet built; progressive milestone M2")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "subagent_bus.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "subagent_bus.exe")
     proc = subprocess.Popen([bin_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         init_req = json.dumps({
@@ -2044,7 +2044,7 @@ def test_tier2_f10_zig_cli_empty_code_eval():
     """
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "vazus_runner.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe")
     res = subprocess.run([bin_path, "--root", "C:\\vazus", "--eval", ""], capture_output=True, text=True, timeout=5)
     assert res.returncode == 0
 
@@ -2056,7 +2056,7 @@ def test_tier2_f10_zig_cli_invalid_syntax():
     """
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "vazus_runner.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe")
     res = subprocess.run([bin_path, "--root", "C:\\vazus", "--eval", "invalid_syntax {"], capture_output=True, text=True, timeout=5)
     assert res.returncode != 0
 
@@ -2068,7 +2068,7 @@ def test_tier2_f10_zig_cli_missing_root_argument():
     """
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "vazus_runner.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe")
     res = subprocess.run([bin_path, "--eval", "1 + 1"], capture_output=True, text=True, timeout=5)
     assert res.returncode != 0
 
@@ -2081,7 +2081,7 @@ def test_tier2_f10_zig_cli_large_eval_script():
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
     large_snippet = "x = 1\n" * 1000
-    bin_path = str(WORKSPACE_ROOT / "bin" / "vazus_runner.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe")
     res = subprocess.run([bin_path, "--root", "C:\\vazus", "--eval", large_snippet], capture_output=True, text=True, timeout=10)
     assert res.returncode == 0
 
@@ -2093,7 +2093,7 @@ def test_tier2_f10_zig_cli_signal_interruption():
     """
     if not is_zig_runner_binary_present():
         pytest.skip("vazus_runner.exe not yet built; progressive milestone M3")
-    bin_path = str(WORKSPACE_ROOT / "bin" / "vazus_runner.exe")
+    bin_path = str(WORKSPACE_ROOT / "tools" / "bin" / "vazus_runner.exe")
     proc = subprocess.Popen([bin_path, "--root", "C:\\vazus", "--eval", "while(true){}"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(0.1)
     proc.terminate()
@@ -2376,7 +2376,7 @@ def test_tier3_06_zig_path_jail_protecting_go_bus_log_artifacts():
     Tier 3 / Cross 06: Zig capability-based path jail verifies that Go actor bus output paths
     (logs/subagents/) remain strictly inside allowed workspace.
     """
-    log_path = str(WORKSPACE_ROOT / "logs" / "subagents" / "task_123.log")
+    log_path = str(WORKSPACE_ROOT / "data" / "logs" / "subagents" / "task_123.log")
     allowed = _is_within_workspace(log_path)
     assert allowed is True, "Subagent logs inside C:/vazus must be permitted"
 

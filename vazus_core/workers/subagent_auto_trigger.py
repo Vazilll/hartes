@@ -854,7 +854,7 @@ class SubagentBackgroundDispatcher:
     """
 
     def __init__(self, log_dir: str | None = None):
-        self.log_dir = Path(log_dir or os.path.join(WORKSPACE_ROOT, "logs", "subagents"))
+        self.log_dir = Path(log_dir or os.path.join(WORKSPACE_ROOT, "data", "logs", "subagents"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.engine = DeclarativeSubagentEngine()
         self.go_client = GoSubagentBusClient()
