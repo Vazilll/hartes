@@ -754,6 +754,24 @@ def _build_system_one_speculative_block(user_prompt: str, invocation_num: int) -
         if plan.direct_execution_result:
             lines.append(f"- **Tier-0 Local Reflex Result**: `{plan.direct_execution_result}`")
 
+        # Record predicted and disclosed tools into J-Space activations table (was_used=0)
+        predicted_set = set()
+        if plan.speculative_prediction and plan.speculative_prediction.predicted_tools:
+            predicted_set.update(plan.speculative_prediction.predicted_tools)
+        if plan.disclosed_mcp_tools:
+            predicted_set.update(plan.disclosed_mcp_tools)
+
+        for pt in predicted_set:
+            if pt:
+                try:
+                    record_j_space_tool_activation(
+                        tool_name=str(pt),
+                        prompt=user_prompt[:250],
+                        invocation_num=invocation_num,
+                    )
+                except Exception as rec_err:
+                    logger.debug("Activation record failed for %s: %s", pt, rec_err)
+
         return "\n".join(lines) + "\n\n"
     except Exception as exc:
         logger.debug("System-1 speculative block build failed: %s", exc)

@@ -111,7 +111,58 @@ def _handle_syntax_error(target_file: str, se: SyntaxError, tool_name: str) -> N
         logger.debug("Mem0 fact logging skipped: %s", mem_err)
 
 
-def _process_target_file(target_file: str, tool_name: str) -> None:
+def _append_review_feed(
+    target_file: str,
+    tool_name: str,
+    ast_valid: Optional[bool],
+    session_id: str = "",
+) -> None:
+    """Appends file modification event to review feed for parallel adversary reviewer."""
+    feed_path = Path("C:/vazus/logs/review_feed.jsonl")
+    try:
+        feed_path.parent.mkdir(parents=True, exist_ok=True)
+        rec = {
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "file": str(target_file),
+            "tool": str(tool_name),
+            "ast_valid": ast_valid,
+            "session_id": str(session_id),
+        }
+        with open(feed_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception as feed_err:
+        logger.debug("Review feed write error: %s", feed_err)
+
+
+def _resolve_canonical_tool_name(raw_name: str, args: dict) -> str:
+    """Normalizes raw Antigravity/MCP tool names to canonical forms."""
+    if not raw_name:
+        return ""
+    if raw_name == "call_mcp_tool":
+        return str(args.get("ToolName") or args.get("ServerName") or raw_name)
+    if raw_name.startswith("mcp_"):
+        parts = raw_name.split("_", 2)
+        if len(parts) >= 3:
+            return parts[2]
+    return raw_name
+
+
+def _bump_tool_usage_counter() -> None:
+    """Tracks tool usages and periodically triggers dynamic tool reweighting."""
+    counter_path = Path("C:/vazus/logs/.tool_usage_counter")
+    try:
+        cnt = int(counter_path.read_text(encoding="utf-8").strip()) if counter_path.exists() else 0
+        cnt += 1
+        counter_path.parent.mkdir(parents=True, exist_ok=True)
+        counter_path.write_text(str(cnt), encoding="utf-8")
+        if cnt % 25 == 0:
+            from vazus_core.memory.j_space_tool_indexer import get_tool_indexer
+            get_tool_indexer().reweight_tools_by_usage(min_proposals=3)
+    except Exception as exc:
+        logger.debug("Tool usage counter bump notice: %s", exc)
+
+
+def _process_target_file(target_file: str, tool_name: str, session_id: str = "") -> None:
     """Processes target file for AST validity and targeted test execution."""
     if target_file.endswith(".py"):
         target_path = Path(target_file)
@@ -135,14 +186,17 @@ def _process_target_file(target_file: str, tool_name: str) -> None:
                     "ast_valid": True,
                     "test_result": test_res
                 })
+                _append_review_feed(target_file, tool_name, ast_valid=True, session_id=session_id)
             except SyntaxError as se:
                 _handle_syntax_error(target_file, se, tool_name)
+                _append_review_feed(target_file, tool_name, ast_valid=False, session_id=session_id)
     else:
         write_hud_event("PostToolUse", {
             "tool": tool_name,
             "file": target_file,
             "ast_valid": None,
         })
+        _append_review_feed(target_file, tool_name, ast_valid=None, session_id=session_id)
 
 
 def run_post_tool_hook(
@@ -153,8 +207,12 @@ def run_post_tool_hook(
     **_kwargs
 ) -> dict:
     """Captures post-tool execution telemetry and signal metrics."""
-    if tool_name:
+    actual = _resolve_canonical_tool_name(tool_name, tool_args or {})
+    if actual:
+        record_j_space_tool_usage(actual)
+    if tool_name and tool_name != actual:
         record_j_space_tool_usage(tool_name)
+    _bump_tool_usage_counter()
     return {
         "status": "CAPTURED",
         "session_id": session_id,
@@ -170,13 +228,20 @@ def main():
     try:
         input_data = json.load(sys.stdin)
         tool_call = input_data.get("toolCall", {})
-        tool_name = tool_call.get("name", "")
-        if tool_name:
-            record_j_space_tool_usage(tool_name)
+        raw_tool_name = tool_call.get("name", "")
         args = tool_call.get("args", {})
+        session_id = input_data.get("conversationId", "")
+
+        canonical_tool = _resolve_canonical_tool_name(raw_tool_name, args)
+        if canonical_tool:
+            record_j_space_tool_usage(canonical_tool)
+        if raw_tool_name and raw_tool_name != canonical_tool:
+            record_j_space_tool_usage(raw_tool_name)
+        _bump_tool_usage_counter()
+
         target_file = args.get("TargetFile") or args.get("AbsolutePath") or ""
         if target_file:
-            _process_target_file(target_file, tool_name)
+            _process_target_file(target_file, canonical_tool or raw_tool_name, session_id=session_id)
     except Exception as exc:
         logger.debug("PostToolUse hook encountered non-fatal error: %s", exc)
     finally:

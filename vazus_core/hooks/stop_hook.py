@@ -15,6 +15,7 @@ import json
 import subprocess
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from vazus_core.memory.mem0_memory_engine import Mem0Engine
@@ -242,8 +243,59 @@ def auto_curate_session_memory(
     return stored
 
 
+def _check_adversary_objections(conversation_id: str) -> Optional[dict]:
+    """Inspects review_verdict.json from the parallel adversary reviewer.
+
+    Blocks stopping if there are open DISAGREE_EVIDENCE / OBJECTION items
+    (up to 2 rounds per conversation, fail-open afterwards).
+    """
+    verdict_path = Path("C:/vazus/logs/review/review_verdict.json")
+    if not verdict_path.exists():
+        return None
+    try:
+        raw_text = verdict_path.read_text(encoding="utf-8")
+        if not raw_text.strip():
+            return None
+        verdict = json.loads(raw_text)
+        open_objs = verdict.get("open_objections", [])
+        if not open_objs:
+            return None
+
+        # Filter for verifiable objections (with proof or file reference)
+        blocking = [
+            obj for obj in open_objs
+            if any(marker in str(obj) for marker in ("DISAGREE_EVIDENCE", "OBJECTION", "AssertionError", "SyntaxError", "FAILED"))
+        ]
+        if not blocking:
+            return None
+
+        block_count = _increment_block_count(f"adv_{conversation_id}")
+        if block_count <= 2:
+            objection_summary = "\n".join(f"  • {str(o)}" for o in blocking[:4])
+            return {
+                "decision": "continue",
+                "reason": (
+                    f"⚠️ [Parallel Adversary Reviewer (Attempt {block_count}/2)]\n"
+                    f"Open verified objections found in your recent changes:\n"
+                    f"{objection_summary}\n\n"
+                    "Please address and resolve these defects before completing the turn."
+                )
+            }
+        # After 2 blocked rounds, fail-open to avoid deadlocks
+        _clear_block_count(f"adv_{conversation_id}")
+    except Exception as exc:
+        logger.debug("Adversary verdict inspection error: %s", exc)
+    return None
+
+
 def _check_termination_gates(conversation_id: str) -> Optional[dict]:
-    """Checks verification pending gate and Anti-False-Confidence (AFC) gate."""
+    """Checks verification pending gate, adversary reviewer gate, and Anti-False-Confidence (AFC) gate."""
+    # 1. Parallel Adversary Reviewer gate (from review_verdict.json)
+    adv_decision = _check_adversary_objections(conversation_id)
+    if adv_decision is not None:
+        return adv_decision
+
+    # 2. Verification pending gate
     is_pending, pending_reason = check_pending_verification()
     if is_pending:
         block_count = _increment_block_count(conversation_id)
@@ -254,6 +306,7 @@ def _check_termination_gates(conversation_id: str) -> Optional[dict]:
             }
         _clear_block_count(conversation_id)
 
+    # 3. AFC Gate
     try:
         from vazus_core.verification.anti_false_confidence import has_open_violation
         if has_open_violation(conversation_id):

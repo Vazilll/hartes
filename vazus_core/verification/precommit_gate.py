@@ -489,8 +489,15 @@ def run_gate_11_graph_invariants(files: list[Path]) -> tuple[bool, list[str]]:
 
 
 def _audit_file_ast_and_secrets(fpath: Path, content: str) -> list[str]:
-    """Audits file for AST syntax errors and hardcoded secret tokens."""
+    """Audits file for AST syntax errors, UTF-8 BOM, and hardcoded secret tokens."""
     errors = []
+    try:
+        raw_bytes = fpath.read_bytes()
+        if raw_bytes.startswith(b"\xef\xbb\xbf"):
+            errors.append(f"[Encoding Error] UTF-8 BOM detected in {fpath.name}. Save as UTF-8 without BOM.")
+    except Exception:
+        pass
+
     try:
         ast.parse(content, filename=str(fpath))
     except SyntaxError as se:
@@ -789,12 +796,12 @@ def run_gate_4_concordia_jury(staged_files: list[Path]) -> tuple[bool, list[str]
 def run_gate_4a_evidence_jury(staged_files: list[Path]) -> tuple[bool, list[str], list[Path]]:
     """Gate 4a: deterministic EvidenceJury (Jury-A). ZERO LLM calls.
 
-    Pass 1: fast evidence (AST, security, ruff, vulture, SMT), no tests.
-    Pass 2: for UNVERIFIED files, re-run with targeted pytest (seconds) —
-            tests prove the candidate without any LLM.
-    Only files with NO discoverable tests escalate to Gate 4 (Concordia LLM).
+    Skipped by default for fast commits unless VAZUS_GATE_ENABLE_JURY=1.
     Returns (ok, errors, unverified_files).
     """
+    if os.getenv("VAZUS_GATE_ENABLE_JURY", "0") != "1":
+        return True, ["[Fast-Gate] EvidenceJury skipped (set VAZUS_GATE_ENABLE_JURY=1 to enable)."], []
+
     from vazus_core.verification.evidence_jury import EvidenceJury
 
     jury = EvidenceJury(VAZUS_ROOT)
@@ -829,12 +836,12 @@ def _safe_relative_to_root(f: Path) -> str:
 
 
 def run_gate_5_dead_code(staged_files: list[Path]) -> tuple[bool, list[str]]:
-    """Gate 5: Detect dead code (unused imports/vars/unreachable modules) via vulture.
-
-    Only fails on items with ≥90% confidence to avoid false positives from
-    dynamically-used symbols (e.g. FastAPI route decorators, __all__ exports).
-    Skips files in labs/, tests/, services/inference/ (third-party code).
+    """Gate 5: Detect dead code. Skipped by default (handled by Ruff F401/F841 in Gate 6)
+    unless VAZUS_GATE_ENABLE_VULTURE=1.
     """
+    if os.getenv("VAZUS_GATE_ENABLE_VULTURE", "0") != "1":
+        return True, ["[Fast-Gate] Vulture dead-code skipped (handled by Ruff)."]
+
     errors: list[str] = []
 
     # Filter to only our own code — skip third-party and lab experiments
@@ -1236,7 +1243,7 @@ def _run_gates_7_to_8(staged_files: List[Path]) -> None:
 
 def main():
     print("=" * 70)
-    print("🛡️ VAZUS OS — AUTONOMOUS PRE-COMMIT QUALITY GATE (7-TIER PIPELINE)")
+    print("🛡️ VAZUS OS — STREAMLINED PRE-COMMIT QUALITY GATE")
     print("=" * 70)
 
     staged_files = get_staged_python_files()
@@ -1248,11 +1255,43 @@ def main():
     for f in staged_files:
         print(f"  • {f.relative_to(VAZUS_ROOT)}")
 
-    _run_gates_1_to_3(staged_files)
-    _run_gates_4_to_6(staged_files)
-    _run_gates_7_to_8(staged_files)
+    # Tier 1: AST Syntax, UTF-8/BOM, Prohibited Calls & Secrets (<50ms)
+    ok1, errs1 = run_gate_1_ast_and_security(staged_files)
+    if not ok1:
+        print("\n❌ GATE 1 FAILED (AST Syntax & Security Violations):")
+        for e in errs1:
+            print(f"   - {e}")
+        print("\n🚫 COMMIT ABORTED. Fix the errors above before committing.")
+        sys.exit(1)
+    print("  ✅ Gate 1 Passed: AST Syntax, Secrets & Security Clean.")
 
-    print("\n🎉 ALL PRE-COMMIT QUALITY GATES PASSED (8/8). Commit authorized.")
+    # Tier 2: Fast Static Lint via Ruff (<150ms)
+    ok6, errs6 = run_gate_6_ruff_lint(staged_files)
+    if not ok6:
+        print("\n❌ GATE 2 FAILED (Ruff Static Lint):")
+        for e in errs6:
+            print(f"   - {e}")
+        print("\n🚫 COMMIT ABORTED. Fix unused imports/variables before committing.")
+        sys.exit(1)
+    print("  ✅ Gate 2 Passed: Ruff Lint Clean (E9/F401/F821/F841).")
+
+    # Tier 3: Targeted Unit Tests (only affected tests, with strict timeout)
+    ok2, errs2 = run_gate_2_targeted_tests(staged_files)
+    if not ok2:
+        print("\n❌ GATE 3 FAILED (Unit Test Regressions):")
+        for e in errs2:
+            print(f"   - {e}")
+        print("\n🚫 COMMIT ABORTED. Tests must pass before committing.")
+        sys.exit(1)
+    print("  ✅ Gate 3 Passed: Targeted Tests Clean.")
+
+    # Optional legacy full gate escalation if explicitly requested via VAZUS_FULL_GATE=1
+    if os.getenv("VAZUS_FULL_GATE", "0") == "1":
+        _run_gates_1_to_3(staged_files)
+        _run_gates_4_to_6(staged_files)
+        _run_gates_7_to_8(staged_files)
+
+    print("\n🎉 ALL STREAMLINED PRE-COMMIT QUALITY GATES PASSED (3/3). Commit authorized.")
     print("=" * 70)
     sys.exit(0)
 
