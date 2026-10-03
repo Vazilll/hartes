@@ -19,7 +19,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -48,6 +47,15 @@ VAZUS_ROOT = Path(os.getenv("VAZUS_WORKSPACE_DIR", r"C:\vazus"))
 VENV_BIN   = VAZUS_ROOT / ".venv" / "Scripts"
 PY         = str(VENV_BIN / "python.exe")
 
+
+def _safe_run(cmd, timeout=60, **kwargs):
+    kwargs.setdefault("capture_output", True)
+    kwargs.setdefault("text", True)
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
+    kwargs.setdefault("encoding", "utf-8")
+    kwargs.setdefault("errors", "replace")
+    return subprocess.run(cmd, timeout=timeout, **kwargs)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # TOOL 1: ast-grep pattern search
 # ─────────────────────────────────────────────────────────────────────────────
@@ -72,11 +80,10 @@ def ast_grep_search(
     """
     sg = _resolve_sg_binary()
     try:
-        result = subprocess.run(
+        result = _safe_run(
             [sg, "run", "--pattern", pattern, "--lang", language,
              "--json", path],
-            capture_output=True, text=True, timeout=30,
-            encoding="utf-8", errors="replace"
+            timeout=30
         )
         if result.returncode not in (0, 1):
             return json.dumps({"error": result.stderr[:500], "matches": []})
@@ -129,10 +136,7 @@ def ast_grep_rewrite(
         cmd.append("--update-all")
     cmd.append(path)
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60,
-            encoding="utf-8", errors="replace"
-        )
+        result = _safe_run(cmd, timeout=60)
         mode = "DRY RUN" if dry_run else "APPLIED"
         lines = result.stdout.splitlines()[:30]
         return json.dumps({
@@ -170,10 +174,7 @@ def grit_apply(
         cmd.append("--dry-run")
     cmd.append(path)
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60,
-            encoding="utf-8", errors="replace"
-        )
+        result = _safe_run(cmd, timeout=60)
         return json.dumps({
             "mode": "DRY RUN" if dry_run else "APPLIED",
             "returncode": result.returncode,
@@ -207,10 +208,7 @@ def radon_complexity(
     if show_complexity:
         cmd.append("--show-complexity")
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60,
-            encoding="utf-8", errors="replace"
-        )
+        result = _safe_run(cmd, timeout=60)
         try:
             data = json.loads(result.stdout) if result.stdout.strip() else {}
             # Flatten and sort by complexity
@@ -252,10 +250,7 @@ def radon_maintainability(
     """
     cmd = [PY, "-m", "radon", "mi", path, "--min", min_rank, "--json"]
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60,
-            encoding="utf-8", errors="replace"
-        )
+        result = _safe_run(cmd, timeout=60)
         try:
             data = json.loads(result.stdout) if result.stdout.strip() else {}
             items = [
@@ -292,16 +287,14 @@ def wily_report(
     """
     try:
         # First build the wily index if needed
-        build_result = subprocess.run(
+        _safe_run(
             [PY, "-m", "wily", "build", path, "-n", str(n_revisions)],
-            capture_output=True, text=True, timeout=120,
-            cwd=str(VAZUS_ROOT), encoding="utf-8", errors="replace"
+            timeout=120, cwd=str(VAZUS_ROOT)
         )
         # Then get the report
-        report_result = subprocess.run(
+        report_result = _safe_run(
             [PY, "-m", "wily", "report", path, metric, "--format", "JSON"],
-            capture_output=True, text=True, timeout=30,
-            cwd=str(VAZUS_ROOT), encoding="utf-8", errors="replace"
+            timeout=30, cwd=str(VAZUS_ROOT)
         )
         output = report_result.stdout or report_result.stderr
         try:
@@ -339,10 +332,7 @@ def pyinstrument_profile(
         cmd.append(script)
     cmd.extend(args)
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
-            cwd=str(VAZUS_ROOT), encoding="utf-8", errors="replace"
-        )
+        result = _safe_run(cmd, timeout=timeout, cwd=str(VAZUS_ROOT))
         try:
             data = json.loads(result.stdout)
             # Extract top hotspots from pyinstrument JSON
@@ -395,27 +385,26 @@ def harvest_refactoring_candidates(
     try:
         sys.path.insert(0, str(VAZUS_ROOT))
         from vazus_core.verification.candidate_harvester import CandidateHarvester
-        harvester = CandidateHarvester(workspace_root=VAZUS_ROOT)
-        candidates = harvester.harvest(target_path=Path(path))
+        harvester = CandidateHarvester(workspace_root=str(VAZUS_ROOT))
+        rel_sub = str(Path(path).relative_to(VAZUS_ROOT)) if Path(path).is_relative_to(VAZUS_ROOT) else None
+        candidates = harvester.harvest_dead_function_candidates(target_subdir=rel_sub)
         results = [
             {
-                "name": c.name,
-                "type": c.typ,
-                "file": str(c.file_path),
-                "line": c.line,
-                "confidence": c.confidence
+                "name": c["function_name"],
+                "type": "function",
+                "file": c["file"],
+                "safety_level": c.get("safety_level", "MEDIUM"),
+                "confidence": 90 if c.get("is_private") else 75
             }
             for c in candidates
-            if c.confidence >= min_confidence
         ][:max_results]
-        return json.dumps({"candidates": results, "total": len(results)})
+        return json.dumps({"candidates": results, "total": len(candidates)})
     except Exception as e:
         # Fallback: direct vulture call
         try:
-            result = subprocess.run(
+            result = _safe_run(
                 [PY, "-m", "vulture", path, "--min-confidence", str(min_confidence), "--json"],
-                capture_output=True, text=True, timeout=60,
-                encoding="utf-8", errors="replace"
+                timeout=60
             )
             try:
                 data = json.loads(result.stdout)
@@ -449,14 +438,13 @@ def pydeps_graph(
         output_path = str(VAZUS_ROOT / "docs" / f"pydeps_{module.replace('.','_')}.svg")
 
     try:
-        result = subprocess.run(
+        result = _safe_run(
             [PY, "-m", "pydeps", module,
              "--max-bacon", str(max_bacon),
              "--output", output_path,
              "--no-show",
              "--rankdir", "LR"],
-            capture_output=True, text=True, timeout=60,
-            cwd=str(VAZUS_ROOT), encoding="utf-8", errors="replace"
+            timeout=60, cwd=str(VAZUS_ROOT)
         )
         if Path(output_path).exists():
             size = Path(output_path).stat().st_size
@@ -567,7 +555,7 @@ def get_improvement_suggestions(
         if run_fresh_scan and file_path:
             fp = _Path(file_path)
             if fp.exists():
-                new_suggestions = engine.scan_file(fp)
+                engine.scan_file(fp)
             
         db = engine.db_path
         query = "SELECT file_path, line, category, severity, suggestion, context_snippet, radon_cc, created_at FROM improvement_suggestions WHERE status='pending'"

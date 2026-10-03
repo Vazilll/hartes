@@ -116,9 +116,10 @@ def main():
 
         response = run_pre_tool(tool_name, args)
         print(json.dumps({"decision": response.get("decision", "deny"), "reason": response.get("reason", "")}))
+        sys.stdout.flush()
     except Exception as e:
-        # FAIL-CLOSED on any error
         print(json.dumps({"decision": "deny", "reason": f"[SECURITY] PreToolHook error ({e}). Fail-closed."}))
+        sys.stdout.flush()
 
 
 def _validate_security_policies(tool_name: str, tool_input: dict) -> tuple[bool, str]:
