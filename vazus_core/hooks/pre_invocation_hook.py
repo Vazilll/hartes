@@ -16,7 +16,6 @@ Triggered by hooks.json — NOT a manual script.
 """
 
 import datetime
-import io
 import json
 import logging
 import os
@@ -56,12 +55,20 @@ __all__ = [
     "run_pre_invocation_hook",
 ]
 
+from vazus_core.paths import (
+    VAZUS_ROOT,
+    DEFAULT_DB_PATH,
+    HUD_SESSION_LOG,
+    get_skill_search_dirs,
+    get_sqlite_ro_uri,
+)
+
 try:
     from vazus_core.hooks.hud_writer import write_hud_event
 except Exception as _import_err:
     def write_hud_event(event_type: Optional[str] = None, payload: Optional[dict] = None) -> None:
         """Standalone fallback HUD event writer that persists pre-invocation telemetry."""
-        hud_log_path = Path("C:/vazus/data/logs/hud_session.jsonl")
+        hud_log_path = HUD_SESSION_LOG
         try:
             hud_log_path.parent.mkdir(parents=True, exist_ok=True)
             event_record = {
@@ -76,44 +83,40 @@ except Exception as _import_err:
             logger.warning("Failed to write fallback pre-invocation HUD event: %s", _write_err)
 
 # Skill search directories (Hermes native skills and Vazus project skills)
-SKILL_SEARCH_DIRS = [
-    r"C:\vazus\skills",
-    r"C:\Users\Vaz\AppData\Local\hermes\hermes-agent\skills",
-    r"C:\Users\Vaz\.gemini\antigravity\builtin\skills",
-]
+SKILL_SEARCH_DIRS = [str(p) for p in get_skill_search_dirs()]
 
 MAX_SKILLS_TO_INJECT = 3
 MAX_SKILL_CONTENT_CHARS = 3000  # per skill, to avoid context bloat
 
 
 _CANONICAL_DOMAIN_SPECS = {
-    "finance": Path("C:/vazus/services/finance_agent/SPEC.md"),
-    "financial": Path("C:/vazus/services/finance_agent/SPEC.md"),
-    "receipt": Path("C:/vazus/services/finance_agent/SPEC.md"),
-    "tax": Path("C:/vazus/services/finance_agent/SPEC.md"),
-    "tinkoff": Path("C:/vazus/services/finance_agent/SPEC.md"),
-    "freelance": Path("C:/vazus/services/finance_agent/SPEC.md"),
-    "health": Path("C:/vazus/services/health_agent/SPEC.md"),
-    "ble": Path("C:/vazus/services/health_agent/SPEC.md"),
-    "scale": Path("C:/vazus/services/health_agent/SPEC.md"),
-    "fit": Path("C:/vazus/services/health_agent/SPEC.md"),
-    "readiness": Path("C:/vazus/services/health_agent/SPEC.md"),
-    "vision": Path("C:/vazus/services/vision/SPEC.md"),
-    "ocr": Path("C:/vazus/services/vision/SPEC.md"),
-    "image": Path("C:/vazus/services/vision/SPEC.md"),
-    "engine": Path("C:/vazus/vazus_core/engine/SPEC.md"),
-    "ast": Path("C:/vazus/vazus_core/engine/SPEC.md"),
-    "smt": Path("C:/vazus/vazus_core/engine/SPEC.md"),
-    "z3": Path("C:/vazus/vazus_core/engine/SPEC.md"),
-    "subagent": Path("C:/vazus/vazus_core/engine/SPEC.md"),
-    "memory": Path("C:/vazus/vazus_core/memory/SPEC.md"),
-    "fact": Path("C:/vazus/vazus_core/memory/SPEC.md"),
-    "mem0": Path("C:/vazus/vazus_core/memory/SPEC.md"),
-    "vector": Path("C:/vazus/vazus_core/memory/SPEC.md"),
-    "hook": Path("C:/vazus/vazus_core/hooks/SPEC.md"),
-    "hooks": Path("C:/vazus/vazus_core/hooks/SPEC.md"),
-    "pre_tool": Path("C:/vazus/vazus_core/hooks/SPEC.md"),
-    "post_tool": Path("C:/vazus/vazus_core/hooks/SPEC.md"),
+    "finance": VAZUS_ROOT / "services/finance_agent/SPEC.md",
+    "financial": VAZUS_ROOT / "services/finance_agent/SPEC.md",
+    "receipt": VAZUS_ROOT / "services/finance_agent/SPEC.md",
+    "tax": VAZUS_ROOT / "services/finance_agent/SPEC.md",
+    "tinkoff": VAZUS_ROOT / "services/finance_agent/SPEC.md",
+    "freelance": VAZUS_ROOT / "services/finance_agent/SPEC.md",
+    "health": VAZUS_ROOT / "services/health_agent/SPEC.md",
+    "ble": VAZUS_ROOT / "services/health_agent/SPEC.md",
+    "scale": VAZUS_ROOT / "services/health_agent/SPEC.md",
+    "fit": VAZUS_ROOT / "services/health_agent/SPEC.md",
+    "readiness": VAZUS_ROOT / "services/health_agent/SPEC.md",
+    "vision": VAZUS_ROOT / "services/vision/SPEC.md",
+    "ocr": VAZUS_ROOT / "services/vision/SPEC.md",
+    "image": VAZUS_ROOT / "services/vision/SPEC.md",
+    "engine": VAZUS_ROOT / "vazus_core/engine/SPEC.md",
+    "ast": VAZUS_ROOT / "vazus_core/engine/SPEC.md",
+    "smt": VAZUS_ROOT / "vazus_core/engine/SPEC.md",
+    "z3": VAZUS_ROOT / "vazus_core/engine/SPEC.md",
+    "subagent": VAZUS_ROOT / "vazus_core/engine/SPEC.md",
+    "memory": VAZUS_ROOT / "vazus_core/memory/SPEC.md",
+    "fact": VAZUS_ROOT / "vazus_core/memory/SPEC.md",
+    "mem0": VAZUS_ROOT / "vazus_core/memory/SPEC.md",
+    "vector": VAZUS_ROOT / "vazus_core/memory/SPEC.md",
+    "hook": VAZUS_ROOT / "vazus_core/hooks/SPEC.md",
+    "hooks": VAZUS_ROOT / "vazus_core/hooks/SPEC.md",
+    "pre_tool": VAZUS_ROOT / "vazus_core/hooks/SPEC.md",
+    "post_tool": VAZUS_ROOT / "vazus_core/hooks/SPEC.md",
 }
 
 
@@ -390,11 +393,11 @@ def _retrieve_inprocess_memories(user_prompt: str, invocation_num: int) -> Optio
         return None
     try:
         import sqlite3
-        db_path = Path("C:/vazus/services/memory/vazus.db")
+        db_path = DEFAULT_DB_PATH
         if not db_path.exists():
             return None
 
-        uri = f"file:{db_path.as_posix()}?mode=ro"
+        uri = get_sqlite_ro_uri(db_path)
         conn = sqlite3.connect(uri, uri=True, timeout=1.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA mmap_size=268435456;")
@@ -452,10 +455,10 @@ def _retrieve_intent_anchors(invocation_num: int) -> Optional[str]:
     """Confirmed J-Space intent anchors (every turn) + pending-proposals nudge (turn 0). Read-only, fail-open."""
     try:
         import sqlite3
-        db_path = Path(os.environ.get("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db"))
+        db_path = DEFAULT_DB_PATH
         if not db_path.exists():
             return None
-        conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=1.0)
+        conn = sqlite3.connect(get_sqlite_ro_uri(db_path), uri=True, timeout=1.0)
         try:
             confirmed = conn.execute(
                 "SELECT kind, statement FROM j_space_intents WHERE status = 'confirmed' ORDER BY created_at"

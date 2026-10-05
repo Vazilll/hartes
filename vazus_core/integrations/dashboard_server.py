@@ -44,10 +44,12 @@ try:
 except ImportError:
     UnifiedEmbeddingManager = None
 
-DEFAULT_DB_PATH = "C:/vazus/services/memory/vazus.db"
+from vazus_core.paths import DEFAULT_DB_PATH as CANONICAL_DB_PATH, VAZUS_ROOT, PROJECTS_DIR
+
+DEFAULT_DB_PATH = str(CANONICAL_DB_PATH)
 _CANDIDATE_HTML_PATHS = [
-    Path("C:/vazus/projects/dashboard.html"),
-    Path("C:/vazus/apps/dashboard.html"),
+    PROJECTS_DIR / "dashboard.html",
+    VAZUS_ROOT / "apps" / "dashboard.html",
     PROJECT_ROOT / "projects" / "dashboard.html",
     PROJECT_ROOT / "apps" / "dashboard.html",
 ]
@@ -79,8 +81,10 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         query_params = urllib.parse.parse_qs(parsed_url.query)
 
         try:
-            if path == "/" or path == "/dashboard.html" or path == "/index.html":
+            if path in ("/", "/dashboard.html", "/index.html"):
                 self.handle_serve_html()
+            elif path in ("/api/health", "/healthz", "/health"):
+                self.send_json_response({"status": "ok", "service": "vazus-supergraph-os", "timestamp": datetime.datetime.now().isoformat()})
             elif path == "/api/v1/knowledge/search":
                 self.handle_search(query_params)
             elif path == "/api/v1/knowledge/stream":

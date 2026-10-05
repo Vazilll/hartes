@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional, Union
 
 logger = logging.getLogger("vazus_core.maintenance.db_optimizer")
 
-DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
+from vazus_core.paths import DEFAULT_DB_PATH
 
 
 def optimize_database(

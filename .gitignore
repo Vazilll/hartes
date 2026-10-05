@@ -109,3 +109,4 @@ data/archive/
 .hermes/
 backups/
 SYSTEM_STATE.json
+.vazus_test.lock

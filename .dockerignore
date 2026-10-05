@@ -1,0 +1,82 @@
+# VCS & IDE
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+.obsidian
+.hermes
+
+# Virtual environments & dependencies
+.venv/
+pyenv/
+node_modules/
+
+# Python bytecode & caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+
+# Windows native binaries & tools
+*.exe
+*.dll
+cloudflared.exe
+tools/sandbox/*.wsb
+tools/sandbox/*.ps1
+tools/sandbox/*.cmd
+
+# Rust build artifacts
+target/
+vazus_core/native/target/
+vazus_core/native/**/target/
+
+# Pedagogical Sovereignty (Separated agent scope)
+study/
+
+# Ephemeral runtime state & locks
+.vazus_test.lock
+.stop_hook_state.json
+.sidecar.pid
+SYSTEM_STATE.json
+*.tmp
+*.log
+scratch/
+logs/
+cache/
+
+# SQLite WAL and journal files (DB is mounted via volume)
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Secrets & Authentication tokens
+.env
+.env.*
+!.env.docker
+auth_token.json
+token*.json
+credentials*.json
+*token*.txt
+*secret*
+
+# Heavy local model weights & archives (mounted via data/ volume)
+data/models/
+data/cache/
+data/logs/
+data/backups/
+data/archive/
+services/memory/backups/
+*.bin
+*.onnx
+*.safetensors
+*.pt
+*.gguf
+*.tar.gz
+*.zip

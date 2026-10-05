@@ -28,7 +28,8 @@ class RobustSQLitePool:
         path_str = str(Path(db_path).resolve())
         if os.getenv("VAZUS_TEST_ISOLATION") == "1" and path_str != ":memory:":
             try:
-                canonical_resolved = str(Path(r"C:\vazus\services\memory\vazus.db").resolve()).lower()
+                from vazus_core.paths import DEFAULT_DB_PATH
+                canonical_resolved = str(DEFAULT_DB_PATH.resolve()).lower()
                 target_resolved = path_str.lower()
                 if target_resolved == canonical_resolved or target_resolved.replace("\\", "/").endswith(
                     "services/memory/vazus.db"

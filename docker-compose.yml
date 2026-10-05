@@ -1,32 +1,81 @@
+# ==============================================================================
+# Vazus SuperGraph OS — Docker Compose Specification
+# ==============================================================================
 services:
+  # ----------------------------------------------------------------------------
+  # Core OS Service: API, Memory Gateway, Substrate Guard & Unified Dashboard
+  # ----------------------------------------------------------------------------
+  vazus-os:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_HEAVY_AI: "false"
+    image: vazus/supergraph-os:latest
+    container_name: vazus-supergraph-os
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8501:8501"
+    environment:
+      - VAZUS_ROOT=/app
+      - PYTHONPATH=/app
+      - VAZUS_DB_PATH=/app/services/memory/vazus.db
+      - HOST=0.0.0.0
+      - PORT=8000
+      - VAZUS_ENV=production
+      # Connect seamlessly to host-level Ollama on Linux
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # Optional external API keys (injected from .env if present)
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - JULES_API_KEY=${JULES_API_KEY:-}
+    volumes:
+      # Persistent SSOT storage: Database & Markdown Memory
+      - ./services/memory:/app/services/memory
+      # Persistent cache, telemetry, and downloaded models
+      - ./data:/app/data
+    extra_hosts:
+      # Enables the container to communicate with host-running services (like Ollama)
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - vazus-net
+
+  # ----------------------------------------------------------------------------
+  # Optional Add-on: Private Meta-Search Engine (SearXNG)
+  # Run with: docker compose --profile search up -d
+  # ----------------------------------------------------------------------------
   searxng:
+    profiles: ["search", "full"]
     image: searxng/searxng:latest
-    container_name: searxng
+    container_name: vazus-searxng
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       - BASE_URL=http://localhost:8080/
-      - SEARXNG_SECRET=${SEARXNG_SECRET:-changeme}
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-vazus_secure_searxng_token_2026}
     volumes:
       - searxng-data:/etc/searxng
     networks:
-      - dnts-isolated
+      - vazus-net
 
-  memgraph:
-    image: memgraph/memgraph-mage:latest
-    container_name: memgraph
-    restart: unless-stopped
-    ports:
-      - "7687:7687"
-    volumes:
-      - memgraph-data:/var/lib/memgraph
-    networks:
-      - dnts-isolated
-
+  # ----------------------------------------------------------------------------
+  # Optional Add-on: Vector Database (Qdrant)
+  # Run with: docker compose --profile vector up -d
+  # ----------------------------------------------------------------------------
   qdrant:
+    profiles: ["vector", "full"]
     image: qdrant/qdrant:latest
-    container_name: qdrant
+    container_name: vazus-qdrant
     restart: unless-stopped
     ports:
       - "6333:6333"
@@ -34,14 +83,13 @@ services:
     volumes:
       - qdrant-data:/qdrant/storage
     networks:
-      - dnts-isolated
+      - vazus-net
 
 networks:
-  dnts-isolated:
+  vazus-net:
     driver: bridge
-    name: dnts-isolated
+    name: vazus-network
 
 volumes:
   searxng-data:
-  memgraph-data:
   qdrant-data:

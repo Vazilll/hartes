@@ -21,15 +21,17 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+from vazus_core.paths import DEFAULT_DB_PATH, WIKI_DIR, MEMORY_DIR
+
 def get_default_db_path() -> Path:
     env_db = os.environ.get("VAZUS_DB_PATH")
-    return Path(env_db) if env_db else Path("C:/vazus/services/memory/vazus.db")
+    return Path(env_db) if env_db else DEFAULT_DB_PATH
 
 DB_PATH = get_default_db_path()
-WIKI_PATH = Path("C:/vazus/services/memory/semantic/wiki")
+WIKI_PATH = WIKI_DIR
 
 
-RETAKES_PLAN_PATH = Path("C:/vazus/services/memory/RETAKES_COMBAT_PLAN.md")
+RETAKES_PLAN_PATH = MEMORY_DIR / "RETAKES_COMBAT_PLAN.md"
 STAGE1_DEADLINE = datetime.date(2026, 10, 15)
 
 
@@ -112,7 +114,7 @@ class SocraticPartner:
                             cleaned = line.lstrip("#* -[]").strip()
                             if len(cleaned) > 10:
                                 return f"Академический фокус ({d_str}): {cleaned}"
-            except Exception as e:
+            except Exception:
                 pass
 
         # 2. Проверяем наличие активных задач в Obsidian inbox

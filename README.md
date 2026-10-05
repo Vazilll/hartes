@@ -1,47 +1,46 @@
-# DNTS — Autonomous AI System
+# 🌌 Vazus SuperGraph OS (v5.0)
 
-> DNTS v3.0 — Go MCP сервер, 44 инструмента, без Python
+> **Autonomous Cognitive Architecture, Formal SMT Verification Substrate & SuperGraph Knowledge Operating System**
 
-## Статус
+---
 
-✅ **MCP Server работает** — 44 инструмента в одном Go бинарнике
-✅ **Ollama + llama.cpp интегрированы**
-✅ **Mythos Reasoning + RAG FTS5 + Graph Memory**
+## ⚡ Быстрый старт (Docker / Linux)
 
-## Быстрый старт
+Для развертывания на Linux в **1 команду**:
 
 ```bash
-cd gomcp
-dnts-brain.exe
+docker compose up -d --build
 ```
 
-## Структура проекта
+- **Веб-дашборд**: [http://localhost:8000](http://localhost:8000) (или [http://localhost:8501](http://localhost:8501))
+- **Healthcheck**: `curl http://localhost:8000/api/health`
+- **Инструкция по миграции на Linux**: читайте подробное руководство в [DEPLOY_LINUX.md](file:///C:/vazus/DEPLOY_LINUX.md).
 
+---
+
+## 🏗️ Архитектурные уровни памяти и вычислений
+
+1. **Layer A (Кодовая топология и AST)**:
+   - Call-graph, AST-определения и анализ зависимостей через `vazus_core.engine.graphify_engine` и `vazus_core.ast_pruner`.
+2. **Layer B (Семантическая память / Markdown Wiki)**:
+   - Авторитетный источник памяти (SSOT) в `services/memory/` (`USER.md`, `STUDY.md`, `FINANCE.md`, `HEALTH.md`).
+3. **Layer C (Структурированные данные и векторный поиск)**:
+   - Реляционные таблицы и векторные индексы в `services/memory/vazus.db` (транзакции, долги, расписание, взвешивания).
+4. **Formal Verification Substrate (Z3 SMT)**:
+   - Математическое доказательство инвариантов безопасности и валидация действий через `vazus_core.verification.substrate_guard`.
+
+---
+
+## 🚀 Локальный запуск (Разработка)
+
+```bash
+# Активация виртуального окружения
+source .venv/bin/activate  # на Linux
+# или .\.venv\Scripts\Activate.ps1  # на Windows
+
+# Запуск тестов
+pytest tests/unit/test_substrate_guard.py tests/unit/test_dashboard_cognitive_tab.py
+
+# Запуск веб-дашборда
+python vazus_core/integrations/dashboard_server.py --port 8000
 ```
-dnts/
-├── gomcp/              # Go MCP сервер (dnts-brain.exe)
-│   ├── cmd/            # entrypoint
-│   ├── internal/       # tools, middleware, server
-│   ├── go.mod
-│   └── main.go
-├── bin/                # llama.cpp и другие бинарники
-├── build/              # скрипты сборки
-├── config/             # конфигурации
-├── docs/               # документация
-├── memory/             # память (graph, RAG, Obsidian)
-├── models/             # GGUF модели
-├── skills/             # skill definitions
-├── opencode.json       # MCP конфиг для opencode
-└── .mcp.json           # MCP конфиг для Claude Code
-```
-
-## Требования
-
-- Go 1.22+
-- Ollama (локально, для LLM)
-- LM Studio (опционально)
-
-## Ссылки
-
-- [MCP Spec](https://spec.modelcontextprotocol.io)
-- [Ollama](https://ollama.ai)

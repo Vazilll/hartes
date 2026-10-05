@@ -23,8 +23,10 @@ from typing import List
 
 import numpy as np
 
-ROOT = Path("C:/vazus/vazus_core")
-CACHE = Path("C:/vazus/data/cache/code_twins.sqlite")
+from vazus_core.paths import VAZUS_ROOT, CACHE_DIR
+
+ROOT = VAZUS_ROOT / "vazus_core"
+CACHE = CACHE_DIR / "code_twins.sqlite"
 TWIN = 0.85     # near-identical meaning: show only the diff
 RELATED = 0.50  # worth a look
 

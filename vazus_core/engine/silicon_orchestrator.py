@@ -32,8 +32,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-# Ensure root in sys.path
-ROOT_DIR = Path("C:/vazus")
+from vazus_core.paths import VAZUS_ROOT, MODELS_DIR
+
+ROOT_DIR = VAZUS_ROOT
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
@@ -94,9 +95,8 @@ class OpenVINOGenAIPipeline:
         candidates = [
             model_dir,
             os.environ.get("OPENVINO_MODEL_PATH"),
-            r"C:\vazus\data\models\Qwen2.5-7B-Instruct-int4-ov",
-            r"C:\vazus\data\models\Phi-3.5-mini-instruct-int4-ov",
-            r"C:\vazus\data\models\openvino_genai",
+            str(MODELS_DIR / "gemma-4-e2b-it-int4-ov"),
+            str(MODELS_DIR / "openvino_genai"),
         ]
         chosen = None
         for c in candidates:

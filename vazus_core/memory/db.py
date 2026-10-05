@@ -22,12 +22,8 @@ def _default_db_path() -> str:
     env = os.getenv("VAZUS_DB_PATH")
     if env:
         return env
-    # Prefer dynamic workspace discovery over hardcoded path
-    for parent in Path(__file__).resolve().parents:
-        candidate = parent / "services" / "memory" / "vazus.db"
-        if candidate.parent.exists():
-            return str(candidate)
-    return r"C:\vazus\services\memory\vazus.db"
+    from vazus_core.paths import DEFAULT_DB_PATH
+    return str(DEFAULT_DB_PATH)
 
 
 DEFAULT_VAZUS_DB: str = _default_db_path()

@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/storage`  
 > **Path**: `vazus_core/storage`  
-> **Last Auto-Synchronized**: 2026-09-04 11:43:54  
+> **Last Auto-Synchronized**: 2026-10-05 16:37:04  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission
@@ -24,22 +24,20 @@ The `storage` component operates as a self-contained modular domain within Vazus
 from typing import Dict, Any, List, Optional, Union, Tuple, Set
 from pathlib import Path
 
-
 class SchemaMigration:
     pass
 
-
 class SchemaMigrator:
     def get_current_version(self) -> int: ...
-    def migrate(self, target_version: Optional[int] = None) -> int: ...
+    def migrate(self, target_version: Optional[int]=None) -> int: ...
     def rollback(self, target_version: int) -> int: ...
-
 
 class RobustSQLitePool:
     def get_raw_connection(self) -> sqlite3.Connection: ...
     def connection(self) -> Generator[sqlite3.Connection, None, None]: ...
-    def execute(self, sql: str, params: tuple = ()) -> list: ...
+    def execute(self, sql: str, params: tuple=()) -> list: ...
     def execute_script(self, script: str): ...
+
 ```
 
 ### 2.2 Exported Classes

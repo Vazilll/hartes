@@ -1,0 +1,38 @@
+# Binary and media files - avoid line-by-line diffing for performance
+*.mp4 -diff
+*.mov -diff
+*.MP4 -diff
+*.MOV -diff
+*.ogg -diff
+*.webp -diff
+*.png -diff
+*.jpg -diff
+*.jpeg -diff
+*.gif -diff
+*.ico -diff
+*.pdf -diff
+
+# Databases, indexes, and large binary artifacts
+*.db -diff
+*.sqlite -diff
+*.sqlite3 -diff
+*.scip -diff
+*.gob -diff
+*.bin -diff
+*.exe -diff
+*.dll -diff
+*.so -diff
+*.dylib -diff
+*.zip -diff
+*.tar.gz -diff
+*.7z -diff
+*.pt -diff
+*.pth -diff
+*.onnx -diff
+*.gguf -diff
+*.bin -diff
+*.safetensors -diff
+
+# Shell scripts line ending enforcement
+*.sh text eol=lf
+Dockerfile text eol=lf

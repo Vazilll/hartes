@@ -69,11 +69,13 @@ class OpenVINONPUEmbedder:
         self._tokenizer = None
         self._infer_lock = threading.Lock()
 
+        from vazus_core.paths import MODELS_DIR
+
         if model_path is None:
             cands = [
-                Path("C:/vazus/data/models/openvino_paraphrase_mpnet/openvino_model.xml"),
-                Path("C:/vazus/data/models/openvino_multilingual_e5/openvino_model.xml"),
-                Path("C:/vazus/data/models/openvino_npu/embedder_768d.xml"),
+                MODELS_DIR / "openvino_paraphrase_mpnet" / "openvino_model.xml",
+                MODELS_DIR / "openvino_multilingual_e5" / "openvino_model.xml",
+                MODELS_DIR / "openvino_npu" / "embedder_768d.xml",
                 Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_paraphrase_mpnet" / "openvino_model.xml",
                 Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_multilingual_e5" / "openvino_model.xml",
                 Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "embedder_768d.xml",
@@ -83,15 +85,15 @@ class OpenVINONPUEmbedder:
                 if c.exists():
                     model_path = str(c)
                     break
-        self.model_path = str(model_path or "C:/vazus/data/models/openvino_paraphrase_mpnet/openvino_model.xml")
+        self.model_path = str(model_path or (MODELS_DIR / "openvino_paraphrase_mpnet" / "openvino_model.xml"))
 
         # Fast local Rust tokenizer (loads in 12ms instead of 8s transformers overhead)
         self._fast_tokenizer = None
         tok_candidates = [
             Path(self.model_path).parent / "tokenizer.json",
             Path(self.model_path).parent / "tokenizer" / "tokenizer.json",
-            Path("C:/vazus/data/models/openvino_paraphrase_mpnet/tokenizer.json"),
-            Path("C:/vazus/data/models/openvino_multilingual_e5/tokenizer.json"),
+            MODELS_DIR / "openvino_paraphrase_mpnet" / "tokenizer.json",
+            MODELS_DIR / "openvino_multilingual_e5" / "tokenizer.json",
         ]
         self._tok_dir = Path(self.model_path).parent
         for tok_json in tok_candidates:

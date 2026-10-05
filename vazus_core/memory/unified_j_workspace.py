@@ -21,8 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
-
-DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
+from vazus_core.paths import DEFAULT_DB_PATH
 
 
 @dataclass

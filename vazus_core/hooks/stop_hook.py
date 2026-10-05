@@ -99,15 +99,13 @@ def check_pending_verification() -> tuple[bool, str]:
     import sqlite3
     import os
 
-    db_path = os.path.join(os.path.dirname(__file__), "..", "..", "services", "memory", "vazus.db")
-    db_path = os.path.normpath(db_path)
+    from vazus_core.paths import DEFAULT_DB_PATH, DATA_DIR, get_sqlite_ro_uri
 
-    if not os.path.isfile(db_path):
+    if not DEFAULT_DB_PATH.exists():
         return False, ""
 
     try:
-        uri = f"file:{Path(db_path).as_posix()}?mode=ro"
-        conn = sqlite3.connect(uri, uri=True, timeout=1.0)
+        conn = sqlite3.connect(get_sqlite_ro_uri(DEFAULT_DB_PATH), uri=True, timeout=1.0)
         cur = conn.cursor()
 
         # Check for pending verification markers (inserted by pre-commit gate)
@@ -124,11 +122,36 @@ def check_pending_verification() -> tuple[bool, str]:
     except Exception as db_err:
         logger.debug("Database verification check error: %s", db_err)
 
-    # Check for active verifier/pytest subprocesses (best-effort)
+    # Check for targeted verifier lockfile first (O(1) fast-path)
+    lock_file = DATA_DIR / "locks" / "active_verifier.json"
+    if lock_file.exists():
+        try:
+            import json, time, psutil
+            lock_data = json.loads(lock_file.read_text(encoding="utf-8"))
+            v_pid = lock_data.get("pid")
+            v_age = time.time() - lock_data.get("started_at", 0)
+            if v_pid and psutil.pid_exists(v_pid) and v_age < lock_data.get("ttl_sec", 60):
+                return True, f"Active verification ({lock_data.get('type', 'runner')}, pid {v_pid})"
+            else:
+                lock_file.unlink(missing_ok=True)
+        except Exception as lock_err:
+            logger.debug("Lockfile inspection failed: %s", lock_err)
+
+    # Check for active verifier/pytest subprocesses (best-effort, excluding shells)
     try:
         import psutil
+        current_pid = os.getpid()
         for proc in psutil.process_iter(["name", "cmdline"]):
             try:
+                if proc.pid == current_pid:
+                    continue
+                pname = (proc.info.get("name") or "").lower()
+                # Exclude interactive shells (PowerShell, CMD, bash) which may retain 'pytest' in their argv
+                if any(shell in pname for shell in ["powershell", "pwsh", "cmd", "bash", "windowsterminal"]):
+                    continue
+                # Only check actual Python runners or pytest binaries
+                if not any(runner in pname for runner in ["python", "pytest"]):
+                    continue
                 cmdline = " ".join(proc.info.get("cmdline") or []).lower()
                 if any(kw in cmdline for kw in ["pytest", "precommit_gate", "smt_z3", "concordia_jury"]):
                     return True, f"Active verification process: {proc.info['name']} (pid {proc.pid})"
@@ -143,11 +166,10 @@ def check_pending_verification() -> tuple[bool, str]:
 
 def _get_block_count(conversation_id: str) -> int:
     import json
-    import os
-    state_file = "C:/vazus/.stop_hook_state.json"
+    from vazus_core.paths import STOP_HOOK_STATE_FILE
     try:
-        if os.path.exists(state_file):
-            with open(state_file, "r", encoding="utf-8") as f:
+        if STOP_HOOK_STATE_FILE.exists():
+            with open(STOP_HOOK_STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get(conversation_id, 0)
     except Exception as state_err:
@@ -157,16 +179,15 @@ def _get_block_count(conversation_id: str) -> int:
 
 def _increment_block_count(conversation_id: str) -> int:
     import json
-    import os
-    state_file = "C:/vazus/.stop_hook_state.json"
+    from vazus_core.paths import STOP_HOOK_STATE_FILE
     cnt = _get_block_count(conversation_id) + 1
     try:
         data = {}
-        if os.path.exists(state_file):
-            with open(state_file, "r", encoding="utf-8") as f:
+        if STOP_HOOK_STATE_FILE.exists():
+            with open(STOP_HOOK_STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
         data[conversation_id] = cnt
-        with open(state_file, "w", encoding="utf-8") as f:
+        with open(STOP_HOOK_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
     except Exception as write_err:
         logger.debug("State file write failed: %s", write_err)
@@ -175,14 +196,13 @@ def _increment_block_count(conversation_id: str) -> int:
 
 def _clear_block_count(conversation_id: str):
     import json
-    import os
-    state_file = "C:/vazus/.stop_hook_state.json"
+    from vazus_core.paths import STOP_HOOK_STATE_FILE
     try:
-        if os.path.exists(state_file):
-            with open(state_file, "r", encoding="utf-8") as f:
+        if STOP_HOOK_STATE_FILE.exists():
+            with open(STOP_HOOK_STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
             data.pop(conversation_id, None)
-            with open(state_file, "w", encoding="utf-8") as f:
+            with open(STOP_HOOK_STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(data, f)
     except Exception as clear_err:
         logger.debug("State file clear failed: %s", clear_err)
@@ -337,7 +357,8 @@ def _persist_session_memories(conversation_id: str, invocation_num: int, message
     if not user_msgs or invocation_num < 1:
         return
 
-    is_test_lock = os.path.exists(r"C:\vazus\.vazus_test.lock")
+    from vazus_core.paths import TEST_LOCK_FILE, VAZUS_ROOT
+    is_test_lock = TEST_LOCK_FILE.exists()
 
     if not is_test_lock:
         mem0 = Mem0Engine()
@@ -348,8 +369,9 @@ def _persist_session_memories(conversation_id: str, invocation_num: int, message
 
         try:
             insight_payload = json.dumps({"category": "session_summary", "insight": summary})
+            client_py = VAZUS_ROOT / "vazus_core" / "mcp_client.py"
             subprocess.Popen(
-                [r"C:\vazus\.venv\Scripts\python.exe", r"C:\vazus\vazus_core\mcp_client.py", "vazus-organic", "vazus_record_insight", insight_payload],
+                [sys.executable, str(client_py), "vazus-organic", "vazus_record_insight", insight_payload],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
         except Exception as e:

@@ -26,9 +26,11 @@ except Exception:
 
 logger = logging.getLogger("vazus.substrate_guard")
 
+from vazus_core.paths import VAZUS_ROOT
+
 # Permitted workspace roots
 WORKSPACE_ROOTS = [
-    Path("C:/vazus").resolve(),
+    VAZUS_ROOT.resolve(),
     Path.home() / ".gemini",
     Path.home() / ".hermes",
     Path.home() / ".mcp-colab",
@@ -42,6 +44,8 @@ FORBIDDEN_PATTERNS = [
     "windows/system32",
     "windows\\system32",
     "/etc/",
+    "/etc\\",
+    str(VAZUS_ROOT / "agents.md").lower().replace("\\", "/"),
     "c:/vazus/agents.md",
     "c:\\vazus\\agents.md",
 ]
@@ -156,7 +160,7 @@ class ToolCallRequest(BaseModel):
 class SubstrateGuard:
     """SMT Z3 Hard Gate Security Gateway."""
 
-    def __init__(self, timeout_ms: int = 5, extra_workspace_roots: Optional[List[Path]] = None):
+    def __init__(self, timeout_ms: int = 100, extra_workspace_roots: Optional[List[Path]] = None):
         self.timeout_ms = timeout_ms
         self.workspace_roots = list(WORKSPACE_ROOTS)
         if extra_workspace_roots:
