@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/roles`  
 > **Path**: `vazus_core/roles`  
-> **Last Auto-Synchronized**: 2026-10-05 17:11:51  
+> **Last Auto-Synchronized**: 2026-10-05 18:01:27  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission
