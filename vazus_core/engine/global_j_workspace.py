@@ -131,6 +131,28 @@ class GlobalJWorkspace:
             return True
         return False
 
+    def break_deadlock(self, window: int = 3, inhibit_factor: float = 0.5) -> Optional[str]:
+        """
+        Deadlock breaker: if the last `window` broadcasts all carry the same label
+        (agents re-broadcasting one concept without progress), inhibit that concept so
+        competing concepts win the workspace. Returns the inhibited concept_id, or
+        None when no deadlock is detected.
+        """
+        # ponytail: label-repeat heuristic; upgrade to embedding cosine > 0.85 if paraphrased loops slip through
+        recent = self.broadcast_history[-window:]
+        if len(recent) < window or len({h["label"] for h in recent}) != 1:
+            return None
+        cid = recent[-1]["concept_id"]
+        concept = self.active_concepts.get(cid)
+        if concept is None:
+            return None
+        self.modulate_concept(cid, concept.activation_strength * inhibit_factor)
+        # marker entry changes the window so the same loop is not re-inhibited on every call
+        self.broadcast_history.append(
+            {"action": "inhibit", "concept_id": cid, "label": "<inhibited>", "source": "deadlock_breaker", "timestamp": time.time()}
+        )
+        return cid
+
     def export_workspace_state(self) -> Dict[str, Any]:
         """Exports the compact O(1) representation of the global workspace for prompt injection."""
         return {

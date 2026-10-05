@@ -40,13 +40,11 @@ _SUBPKG_MAP = {
     # workers
     "repl_engine": "workers", "self_healing_repl": "workers", "subagent_auto_trigger": "workers",
     "subagent_reflexion": "workers", "agent_handoff": "workers", "agent_system_bridge": "workers",
-    "background_review_hook": "workers", "daemon_sidecar": "workers", "system_daemon": "workers",
+    "background_review_hook": "workers", "daemon_sidecar": "workers",
     "jules_client": "workers", "subagent_verifier_bridge": "workers",
     "subagent_rlm_bridge": "workers", "subagent_research_bridge": "workers", "subprocess_repl": "workers",
     # skills
     "hermes_engine": "skills", "hermes_agent_engine": "skills", "hermes_skill_syncer": "skills",
-    # evolution
-    "darwinian_evolver": "evolution", "synaptic_evolver": "evolution",
     # integrations
     "telegram_indexer": "integrations", "telegram_notifier": "integrations", "tinkoff_finance_manager": "integrations",
     "freelance_npd_engine": "integrations", "self_employed_order_hunter": "integrations",

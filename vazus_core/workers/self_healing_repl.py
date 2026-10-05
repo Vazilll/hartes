@@ -186,6 +186,9 @@ class SelfHealingREPLManager:
         if smt_status == "SAT" or not getattr(smt_res, "contract_satisfied", True):
             self._rollback(guardrail, file_existed, target_path)
             err = getattr(smt_res, "error_message", "SMT contract violation (SAT counterexample found)")
+            cex = getattr(smt_res, "counterexample", None)
+            if cex:
+                err = f"{err} Z3 counterexample: {cex}".strip()
             res = self._build_failure_result(
                 "SMT_CONTRACT_FAILED", target_path, iterations=iters, repl_res=repl_res, jury_verdict=jury_verdict,
                 smt_status=smt_status, smt_verified=False, was_healed=repl_ok and repl_res.healed, repaired_code=working_code, error=err

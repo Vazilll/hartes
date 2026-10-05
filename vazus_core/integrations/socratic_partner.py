@@ -29,6 +29,10 @@ DB_PATH = get_default_db_path()
 WIKI_PATH = Path("C:/vazus/services/memory/semantic/wiki")
 
 
+RETAKES_PLAN_PATH = Path("C:/vazus/services/memory/RETAKES_COMBAT_PLAN.md")
+STAGE1_DEADLINE = datetime.date(2026, 10, 15)
+
+
 class SocraticPartner:
     def __init__(self, db_path: Optional[Union[str, Path]] = None, wiki_path: Path = WIKI_PATH):
         self.db_path = Path(db_path) if db_path else get_default_db_path()
@@ -41,7 +45,8 @@ class SocraticPartner:
             return victories
 
         try:
-            conn = sqlite3.connect(str(self.db_path))
+            uri = f"file:{self.db_path.as_posix()}?mode=ro"
+            conn = sqlite3.connect(uri, uri=True, timeout=1.0)
             c = conn.cursor()
             # Берем свежие верифицированные инсайты
             rows = c.execute("""
@@ -62,9 +67,55 @@ class SocraticPartner:
 
         return victories
 
+    def get_academic_countdown(self) -> Optional[Dict[str, Any]]:
+        """Calculates days remaining to MIREA Stage 1 retake deadline (15.10.2026)."""
+        today = datetime.date.today()
+        days_left = (STAGE1_DEADLINE - today).days
+        if days_left < 0 or days_left > 60:
+            return None
+
+        debts_count = 17
+        try:
+            if self.db_path.exists():
+                uri = f"file:{self.db_path.as_posix()}?mode=ro"
+                conn = sqlite3.connect(uri, uri=True, timeout=1.0)
+                cur = conn.cursor()
+                row = cur.execute(
+                    "SELECT COUNT(*) FROM mirea_milestones WHERE status NOT IN ('PASSED', 'СДАНО', 'DONE', 'COMPLETED')"
+                ).fetchone()
+                if row and row[0] > 0:
+                    debts_count = row[0]
+                conn.close()
+        except Exception:
+            pass
+
+        return {
+            "days_left": days_left,
+            "debts_count": debts_count,
+            "deadline_str": STAGE1_DEADLINE.strftime("%d.%m.%Y"),
+        }
+
     def get_daily_anchor(self) -> str:
-        """Определяет один ключевой фокус дня (анти-перегрузка)."""
-        # Проверяем наличие активных задач в Obsidian inbox
+        """Определяет один ключевой фокус дня (анти-перегрузка) с учетом дедлайнов."""
+        today = datetime.date.today()
+        # 1. Проверяем слоты в боевом плане пересдач если активна мобилизация
+        if RETAKES_PLAN_PATH.exists() and (STAGE1_DEADLINE - today).days <= 30:
+            try:
+                plan_text = RETAKES_PLAN_PATH.read_text(encoding="utf-8")
+                dates_to_check = [
+                    today.strftime("%d.%m"),
+                    (today + datetime.timedelta(days=1)).strftime("%d.%m")
+                ]
+                for d_str in dates_to_check:
+                    for line in plan_text.splitlines():
+                        if d_str in line and any(kw in line for kw in ["###", "*", "["]):
+                            cleaned = line.lstrip("#* -[]").strip()
+                            if len(cleaned) > 10:
+                                return f"Академический фокус ({d_str}): {cleaned}"
+            except Exception as e:
+                pass
+
+        # 2. Проверяем наличие активных задач в Obsidian inbox
         inbox_dir = self.wiki_path / "inbox"
         if inbox_dir.exists():
             notes = list(inbox_dir.glob("*.md"))
@@ -81,6 +132,7 @@ class SocraticPartner:
         """
         victories = self.get_recent_victories(limit=3)
         anchor = self.get_daily_anchor()
+        countdown = self.get_academic_countdown()
         now = datetime.datetime.now()
         date_str = now.strftime("%d %B, %A")
 
@@ -90,6 +142,15 @@ class SocraticPartner:
             "Перед тем как включаться в суету дня — выдохни на секунду и оглянись назад. Ты не стоишь на месте, фундамент строится:",
             ""
         ]
+
+        if countdown:
+            d_left = countdown["days_left"]
+            debts = countdown["debts_count"]
+            lines.extend([
+                f"⏳ **Режим мобилизации МИРЭА**: до дедлайна 15.10 осталось **{d_left} дн.** ({debts} активных хвостов).",
+                "*Помни: главное — методичный спокойный шаг без суеты и самобичевания.*",
+                ""
+            ])
 
         if victories:
             lines.append("### 🌱 Что мы уже преодолели и построили:")

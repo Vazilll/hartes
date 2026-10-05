@@ -293,8 +293,7 @@ class ResponseEvaluator:
             is_fallback = (
                 getattr(self.embedder, "fallback_mode", False) or
                 getattr(self.embedder, "use_fallback", False) or
-                getattr(self.embedder, "_genai_client", None) is False or
-                getattr(self.embedder, "_genai_client", None) is None or
+                (not getattr(self.embedder, "_genai_client", None) and not getattr(self.embedder, "_npu_embedder", None)) or
                 all(x == 0.0 for x in v_user) or all(x == 0.0 for x in v_target)
             )
             return sem_sim, is_fallback

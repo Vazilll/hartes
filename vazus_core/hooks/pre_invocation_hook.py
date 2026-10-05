@@ -25,10 +25,17 @@ import re
 import sys
 from typing import List, Dict, Any, Optional
 
-if sys.stdout and hasattr(sys.stdout, "buffer"):
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-if sys.stderr and hasattr(sys.stderr, "buffer"):
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -387,8 +394,11 @@ def _retrieve_inprocess_memories(user_prompt: str, invocation_num: int) -> Optio
         if not db_path.exists():
             return None
 
-        conn = sqlite3.connect(str(db_path), timeout=2.0)
+        uri = f"file:{db_path.as_posix()}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=1.0)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA mmap_size=268435456;")
+        conn.execute("PRAGMA cache_size=-32000;")
         parts = []
 
         # 1. Active Academic Milestones / Debts if prompt relates to study
@@ -438,9 +448,67 @@ def _retrieve_hermes_skills_index(invocation_num: int) -> Optional[str]:
         return None
 
 
+def _retrieve_intent_anchors(invocation_num: int) -> Optional[str]:
+    """Confirmed J-Space intent anchors (every turn) + pending-proposals nudge (turn 0). Read-only, fail-open."""
+    try:
+        import sqlite3
+        db_path = Path(os.environ.get("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db"))
+        if not db_path.exists():
+            return None
+        conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=1.0)
+        try:
+            confirmed = conn.execute(
+                "SELECT kind, statement FROM j_space_intents WHERE status = 'confirmed' ORDER BY created_at"
+            ).fetchall()
+            pending = conn.execute("SELECT COUNT(*) FROM j_space_intents WHERE status = 'proposed'").fetchone()[0]
+        finally:
+            conn.close()
+        lines = []
+        if confirmed:
+            lines.append("[INTENT — confirmed, do not drift]")
+            lines += [f"  ◆ ({k}) {s}" for k, s in confirmed]
+        if pending and invocation_num == 0:
+            lines.append(
+                f"  ({pending} proposed intent(s) await user confirmation: "
+                "python -m vazus_core.memory.intent_extractor list)"
+            )
+        return "\n".join(lines) if lines else None
+    except Exception as exc:  # table missing / db locked -> never block the hook
+        logger.debug("Intent anchors retrieval skipped: %s", exc)
+        return None
+
+
+_CREATE_RE = re.compile(
+    r"\b(напиши|создай|добавь|реализуй|сделай функци|write|implement|create|add (?:a )?(?:function|helper))", re.I
+)
+
+
+def _retrieve_code_twins(user_prompt: str) -> Optional[str]:
+    """Warns when the codebase already has code close in meaning to what the prompt asks to create.
+    Cached vectors only (no cold embedding pass), fail-open."""
+    if not user_prompt or not _CREATE_RE.search(user_prompt):
+        return None
+    try:
+        from vazus_core.analysis.code_twin_finder import find_twins, TWIN
+        query = _CREATE_RE.sub("", user_prompt).strip()
+        twins = [t for t in find_twins(query or user_prompt, top_k=3, min_score=0.5, cached_only=True)]
+        if not twins:
+            return None
+        lines = ["[DRY CHECK — similar code already exists; reuse or extend before writing new]"]
+        for t in twins:
+            tag = "TWIN" if t.score >= TWIN else "related"
+            lines.append(f"  {tag} {t.score:.2f} {t.name} @ {t.file}:{t.line}")
+        return "\n".join(lines)
+    except Exception as exc:
+        logger.debug("Code twin check skipped: %s", exc)
+        return None
+
+
 def auto_retrieve_memory(user_prompt: str, invocation_num: int) -> str:
     """Passively retrieves profile, skills catalog, semantic facts, and traces."""
     blocks = [
+        _retrieve_intent_anchors(invocation_num),
+        _retrieve_code_twins(user_prompt),
         _retrieve_user_profile(invocation_num),
         _retrieve_hermes_skills_index(invocation_num),
         _retrieve_inprocess_memories(user_prompt, invocation_num),
@@ -914,4 +982,5 @@ async def run_pre_invocation_hook(
 
 if __name__ == "__main__":
     main()
+
 

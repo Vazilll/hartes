@@ -94,3 +94,84 @@ def test_unified_decay_concepts_and_bounded_history():
     assert pruned == 1
     assert "low" not in ws.active_concepts
     assert "high" in ws.active_concepts
+
+
+# ---------------------------------------------------------------- intent anchors
+def _vec(seed: int, dim: int = 768):
+    rng = np.random.default_rng(seed)
+    return rng.normal(size=dim).astype(np.float32)
+
+
+def test_intent_requires_confirmation():
+    ws = UnifiedJWorkspace(db_path=":memory:")
+    it = ws.propose_intent("Не решать задачи МИРЭА за студента", kind="constraint")
+    assert it["status"] == "proposed"
+    assert ws.get_intents() == []
+    assert ws.get_intent_context() == ""
+    assert ws.confirm_intent(it["intent_id"]) is True
+    assert [i["statement"] for i in ws.get_intents()] == ["Не решать задачи МИРЭА за студента"]
+
+
+def test_intent_immune_to_eviction_and_decay():
+    ws = UnifiedJWorkspace(capacity=2, db_path=":memory:")
+    it = ws.propose_intent("Никаких заглушек", kind="constraint")
+    ws.confirm_intent(it["intent_id"])
+    for i in range(10):
+        ws.broadcast_concept(f"c{i}", f"noise {i}", 0.9)
+    for _ in range(50):
+        ws.decay_concepts(decay_rate=0.5)
+    assert "Никаких заглушек" in ws.get_broadcast_context()
+
+
+def test_intent_duplicate_and_reject():
+    ws = UnifiedJWorkspace(db_path=":memory:")
+    a = ws.propose_intent("Цель A")
+    assert ws.propose_intent("  цель a ")["intent_id"] == a["intent_id"]
+    assert ws.reject_intent(a["intent_id"]) is True
+    assert ws.confirm_intent(a["intent_id"]) is False  # no resurrection
+
+
+def test_intent_refinement_supersedes_old_version():
+    ws = UnifiedJWorkspace(db_path=":memory:")
+    old = ws.propose_intent("Не создавать заглушки и фасады в коде", kind="constraint")
+    ws.confirm_intent(old["intent_id"])
+    new = ws.propose_intent("Не создавать заглушки и фасады в коде проекта", kind="constraint")
+    assert new["relation"] == "refines"  # one added word is a refinement, not a silent duplicate
+    assert new["supersedes"] == old["intent_id"] and new["diff"] == "+проекта"
+
+
+def test_refines_supersedes_only_after_confirm():
+    ws = UnifiedJWorkspace(db_path=":memory:")
+    old = ws.propose_intent("Всегда проверять тестами каждое изменение кода")
+    ws.confirm_intent(old["intent_id"])
+    new = ws.propose_intent("Всегда проверять тестами и линтером каждое изменение")
+    assert new["relation"] == "refines" and new["supersedes"] == old["intent_id"]
+    assert [i["statement"] for i in ws.get_intents()] == [old["statement"]]
+    ws.confirm_intent(new["intent_id"])
+    assert [i["statement"] for i in ws.get_intents()] == [new["statement"]]
+    assert {i["status"] for i in ws.get_intents(None)} == {"superseded", "confirmed"}
+
+
+def test_opposite_polarity_is_flagged_as_conflict_with_diff():
+    ws = UnifiedJWorkspace(db_path=":memory:")
+    old = ws.propose_intent("Не решать задачи МИРЭА за студента", kind="constraint")
+    ws.confirm_intent(old["intent_id"])
+    new = ws.propose_intent("Решать задачи МИРЭА за студента")
+    assert new["relation"] == "conflicts" and new["supersedes"] == old["intent_id"]
+    assert "-не" in new["diff"]
+    assert [i["statement"] for i in ws.get_intents()] == [old["statement"]]  # old stays in force until user decides
+
+
+def test_unrelated_intent_stays_new_and_vectors_never_decide():
+    ws = UnifiedJWorkspace(db_path=":memory:")
+    a = ws.propose_intent("Закрыть долги по математическому анализу", vector=_vec(10))
+    ws.confirm_intent(a["intent_id"])
+    b = ws.propose_intent("Настроить резервное копирование базы данных", vector=_vec(10))  # identical vector
+    assert b["relation"] == "new" and b["supersedes"] is None
+
+
+def test_intent_persists_across_instances(tmp_path):
+    db = str(tmp_path / "ws.db")
+    w1 = UnifiedJWorkspace(db_path=db)
+    w1.confirm_intent(w1.propose_intent("Сквозная цель")["intent_id"])
+    assert "Сквозная цель" in UnifiedJWorkspace(db_path=db).get_broadcast_context()

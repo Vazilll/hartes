@@ -8,6 +8,7 @@ import os
 import sys
 import asyncio
 import types
+import threading
 import logging
 import hashlib
 import json
@@ -66,10 +67,15 @@ class OpenVINONPUEmbedder:
         self._infer_request = None
         self._initialized = False
         self._tokenizer = None
+        self._infer_lock = threading.Lock()
 
         if model_path is None:
             cands = [
+                Path("C:/vazus/data/models/openvino_paraphrase_mpnet/openvino_model.xml"),
+                Path("C:/vazus/data/models/openvino_multilingual_e5/openvino_model.xml"),
                 Path("C:/vazus/data/models/openvino_npu/embedder_768d.xml"),
+                Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_paraphrase_mpnet" / "openvino_model.xml",
+                Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_multilingual_e5" / "openvino_model.xml",
                 Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "embedder_768d.xml",
                 Path("models/openvino_npu/embedder_768d.xml"),
             ]
@@ -77,20 +83,28 @@ class OpenVINONPUEmbedder:
                 if c.exists():
                     model_path = str(c)
                     break
-        self.model_path = str(model_path or "C:/vazus/data/models/openvino_npu/embedder_768d.xml")
+        self.model_path = str(model_path or "C:/vazus/data/models/openvino_paraphrase_mpnet/openvino_model.xml")
 
         # Fast local Rust tokenizer (loads in 12ms instead of 8s transformers overhead)
         self._fast_tokenizer = None
-        self._tok_dir = Path(self.model_path).parent / "tokenizer"
-        tok_json = self._tok_dir / "tokenizer.json"
-        if tok_json.exists():
-            try:
-                from tokenizers import Tokenizer
-                self._fast_tokenizer = Tokenizer.from_file(str(tok_json))
-                self._fast_tokenizer.enable_padding(length=128)
-                self._fast_tokenizer.enable_truncation(max_length=128)
-            except Exception as e:
-                logger.debug("Fast Rust tokenizer load note: %s", e)
+        tok_candidates = [
+            Path(self.model_path).parent / "tokenizer.json",
+            Path(self.model_path).parent / "tokenizer" / "tokenizer.json",
+            Path("C:/vazus/data/models/openvino_paraphrase_mpnet/tokenizer.json"),
+            Path("C:/vazus/data/models/openvino_multilingual_e5/tokenizer.json"),
+        ]
+        self._tok_dir = Path(self.model_path).parent
+        for tok_json in tok_candidates:
+            if tok_json.exists():
+                try:
+                    from tokenizers import Tokenizer
+                    self._fast_tokenizer = Tokenizer.from_file(str(tok_json))
+                    self._fast_tokenizer.enable_padding(length=128)
+                    self._fast_tokenizer.enable_truncation(max_length=128)
+                    self._tok_dir = tok_json.parent
+                    break
+                except Exception as e:
+                    logger.debug("Fast Rust tokenizer load note: %s", e)
 
         self.max_seq_len = 128
         if ov is None:
@@ -188,12 +202,20 @@ class OpenVINONPUEmbedder:
                 inputs_dict["attention_mask"] = (cur_ids != 0).astype(np.int64)
 
             # Dictionary-based infer handles input port naming and shape broadcast cleanly
-            res = self._infer_request.infer(inputs_dict)
-            out_tensor = list(res.values())[0]  # First output is last_hidden_state [batch, seq_len, 768]
+            with self._infer_lock:
+                res = self._infer_request.infer(inputs_dict)
+                out_tensor = list(res.values())[0]  # First output is last_hidden_state [batch, seq_len, 768]
             
             if len(out_tensor.shape) == 3:
-                # Standard BGE / BERT CLS token pooling (position 0)
-                pooled = out_tensor[:, 0][0]
+                # Masked mean pooling across valid attention tokens
+                mask = inputs_dict.get("attention_mask")
+                if mask is not None:
+                    mask_expanded = np.expand_dims(mask, -1).astype(np.float32)
+                    sum_embeddings = np.sum(out_tensor * mask_expanded, axis=1)
+                    sum_mask = np.clip(np.sum(mask_expanded, axis=1), a_min=1e-9, a_max=None)
+                    pooled = (sum_embeddings / sum_mask)[0]
+                else:
+                    pooled = np.mean(out_tensor, axis=1)[0]
             elif len(out_tensor.shape) == 2:
                 pooled = out_tensor[0]
             else:
@@ -374,6 +396,13 @@ class UnifiedEmbeddingManager:
 
     def embed_query(self, text: str, db_path: Optional[str] = None) -> list[float]:
         return self.get_embedding(text, db_path=db_path)
+
+    def embed_batch(self, texts: list[str]) -> np.ndarray:
+        """Computes embeddings for a batch of texts, returning an [N, dimension] numpy array."""
+        if not texts:
+            return np.zeros((0, self.dimension), dtype=np.float32)
+        vecs = [self.get_embedding(t) for t in texts]
+        return np.array(vecs, dtype=np.float32)
 
     def compute_similarity(self, vec1: list[float], vec2: list[float]) -> float:
         if not vec1 or not vec2 or len(vec1) != len(vec2):

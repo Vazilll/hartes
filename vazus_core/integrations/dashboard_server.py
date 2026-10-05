@@ -45,7 +45,13 @@ except ImportError:
     UnifiedEmbeddingManager = None
 
 DEFAULT_DB_PATH = "C:/vazus/services/memory/vazus.db"
-DEFAULT_HTML_PATH = Path("C:/vazus/apps/dashboard.html")
+_CANDIDATE_HTML_PATHS = [
+    Path("C:/vazus/projects/dashboard.html"),
+    Path("C:/vazus/apps/dashboard.html"),
+    PROJECT_ROOT / "projects" / "dashboard.html",
+    PROJECT_ROOT / "apps" / "dashboard.html",
+]
+DEFAULT_HTML_PATH = next((p for p in _CANDIDATE_HTML_PATHS if p.exists()), _CANDIDATE_HTML_PATHS[0])
 
 # Threading HTTPServer for concurrent requests
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):

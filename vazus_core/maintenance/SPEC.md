@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/maintenance`  
 > **Path**: `vazus_core/maintenance`  
-> **Last Auto-Synchronized**: 2026-10-03 17:15:54  
+> **Last Auto-Synchronized**: 2026-10-05 16:20:49  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission
@@ -47,6 +47,7 @@ class AutoIndexRunner:
     def run(self, paths: Optional[List[str]]=None, force_reindex: bool=False, trigger_indexer: bool=False) -> Dict[str, Any]: ...
 
 def run_maintenance(paths: Optional[List[str]]=None, force_reindex: bool=False, trigger_indexer: bool=False) -> Dict[str, Any]: ...
+def optimize_database(db_path: Optional[Union[Path, str]]=None, checkpoint_mode: str='PASSIVE', timeout_sec: float=3.0, run_shrink: bool=True, run_optimize: bool=True) -> Dict[str, Any]: ...
 
 ```
 
@@ -62,6 +63,7 @@ def run_maintenance(paths: Optional[List[str]]=None, force_reindex: bool=False, 
 
 ### 2.3 Exported Functions
 - **`run_maintenance()`** (`auto_index_runner.py`): Convenience top-level entrypoint for hooks and tools.
+- **`optimize_database()`** (`db_optimizer.py`): Executes non-blocking SQLite maintenance:
 
 ### 2.4 Invariant Guarantees & Safety Policies (Invariants & Safety Guarantees)
 - Invariant 1: At most 1 indexing process runs system-wide (enforced via IndexingLockManager).

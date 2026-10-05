@@ -42,11 +42,35 @@ _CLIENT: Optional[TelegramClient] = None
 _CLIENT_LOCK = asyncio.Lock()
 
 
+def get_proxy():
+    proxy_url = os.getenv("HTTPS_PROXY") or os.getenv("HTTP_PROXY") or os.getenv("ALL_PROXY")
+    if not proxy_url:
+        return None
+    from urllib.parse import urlsplit
+    u = urlsplit(proxy_url)
+    scheme = u.scheme.lower() if u.scheme else "http"
+    if "socks5" in scheme:
+        try:
+            import socks
+            ptype = socks.SOCKS5
+        except ImportError:
+            ptype = "socks5"
+    elif "socks4" in scheme:
+        try:
+            import socks
+            ptype = socks.SOCKS4
+        except ImportError:
+            ptype = "socks4"
+    else:
+        ptype = "http"
+    return (ptype, u.hostname, u.port or 80)
+
+
 async def get_client() -> TelegramClient:
     global _CLIENT
     async with _CLIENT_LOCK:
         if _CLIENT is None or not _CLIENT.is_connected():
-            _CLIENT = TelegramClient(SESSION_PATH, API_ID, API_HASH)
+            _CLIENT = TelegramClient(SESSION_PATH, API_ID, API_HASH, proxy=get_proxy())
             await _CLIENT.connect()
             if not await _CLIENT.is_user_authorized():
                 raise RuntimeError(f"Telegram session at {SESSION_PATH} is not authorized.")

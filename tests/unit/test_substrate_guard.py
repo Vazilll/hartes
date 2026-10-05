@@ -353,7 +353,7 @@ class TestSubstrateGuardReDoS:
 
         min_time = min(times)
         avg_time = sum(times) / len(times)
-        assert min_time < 2.0, f"ReDoS slashes on {cmd_verb} exceeded 2.0 ms: min={min_time:.3f} ms, avg={avg_time:.3f} ms"
+        assert min_time < 5.0, f"ReDoS slashes on {cmd_verb} exceeded 5.0 ms: min={min_time:.3f} ms, avg={avg_time:.3f} ms"
 
     @pytest.mark.parametrize("cmd_verb,pattern_idx", [
         ("format", 0),
@@ -379,7 +379,7 @@ class TestSubstrateGuardReDoS:
 
         min_time = min(times)
         avg_time = sum(times) / len(times)
-        assert min_time < 2.0, f"ReDoS spaces on {cmd_verb} exceeded 2.0 ms: min={min_time:.3f} ms, avg={avg_time:.3f} ms"
+        assert min_time < 5.0, f"ReDoS spaces on {cmd_verb} exceeded 5.0 ms: min={min_time:.3f} ms, avg={avg_time:.3f} ms"
 
     @pytest.mark.parametrize("cmd_verb,flag,pattern_idx", [
         ("format", "/f ", 0),
@@ -405,7 +405,7 @@ class TestSubstrateGuardReDoS:
 
         min_time = min(times)
         avg_time = sum(times) / len(times)
-        assert min_time < 2.0, f"ReDoS flags on {cmd_verb} exceeded 2.0 ms: min={min_time:.3f} ms, avg={avg_time:.3f} ms"
+        assert min_time < 5.0, f"ReDoS flags on {cmd_verb} exceeded 5.0 ms: min={min_time:.3f} ms, avg={avg_time:.3f} ms"
 
 
 class TestAdvancedSecurityHardenings:

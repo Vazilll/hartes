@@ -148,6 +148,8 @@ class SiliconOrchestrator:
         optimizer: Optional[MemoryFootprintOptimizer] = None,
     ):
         self.j_space = GlobalJWorkspace(capacity=j_space_capacity, db_path=db_path)
+        self._intents_db_path = db_path
+        self._intents = None
         self.preferred_flash_device = preferred_flash_device
         self.preferred_memory_device = preferred_memory_device
         self.ollama_url = ollama_url
@@ -266,6 +268,17 @@ class SiliconOrchestrator:
         )
         return msg, "CLOUD_GATEWAY_READY", len(msg.split()), 0.0
 
+    def _intent_block(self) -> str:
+        """Confirmed intent anchors ('' if none or store unavailable). Fail-open: never blocks generation."""
+        try:
+            if self._intents is None:
+                from vazus_core.memory.unified_j_workspace import UnifiedJWorkspace
+
+                self._intents = UnifiedJWorkspace(db_path=self._intents_db_path)
+            return self._intents.get_intent_context()
+        except Exception:
+            return ""
+
     def _generate_local(self, prompt: str, memory_context: str = "") -> Tuple[str, str, int, float, float]:
         """
         Генерирует локальный ответ: приоритет OpenVINO GenAI на Intel Arc GPU / NPU,
@@ -277,6 +290,9 @@ class SiliconOrchestrator:
             full_prompt = (
                 f"[Контекст из долговременной памяти J-Space]:\n{memory_context}\n\n[Запрос пользователя]:\n{prompt}"
             )
+        intent_block = self._intent_block()
+        if intent_block:
+            full_prompt = f"{intent_block}\n\n{full_prompt}"
 
         # 1. Приоритет: OpenVINO GenAI на iGPU Arc (GPU)
         if hasattr(self, "openvino_genai") and self.openvino_genai.is_ready():
@@ -359,6 +375,9 @@ class SiliconOrchestrator:
             j_state = self.j_space.export_workspace_state()
             active_concepts = j_state.get("workspace_concepts", [])
             concepts_summary = "; ".join(f"[{c['label']} (str={c['strength']})]" for c in active_concepts)
+            intent_block = self._intent_block()
+            if intent_block:
+                concepts_summary = f"{intent_block}\n{concepts_summary}"
 
             cloud_payload = CloudEscalationPayload(
                 prompt=prompt,

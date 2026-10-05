@@ -184,7 +184,9 @@ class ProactiveSuggestionEngine:
                 except Exception as ex:
                     logger.debug("Relevance scoring fallback: %s", ex)
 
-            # Dedup + limit
+            # Dedup + limit (use relevance scored items if available)
+            if user_prompt and len(user_prompt.strip()) > 5 and 'scored' in locals() and scored:
+                return [item for _, item in scored][:limit]
             return list(dict.fromkeys(result_raw))[:limit]
 
         except Exception as exc:
@@ -317,6 +319,8 @@ class ProactiveSuggestionEngine:
 
     def _check_tainted_subprocess(self, fp: Path) -> list[Suggestion]:
         """Detects l2_trace_collector pattern: subprocess with path from env."""
+        if fp.name in ("proactive_suggestion_engine.py", "proactive_suggestion_engine.pyc"):
+            return []
         suggestions = []
         try:
             src = fp.read_text(encoding="utf-8", errors="replace")

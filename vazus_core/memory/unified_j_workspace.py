@@ -93,6 +93,24 @@ class UnifiedJWorkspace:
                 CREATE INDEX IF NOT EXISTS idx_unified_j_space_concept_id 
                 ON j_space_vectors(concept_id);
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS j_space_intents (
+                    intent_id TEXT PRIMARY KEY,
+                    statement TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    supersedes TEXT,
+                    vector BLOB,
+                    source TEXT NOT NULL,
+                    created_at REAL NOT NULL,
+                    relation TEXT NOT NULL DEFAULT 'new',
+                    diff TEXT NOT NULL DEFAULT ''
+                );
+            """)
+            existing_cols = {r[1] for r in conn.execute("PRAGMA table_info(j_space_intents)")}
+            for col in ("relation TEXT NOT NULL DEFAULT 'new'", "diff TEXT NOT NULL DEFAULT ''"):
+                if col.split()[0] not in existing_cols:
+                    conn.execute(f"ALTER TABLE j_space_intents ADD COLUMN {col}")
             conn.commit()
         finally:
             self._release_connection(conn)
@@ -310,11 +328,13 @@ class UnifiedJWorkspace:
         }
 
     def get_broadcast_context(self, max_concepts: int = 5) -> str:
-        """Returns a compact human-readable string of the top active concepts."""
+        """Returns a compact human-readable string: confirmed intent anchors first, then top active concepts."""
+        intent_block = self.get_intent_context()
         if not self.active_concepts:
-            return "[J-Space: empty — no active concepts]"
+            return f"{intent_block}\n[J-Space: empty — no active concepts]" if intent_block else "[J-Space: empty — no active concepts]"
         top = sorted(self.active_concepts.values(), key=lambda x: x.activation_strength, reverse=True)[:max_concepts]
-        lines = ["[J-Space Active Concepts]"]
+        lines = [intent_block] if intent_block else []
+        lines.append("[J-Space Active Concepts]")
         for c in top:
             lines.append(f"  • {c.semantic_label} (strength={c.activation_strength:.2f}, src={c.source_subagent})")
         return "\n".join(lines)
@@ -371,3 +391,163 @@ class UnifiedJWorkspace:
     def clear(self) -> None:
         self.active_concepts.clear()
         self.broadcast_history.clear()
+
+    # ------------------------------------------------------------------
+    # Intent anchors: the "meaning" layer. Agent proposes -> user confirms.
+    # Stored outside active_concepts, so capacity eviction and decay never
+    # touch them. Changes are versioned (supersedes), never overwritten.
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _unit(vector: Union[List[float], np.ndarray]) -> np.ndarray:
+        arr = np.asarray(vector, dtype=np.float32)
+        norm = np.linalg.norm(arr)
+        return arr / norm if norm > 1e-9 else arr
+
+    SEMANTIC_THRESHOLD = 0.45  # multilingual MPNet: paraphrase ~0.53-0.58, unrelated ~0.06-0.16
+    DUPLICATE_THRESHOLD = 0.80 # near-identical meaning
+
+    def _semantic_match(self, statement: str):
+        """Closest live intent by meaning -> (intent, relation, diff) or None. Fail-open."""
+        try:
+            from vazus_core.memory.embeddings import get_embedding_manager
+            from vazus_core.memory.intent_similarity import is_negative, word_diff
+
+            mgr = get_embedding_manager(self.embedding_dim)
+            live = [i for i in self.get_intents(status=None) if i["status"] in ("proposed", "confirmed")]
+            if not live:
+                return None
+            vecs = mgr.embed_batch([i["statement"] for i in live])
+            sims = mgr.compute_batch_similarity(mgr.get_embedding(statement), vecs.tolist())
+            k = int(np.argmax(sims))
+            sim = sims[k]
+            if sim < self.SEMANTIC_THRESHOLD:
+                return None
+            best = live[k]
+            same_polarity = is_negative(best["statement"]) == is_negative(statement)
+            if not same_polarity:
+                relation = "conflicts"
+            elif sim >= self.DUPLICATE_THRESHOLD:
+                relation = "duplicate"
+            else:
+                relation = "refines"
+            return best, relation, word_diff(best["statement"], statement)
+        except Exception:
+            return None
+
+    def propose_intent(
+        self,
+        statement: str,
+        kind: str = "goal",
+        vector: Optional[Union[List[float], np.ndarray]] = None,
+        source: str = "agent",
+        semantic: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Records a proposed intent (status='proposed'); it takes effect only after confirm_intent().
+
+        The statement is compared (intent_similarity.compare) with every live intent. Result in ['relation']:
+          duplicate -> the existing intent is returned, nothing is stored;
+          refines / conflicts -> stored with the word-level ['diff'] against the closest live intent; when that
+                                 intent is confirmed, confirming the new one supersedes it;
+          new -> stored as is.
+        `vector` is only stored: this machine's embedder does not separate meaning, so it never decides anything.
+        """
+        statement = statement.strip()
+        if not statement:
+            raise ValueError("Intent statement must be non-empty")
+        vec = self._unit(vector) if vector is not None else None
+        if vec is not None and vec.shape[0] != self.embedding_dim:
+            raise ValueError(f"Embedding dimension mismatch: expected {self.embedding_dim}, got {vec.shape[0]}")
+
+        from vazus_core.memory.intent_similarity import compare
+
+        best, best_cmp = None, None
+        for live in self.get_intents(status=None):
+            if live["status"] not in ("proposed", "confirmed"):
+                continue
+            cmp = compare(live["statement"], statement)
+            if best_cmp is None or (cmp.similarity, live["status"] == "confirmed") > (
+                best_cmp.similarity, best["status"] == "confirmed"
+            ):
+                best, best_cmp = live, cmp
+        relation, diff = (best_cmp.relation, best_cmp.diff) if best_cmp else ("new", "")
+        if semantic and relation == "new":
+            sem = self._semantic_match(statement)
+            if sem is not None:
+                best, relation, diff = sem
+        if relation == "duplicate":
+            return {**best, "relation": "duplicate", "diff": diff}
+        supersedes = best["intent_id"] if relation in ("refines", "conflicts") and best["status"] == "confirmed" else None
+
+        intent_id = f"intent_{uuid.uuid4().hex[:12]}"
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO j_space_intents"
+                " (intent_id, statement, kind, status, supersedes, vector, source, created_at, relation, diff)"
+                " VALUES (?, ?, ?, 'proposed', ?, ?, ?, ?, ?, ?)",
+                (intent_id, statement, kind, supersedes, vec.tobytes() if vec is not None else None, source,
+                 time.time(), relation, diff),
+            )
+            conn.commit()
+        finally:
+            self._release_connection(conn)
+        return {"intent_id": intent_id, "statement": statement, "kind": kind, "status": "proposed",
+                "supersedes": supersedes, "source": source, "relation": relation, "diff": diff}
+
+    def _set_intent_status(self, intent_id: str, status: str, allowed_from: str) -> bool:
+        conn = self._get_connection()
+        try:
+            cur = conn.execute(
+                "UPDATE j_space_intents SET status = ? WHERE intent_id = ? AND status = ?",
+                (status, intent_id, allowed_from),
+            )
+            changed = cur.rowcount > 0
+            if changed and status == "confirmed":
+                row = conn.execute("SELECT supersedes FROM j_space_intents WHERE intent_id = ?", (intent_id,)).fetchone()
+                if row and row[0]:
+                    old_id = row[0]
+                    old_row = conn.execute("SELECT kind, statement FROM j_space_intents WHERE intent_id = ?", (old_id,)).fetchone()
+                    if old_row:
+                        old_kind, old_stmt = old_row[0], (old_row[1] or "").lower()
+                        is_tier0 = old_kind == "tier0" or ("решать" in old_stmt and "задач" in old_stmt)
+                        if not is_tier0:
+                            conn.execute("UPDATE j_space_intents SET status = 'superseded' WHERE intent_id = ?", (old_id,))
+            conn.commit()
+            return changed
+        finally:
+            self._release_connection(conn)
+
+    def confirm_intent(self, intent_id: str) -> bool:
+        """User approval: proposed -> confirmed. Archives the intent it supersedes (if any)."""
+        return self._set_intent_status(intent_id, "confirmed", "proposed")
+
+    def reject_intent(self, intent_id: str) -> bool:
+        return self._set_intent_status(intent_id, "rejected", "proposed")
+
+    def get_intents(self, status: Optional[str] = "confirmed") -> List[Dict[str, Any]]:
+        """Returns intents oldest-first. status=None returns all versions."""
+        conn = self._get_connection()
+        try:
+            sql = ("SELECT intent_id, statement, kind, status, supersedes, vector, source, created_at, relation, diff"
+                   " FROM j_space_intents")
+            rows = conn.execute(sql + (" WHERE status = ?" if status else "") + " ORDER BY created_at",
+                                (status,) if status else ()).fetchall()
+        finally:
+            self._release_connection(conn)
+        return [
+            {
+                "intent_id": r["intent_id"], "statement": r["statement"], "kind": r["kind"],
+                "status": r["status"], "supersedes": r["supersedes"], "source": r["source"],
+                "created_at": r["created_at"], "relation": r["relation"], "diff": r["diff"],
+                "_vector": np.frombuffer(r["vector"], dtype=np.float32) if r["vector"] else None,
+            }
+            for r in rows
+        ]
+
+    def get_intent_context(self) -> str:
+        """Compact [INTENT] block of confirmed anchors for prompt injection ('' when none)."""
+        intents = self.get_intents("confirmed")
+        if not intents:
+            return ""
+        return "\n".join(["[INTENT — confirmed, do not drift]"] + [f"  ◆ ({i['kind']}) {i['statement']}" for i in intents])

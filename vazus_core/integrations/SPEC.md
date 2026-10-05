@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/integrations`  
 > **Path**: `vazus_core/integrations`  
-> **Last Auto-Synchronized**: 2026-10-03 01:11:35  
+> **Last Auto-Synchronized**: 2026-10-05 16:05:51  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission
@@ -106,6 +106,9 @@ class GoogleSuperSyncEngine:
     def sync_keep_notes(self) -> Dict[str, Any]: ...
     def scan_and_sync(self) -> Dict[str, Any]: ...
 
+class MarkdownTaskExtractor:
+    def extract_tasks(text: str): ...
+
 class GoogleSyncEngine:
     def scan_vault_tasks(self) -> List[Dict[str, Any]]: ...
     def sync_all(self) -> Dict[str, Any]: ...
@@ -119,6 +122,9 @@ class GoogleSuperSyncEngine:
 
 class NotebookSynthesisEngine:
     def generate_podcast_script(self, topic: str, key_points: List[str]) -> str: ...
+
+class AsyncHealthTelemetryServicer:
+    async def SyncGoogleFitData(self, request, context): ...
 
 class RoutingDecision:
     pass
@@ -224,6 +230,7 @@ class ResearchObsidianSyncer:
 
 class SocraticPartner:
     def get_recent_victories(self, limit: int=3) -> List[Dict[str, Any]]: ...
+    def get_academic_countdown(self) -> Optional[Dict[str, Any]]: ...
     def get_daily_anchor(self) -> str: ...
     def generate_morning_message(self, user_name: str='') -> str: ...
     def generate_ai_morning_message(self, use_llm: bool=True) -> str: ...
@@ -275,6 +282,10 @@ def extract_kgb_analytics(scene_or_text_dict: Dict[str, Any], db_path: str=DEFAU
 def persist_kgb_analytics_to_supergraph(extraction_result: Dict[str, Any], db_path: str=DEFAULT_DB_PATH) -> int: ...
 def load_env_credentials() -> Dict[str, Optional[str]]: ...
 def init_mirea_db(db_path=None): ...
+def init_nutrition_db(*args, **kwargs): ...
+def log_meal(*args, **kwargs): ...
+def get_daily_nutrition_summary(*args, **kwargs): ...
+def analyze_meal_photo_gemini(*args, **kwargs): ...
 def index_repository(directory_path: str, project_name: str='vazus', max_files: int=500) -> Dict[str, Any]: ...
 def create_autonomous_skill(skill_name: str, description: str, instructions_markdown: str, category: str='vazus') -> Dict[str, Any]: ...
 def get_default_db_path() -> Path: ...
@@ -323,6 +334,8 @@ def render_terminal_harness_hud(active_skills: List[str], ast_saved_pct: float=8
   - *Methods*: `extract_notes_from_html, sync_via_cdp`
 - **`GoogleSuperSyncEngine`** (`google_super_sync_engine.py`): Master Orchestrator for all Google Cloud Services.
   - *Methods*: `sync_gmail, sync_sheets_tracker, sync_keep_notes, scan_and_sync`
+- **`MarkdownTaskExtractor`** (`google_sync_engine.py`): Extracts markdown tasks for sync.
+  - *Methods*: `extract_tasks`
 - **`GoogleSyncEngine`** (`google_sync_hub.py`): 2-Way Sync Engine between Obsidian Vault Markdown notes (- [ ]) and Google Tasks / Calendar.
   - *Methods*: `scan_vault_tasks, sync_all, scan_and_sync`
 - **`MarkdownTaskExtractor`** (`google_sync_hub.py`): Helper alias class for extracting markdown tasks.
@@ -331,6 +344,8 @@ def render_terminal_harness_hud(active_skills: List[str], ast_saved_pct: float=8
   - *Methods*: `execute_super_sync`
 - **`NotebookSynthesisEngine`** (`google_sync_hub.py`): Knowledge Synthesis Engine.
   - *Methods*: `generate_podcast_script`
+- **`AsyncHealthTelemetryServicer`** (`grpc_health_servicer.py`): No description
+  - *Methods*: `SyncGoogleFitData`
 - **`RoutingDecision`** (`julia_router.py`): Canonical domain routing decision (backward compatible).
 - **`ChoiceDecision`** (`julia_router.py`): Non-autoregressive categorical selection across arbitrary candidate options.
 - **`ScoreDecision`** (`julia_router.py`): Non-autoregressive continuous evaluation against a rubric.
@@ -369,7 +384,7 @@ def render_terminal_harness_hud(active_skills: List[str], ast_saved_pct: float=8
 - **`ResearchObsidianSyncer`** (`research_obsidian_sync.py`): Autonomous pipeline bridging raw research digests, academic tasks, and algorithms
   - *Methods*: `sanitize_id, verify_formula, find_related_wikilinks, create_atomic_note, sync_skill_tree_map`
 - **`SocraticPartner`** (`socratic_partner.py`): No description
-  - *Methods*: `get_recent_victories, get_daily_anchor, generate_morning_message, generate_ai_morning_message`
+  - *Methods*: `get_recent_victories, get_academic_countdown, get_daily_anchor, generate_morning_message, generate_ai_morning_message`
 - **`STORMResearchInterviewer`** (`storm_interviewer.py`): Stanford STORM-style perspective-driven research interviewer.
   - *Methods*: `generate_perspectives, synthesize_storm_report`
 - **`TelegramNotifier`** (`telegram_notifier.py`): Telegram Bot API integration for system alerts and milestone notifications.
@@ -401,6 +416,10 @@ def render_terminal_harness_hud(active_skills: List[str], ast_saved_pct: float=8
 - **`persist_kgb_analytics_to_supergraph()`** (`kgb_analytical_extractor.py`): Persists extracted entities into SQLite tables kg_nodes and kg_edges in vazus.db.
 - **`load_env_credentials()`** (`mirea_exporter.py`): Loads MIREA and Yandex credentials from environment or C:/vazus/.env.
 - **`init_mirea_db()`** (`mirea_student_manager.py`): Initializes mirea_schedule and mirea_milestones tables in vazus.db.
+- **`init_nutrition_db()`** (`nutrition_tracker.py`): No description
+- **`log_meal()`** (`nutrition_tracker.py`): No description
+- **`get_daily_nutrition_summary()`** (`nutrition_tracker.py`): No description
+- **`analyze_meal_photo_gemini()`** (`nutrition_tracker.py`): No description
 - **`index_repository()`** (`repo_indexer.py`): Public helper function for repository indexing.
 - **`create_autonomous_skill()`** (`skill_author.py`): Autonomously creates a new SKILL.md file following NousResearch standards
 - **`get_default_db_path()`** (`socratic_partner.py`): No description

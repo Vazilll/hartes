@@ -106,7 +106,8 @@ def check_pending_verification() -> tuple[bool, str]:
         return False, ""
 
     try:
-        conn = sqlite3.connect(db_path, timeout=2)
+        uri = f"file:{Path(db_path).as_posix()}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=1.0)
         cur = conn.cursor()
 
         # Check for pending verification markers (inserted by pre-commit gate)
@@ -371,12 +372,22 @@ def _persist_session_memories(conversation_id: str, invocation_num: int, message
             logger.debug("Autonomous skill creation error: %s", e)
 
 
-    try:
-        curated = auto_curate_session_memory(messages)
-        if curated:
-            logger.info("Memory Loop: curated %d facts into Mem0", len(curated))
-    except Exception as e:
-        logger.debug("Memory Loop curation error: %s", e)
+    if not is_test_lock:
+        try:
+            curated = auto_curate_session_memory(messages)
+            if curated:
+                logger.info("Memory Loop: curated %d facts into Mem0", len(curated))
+        except Exception as e:
+            logger.debug("Memory Loop curation error: %s", e)
+
+    if not is_test_lock:
+        try:
+            from vazus_core.memory.intent_extractor import propose_from_session
+            proposed = propose_from_session(messages)
+            if proposed:
+                logger.info("J-Space: %d intent(s) proposed, awaiting user confirmation", len(proposed))
+        except Exception as e:
+            logger.debug("Intent proposal in stop_hook non-fatal: %s", e)
 
     if invocation_num >= 20:
         try:
@@ -390,6 +401,13 @@ def _persist_session_memories(conversation_id: str, invocation_num: int, message
         VazusUnifiedHub().sync_state_to_cloud_file()
     except Exception as e:
         logger.debug("Cloud sync in stop_hook failed: %s", e)
+
+    if not is_test_lock:
+        try:
+            from vazus_core.maintenance.db_optimizer import optimize_database
+            optimize_database()
+        except Exception as e:
+            logger.debug("Database optimization in stop_hook non-fatal: %s", e)
 
 
 def main():
