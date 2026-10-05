@@ -465,22 +465,17 @@ class PreFlightFilter:
         if not v1 or not v2 or len(v1) != len(v2):
             return 0.0
 
-        # ⚡ Bolt Optimization: Single-pass vector calculation
-        # Replaces 3 separate O(N) generator expressions with a single O(N) loop
-        # Reduces iteration overhead and ~2x faster for 768D embeddings
-        dot = 0.0
-        norm1_sq = 0.0
-        norm2_sq = 0.0
+        # ⚡ Bolt Optimization: Pure Python Vector Math
+        # Replacing zip() loops with math.sumprod and math.hypot(*v)
+        # Yields a significant speedup by pushing iteration into C extensions in Python 3.12+
+        dot = math.sumprod(v1, v2)
+        norm1 = math.hypot(*v1)
+        norm2 = math.hypot(*v2)
 
-        for a, b in zip(v1, v2):
-            dot += a * b
-            norm1_sq += a * a
-            norm2_sq += b * b
-
-        if norm1_sq <= 1e-18 or norm2_sq <= 1e-18:
+        if norm1 <= 1e-9 or norm2 <= 1e-9:
             return 0.0
 
-        return max(-1.0, min(1.0, dot / math.sqrt(norm1_sq * norm2_sq)))
+        return max(-1.0, min(1.0, dot / (norm1 * norm2)))
 
 
 # Alias for compatibility
