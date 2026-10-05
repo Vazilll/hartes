@@ -468,7 +468,12 @@ class PreFlightFilter:
         # ⚡ Bolt Optimization: Pure Python Vector Math
         # Replacing zip() loops with math.sumprod and math.hypot(*v)
         # Yields a significant speedup by pushing iteration into C extensions in Python 3.12+
-        dot = math.sumprod(v1, v2)
+        # Fallback to map(operator.mul) for Python 3.11 and below to support CI checks
+        if hasattr(math, "sumprod"):
+            dot = math.sumprod(v1, v2)
+        else:
+            dot = sum(map(operator.mul, v1, v2))
+
         norm1 = math.hypot(*v1)
         norm2 = math.hypot(*v2)
 
