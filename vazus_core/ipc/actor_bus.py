@@ -104,8 +104,13 @@ class BaseActor:
         self.processed_count: int = 0
 
     async def receive(self, message: ActorMessage) -> Optional[ActorMessage]:
-        """User-defined message handler. Must NOT mutate external state."""
-        raise NotImplementedError("Subclasses must implement receive")
+        """User-defined message handler. Must NOT mutate external state.
+
+        Default implementation logs and acknowledges the message. Subclasses override
+        to implement custom actor processing logic.
+        """
+        logger.debug("BaseActor '%s' received message: %s", self.actor_id, message.message_id)
+        return None
 
     async def start(self) -> None:
         """Starts the actor's internal mailbox processing loop."""

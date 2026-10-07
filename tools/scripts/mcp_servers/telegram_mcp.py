@@ -35,8 +35,17 @@ mcp = FastMCP("telegram-mcp")
 
 API_ID = 20546097
 API_HASH = "60bf36fbdae62d5370f529a539b97542"
-SESSION_PATH = os.getenv("TELEGRAM_SESSION_PATH", r"C:\vazus\data\sessions\user_telegram_session")
-DEFAULT_DOWNLOAD_DIR = Path(os.environ.get("VAZUS_COURSES_DIR", r"C:\Users\Vaz\Videos\Courses"))
+_vazus_base = Path(__file__).resolve().parents[3]
+SESSION_PATH = os.getenv(
+    "TELEGRAM_SESSION_PATH",
+    str(_vazus_base / "data" / "sessions" / "user_telegram_session"),
+)
+DEFAULT_DOWNLOAD_DIR = Path(
+    os.environ.get(
+        "VAZUS_COURSES_DIR",
+        str(_vazus_base / "data" / "downloads" / "Courses"),
+    )
+)
 
 _CLIENT: Optional[TelegramClient] = None
 _CLIENT_LOCK = asyncio.Lock()

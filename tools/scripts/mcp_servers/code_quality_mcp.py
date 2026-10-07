@@ -27,11 +27,15 @@ def _resolve_sg_binary() -> str:
     if resolved:
         return resolved
     for candidate in [
-        r"C:\Users\Vaz\AppData\Roaming\npm\ast-grep.cmd",
-        r"C:\Users\Vaz\AppData\Roaming\npm\sg.cmd",
+        Path.home() / ".local" / "bin" / "ast-grep",
+        Path.home() / ".cargo" / "bin" / "ast-grep",
+        Path("/usr/local/bin/ast-grep"),
+        Path("/usr/bin/ast-grep"),
+        Path(r"C:\Users\Vaz\AppData\Roaming\npm\ast-grep.cmd"),
+        Path(r"C:\Users\Vaz\AppData\Roaming\npm\sg.cmd"),
     ]:
-        if os.path.exists(candidate):
-            return candidate
+        if candidate.exists():
+            return str(candidate)
     return "ast-grep"
 
 # ── FastMCP ──────────────────────────────────────────────────────────────────
@@ -43,9 +47,10 @@ except ImportError:
 
 mcp = FastMCP("code-quality")
 
-VAZUS_ROOT = Path(os.getenv("VAZUS_WORKSPACE_DIR", r"C:\vazus"))
-VENV_BIN   = VAZUS_ROOT / ".venv" / "Scripts"
-PY         = str(VENV_BIN / "python.exe")
+_vazus_base = Path(__file__).resolve().parents[3]
+VAZUS_ROOT = Path(os.getenv("VAZUS_WORKSPACE_DIR", str(_vazus_base)))
+VENV_BIN   = VAZUS_ROOT / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+PY         = str(VENV_BIN / ("python.exe" if sys.platform == "win32" else "python"))
 
 
 def _safe_run(cmd, timeout=60, **kwargs):

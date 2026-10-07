@@ -70,13 +70,30 @@ class SMTEquivalenceProver:
     def _ast_to_z3(self, node: ast.AST, z3_vars: Dict[str, z3.ExprRef]) -> z3.ExprRef:
         """Recursively translates an AST expression into a Z3 symbolic expression."""
         if isinstance(node, ast.Constant):
-            return z3.RealVal(node.value)
+            if isinstance(node.value, bool):
+                return z3.BoolVal(node.value)
+            if isinstance(node.value, (int, float)):
+                return z3.RealVal(node.value)
+            raise ValueError(f"Unsupported constant type in SMT translation: {type(node.value).__name__}")
+
         elif isinstance(node, ast.Name):
             if node.id in z3_vars:
                 return z3_vars[node.id]
-            else:
-                z3_vars[node.id] = z3.Real(node.id)
-                return z3_vars[node.id]
+            z3_vars[node.id] = z3.Real(node.id)
+            return z3_vars[node.id]
+
+        elif isinstance(node, ast.UnaryOp):
+            operand = self._ast_to_z3(node.operand, z3_vars)
+            if isinstance(node.op, ast.USub):
+                return -operand
+            elif isinstance(node.op, ast.UAdd):
+                return operand
+            elif isinstance(node.op, ast.Not):
+                return z3.Not(operand)
+            elif isinstance(node.op, ast.Invert):
+                return ~operand
+            raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+
         elif isinstance(node, ast.BinOp):
             left = self._ast_to_z3(node.left, z3_vars)
             right = self._ast_to_z3(node.right, z3_vars)
@@ -90,8 +107,46 @@ class SMTEquivalenceProver:
                 return left / right
             elif isinstance(node.op, ast.Mod):
                 return left % right
-        elif isinstance(node, ast.UnaryOp):
-            operand = self._ast_to_z3(node.operand, z3_vars)
-            if isinstance(node.op, ast.USub):
-                return -operand
-        raise NotImplementedError(f"Unsupported AST node in SMT translation: {type(node).__name__}")
+            elif isinstance(node.op, ast.Pow):
+                return left ** right
+            elif isinstance(node.op, ast.FloorDiv):
+                return z3.ToInt(left / right)
+            raise ValueError(f"Unsupported binary operator: {type(node.op).__name__}")
+
+        elif isinstance(node, ast.Compare):
+            left = self._ast_to_z3(node.left, z3_vars)
+            comparisons = []
+            for op, comp in zip(node.ops, node.comparators):
+                right = self._ast_to_z3(comp, z3_vars)
+                if isinstance(op, ast.Eq):
+                    comparisons.append(left == right)
+                elif isinstance(op, ast.NotEq):
+                    comparisons.append(left != right)
+                elif isinstance(op, ast.Lt):
+                    comparisons.append(left < right)
+                elif isinstance(op, ast.LtE):
+                    comparisons.append(left <= right)
+                elif isinstance(op, ast.Gt):
+                    comparisons.append(left > right)
+                elif isinstance(op, ast.GtE):
+                    comparisons.append(left >= right)
+                else:
+                    raise ValueError(f"Unsupported comparison operator: {type(op).__name__}")
+                left = right
+            return comparisons[0] if len(comparisons) == 1 else z3.And(*comparisons)
+
+        elif isinstance(node, ast.BoolOp):
+            values = [self._ast_to_z3(val, z3_vars) for val in node.values]
+            if isinstance(node.op, ast.And):
+                return z3.And(*values)
+            elif isinstance(node.op, ast.Or):
+                return z3.Or(*values)
+            raise ValueError(f"Unsupported boolean operator: {type(node.op).__name__}")
+
+        elif isinstance(node, ast.IfExp):
+            test = self._ast_to_z3(node.test, z3_vars)
+            body = self._ast_to_z3(node.body, z3_vars)
+            orelse = self._ast_to_z3(node.orelse, z3_vars)
+            return z3.If(test, body, orelse)
+
+        raise ValueError(f"Unsupported AST node in SMT translation: {type(node).__name__}")
