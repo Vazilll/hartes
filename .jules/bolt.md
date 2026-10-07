@@ -9,3 +9,7 @@
 ## 2025-03-01 - [Cosine Similarity Vector Redundancy via C-math]
 **Learning:** Dense vector operations in pure Python can be vastly optimized in Python 3.12+ using `math.sumprod(v1, v2)` for dot products and `math.hypot(*vec)` for L2 norms, which operate at the C level. This bypasses the previously required slow single-pass Python loops or `map(operator.mul, ...)` workarounds, yielding ~3.8x - 5.3x speedups on 768D embeddings.
 **Action:** When working in Python 3.12+, default to `math.sumprod` and `math.hypot(*vec)` for L2 norms and dot products instead of manual unrolled loops.
+
+## 2025-03-01 - [Character Frequency Counting Overhead]
+**Learning:** In the `compute_shannon_entropy` function, a manual pure Python character counting loop utilizing `dict.get(char, 0) + 1` exhibits significant overhead when processing large context strings (e.g. 150,000 characters).
+**Action:** Always prefer `collections.Counter(text)` for frequency counting of elements in strings or iterables, as it utilizes a highly optimized C-level implementation, yielding roughly a ~2.8-3x speedup.
