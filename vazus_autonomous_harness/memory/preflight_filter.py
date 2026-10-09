@@ -477,16 +477,9 @@ class PreFlightFilter:
                 norm1 = math.sqrt(math.sumprod(v1, v1))
                 norm2 = math.sqrt(math.sumprod(v2, v2))
         else:
-            dot = 0.0
-            norm1_sq = 0.0
-            norm2_sq = 0.0
-
-            for a, b in zip(v1, v2):
-                dot += a * b
-                norm1_sq += a * a
-                norm2_sq += b * b
-            norm1 = math.sqrt(norm1_sq)
-            norm2 = math.sqrt(norm2_sq)
+            dot = sum(map(operator.mul, v1, v2))
+            norm1 = math.sqrt(sum(map(operator.mul, v1, v1)))
+            norm2 = math.sqrt(sum(map(operator.mul, v2, v2)))
 
         if norm1 <= 1e-9 or norm2 <= 1e-9:
             return 0.0
