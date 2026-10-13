@@ -9,3 +9,7 @@
 ## 2025-03-01 - [Cosine Similarity Vector Redundancy via C-math]
 **Learning:** Dense vector operations in pure Python can be vastly optimized in Python 3.12+ using `math.sumprod(v1, v2)` for dot products and `math.hypot(*vec)` for L2 norms, which operate at the C level. This bypasses the previously required slow single-pass Python loops or `map(operator.mul, ...)` workarounds, yielding ~3.8x - 5.3x speedups on 768D embeddings.
 **Action:** When working in Python 3.12+, default to `math.sumprod` and `math.hypot(*vec)` for L2 norms and dot products instead of manual unrolled loops.
+
+## 2025-03-02 - [Optimize ASTNodeVisitor Pattern Lookups]
+**Learning:** In heavily invoked recursive tree handlers like `ast.NodeVisitor`, repeating string manipulation operations (`.replace()`, `.lower()`, `.rstrip()`) on constraint patterns creates significant per-node overhead during Pre-Flight checks. O(N) operations inside O(N) recursive visitations lead to O(N^2) complexity bounded strictly by CPU constraints.
+**Action:** Always pre-compile constraint pattern strings into class attributes during `__init__` before recursive AST traversal, dramatically reducing string allocation and regex matching overhead in `visit_*` method loops.
