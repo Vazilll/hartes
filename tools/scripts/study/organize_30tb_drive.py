@@ -1,5 +1,5 @@
 """
-C:\vazus\scripts\organize_30tb_drive.py — Safe, Non-Destructive 30 TB Google Drive Organizer.
+/home/tarhes/Проекты/vazus/scripts/organize_30tb_drive.py — Safe, Non-Destructive 30 TB Google Drive Organizer.
 
 Designed for Vazus OS / TARS MegaLab.
 1. Quarantines loose root clutter into structured _ARCHIVE_2026/ folders.

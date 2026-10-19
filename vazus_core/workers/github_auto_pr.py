@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("vazus_core.workers.github_auto_pr")
 
-WORKSPACE_ROOT = Path(r"C:\vazus")
+WORKSPACE_ROOT = Path(r"/home/tarhes/Проекты/vazus")
 GITHUB_REPO = "Vazilll/hartes"
 BASE_BRANCH = "vazus-dev"
 GIT_USER_NAME = "Vazus AutoImprover"

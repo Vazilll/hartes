@@ -20,8 +20,8 @@ from typing import Dict, Any, List, Optional, Union
 logger = logging.getLogger(__name__)
 
 # Core DB path
-DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
-VAULT_PATH = Path(r"C:\vazus\services\memory\semantic\wiki")
+DB_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+VAULT_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/semantic/wiki")
 
 SUPER_SCOPES = [
     'https://www.googleapis.com/auth/fitness.activity.read',
@@ -188,7 +188,7 @@ class NotebookSynthesisEngine:
     Generates Master Study Guides and 2-Host Audio Podcast Scripts ("Алексей" & "Елена").
     """
 
-    def __init__(self, output_dir: Union[str, Path] = r"C:\vazus\.podcasts"):
+    def __init__(self, output_dir: Union[str, Path] = r"/home/tarhes/Проекты/vazus/.podcasts"):
         self.output_dir = Path(output_dir)
         if not self.output_dir.exists():
             self.output_dir.mkdir(parents=True, exist_ok=True)

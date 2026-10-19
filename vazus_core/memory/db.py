@@ -357,7 +357,7 @@ def _resolve_target_db_path(db_path: str | Path | None = None, read_only: bool =
     path_str = str(db_path)
     if os.getenv("VAZUS_TEST_ISOLATION") == "1" and path_str != ":memory:":
         try:
-            canonical_resolved = str(Path(r"C:\vazus\services\memory\vazus.db").resolve()).lower()
+            canonical_resolved = str(Path(r"/home/tarhes/Проекты/vazus/services/memory/vazus.db").resolve()).lower()
             target_resolved = str(Path(path_str).resolve()).lower()
             if target_resolved == canonical_resolved or target_resolved.replace("\\", "/").endswith("services/memory/vazus.db"):
                 isolated_env = os.getenv("VAZUS_DB_PATH")

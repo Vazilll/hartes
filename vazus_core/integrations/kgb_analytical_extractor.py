@@ -41,9 +41,9 @@ except ImportError:
         return re.sub(r'\s+', ' ', text).strip()
 
 
-DEFAULT_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
-SECONDARY_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
-TERTIARY_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
+DEFAULT_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+SECONDARY_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+TERTIARY_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 
 class ThesisNode:

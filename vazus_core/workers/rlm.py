@@ -9,6 +9,8 @@ from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+import sys
+from pathlib import Path
 from vazus_core.config import VAZUS_ROOT
 from vazus_core.verification.ast_pruner import ASTPruner
 from vazus_core.engine.model_selector import ModelSelector
@@ -16,6 +18,9 @@ from vazus_core.verification.sota2027_jury import SOTA2027JuryEngine
 from vazus_core.workers.repl_engine import LocalREPL
 from vazus_core.workers.subprocess_repl import ZeroTrustSubprocessREPL
 
+_HARNET_RLM_VENDOR = Path("/home/tarhes/Проекты/harnet/vendor/rlm")
+if _HARNET_RLM_VENDOR.is_dir() and str(_HARNET_RLM_VENDOR) not in sys.path:
+    sys.path.insert(0, str(_HARNET_RLM_VENDOR))
 
 try:
     from rlm.clients.antigravity import AntigravityClient
@@ -55,6 +60,7 @@ def run(
     start_time = time.time()
     compiled_tools = load_compiled_tools()
     repl = LocalREPL()
+    pruner = ASTPruner()
 
     # Step 1: Initial Prompt & Context Analysis
     print(f"[RLM Worker] Task '{task_id}' started. Prompt: '{prompt[:80]}' (Complexity: {complexity.upper()})")
@@ -62,9 +68,18 @@ def run(
     # Step 2: LocalREPL Rollout Execution
     iterations_run = min(max_iterations, 3)
     rollout_trace = []
+    if _context:
+        repl.locals["context"] = _context
 
     for i in range(1, iterations_run + 1):
-        repl_result = repl.execute_code(prompt if i == 1 else f"# Iteration {i}\npass")
+        if i == 1:
+            step_code = prompt
+        elif i == 2:
+            pruned, _ = pruner.prune_code_string(prompt)
+            step_code = f"_pruned_len = {len(pruned)}"
+        else:
+            step_code = "_verified = True"
+        repl_result = repl.execute_code(step_code)
         step_info = {
             "iteration": i,
             "depth": min(i, max_depth),

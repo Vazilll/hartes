@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 # Ensure vazus root in path
-ROOT_DIR = Path("C:/vazus")
+ROOT_DIR = Path("/home/tarhes/Проекты/vazus")
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 

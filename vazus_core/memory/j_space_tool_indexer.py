@@ -10,11 +10,13 @@ J-Space Tool Indexer:
 """
 
 import glob
+import heapq
 import json
 import logging
 import os
 import sqlite3
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -386,6 +388,8 @@ class JSpaceToolIndexer:
 
         self._ensure_meta_table()
         self._cached_specs: Dict[str, ToolSpec] = {}
+        self._metadata_cache: Optional[Dict[str, Dict[str, Any]]] = None
+        self._metadata_lock = threading.Lock()
 
     @property
     def embedding_manager(self) -> UnifiedEmbeddingManager:
@@ -641,6 +645,7 @@ class JSpaceToolIndexer:
             conn.commit()
         finally:
             self.vector_index._release_connection(conn)
+            self.invalidate_metadata_cache()
 
         dt = time.perf_counter() - t0
         logger.info(
@@ -656,36 +661,52 @@ class JSpaceToolIndexer:
             "db_path": self.db_path,
         }
 
+    def invalidate_metadata_cache(self) -> None:
+        """Сбрасывает in-memory кэш метаданных инструментов (thread-safe)."""
+        with self._metadata_lock:
+            self._metadata_cache = None
+
+    invalidate_cache = invalidate_metadata_cache
+
     def _load_metadata_map(self) -> Dict[str, Dict[str, Any]]:
-        """Загружает карту метаданных инструментов из SQLite базы."""
-        conn = self.vector_index._get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute("PRAGMA table_info(j_space_tool_metadata)")
-            cols = [r[1] for r in cur.fetchall()]
-            has_weight = "weight" in cols
-            query = (
-                "SELECT tool_name, module, description, parameters_json, keywords, signature, is_native, weight FROM j_space_tool_metadata"
-                if has_weight
-                else "SELECT tool_name, module, description, parameters_json, keywords, signature, is_native FROM j_space_tool_metadata"
-            )
-            cur = conn.execute(query)
-            rows = cur.fetchall()
-            meta = {}
-            for r in rows:
-                meta[r["tool_name"]] = {
-                    "tool_name": r["tool_name"],
-                    "module": r["module"],
-                    "description": r["description"],
-                    "parameters": json.loads(r["parameters_json"]) if r["parameters_json"] else {},
-                    "keywords": r["keywords"],
-                    "signature": r["signature"],
-                    "is_native": bool(r["is_native"]),
-                    "weight": float(r["weight"]) if has_weight and r["weight"] is not None else 1.0,
-                }
-            return meta
-        finally:
-            self.vector_index._release_connection(conn)
+        """Загружает карту метаданных инструментов из SQLite базы (с in-memory кэшированием)."""
+        cached = self._metadata_cache
+        if cached is not None:
+            return cached
+
+        with self._metadata_lock:
+            if self._metadata_cache is not None:
+                return self._metadata_cache
+
+            conn = self.vector_index._get_connection()
+            try:
+                cur = conn.cursor()
+                cur.execute("PRAGMA table_info(j_space_tool_metadata)")
+                cols = [r[1] for r in cur.fetchall()]
+                has_weight = "weight" in cols
+                query = (
+                    "SELECT tool_name, module, description, parameters_json, keywords, signature, is_native, weight FROM j_space_tool_metadata"
+                    if has_weight
+                    else "SELECT tool_name, module, description, parameters_json, keywords, signature, is_native FROM j_space_tool_metadata"
+                )
+                cur = conn.execute(query)
+                rows = cur.fetchall()
+                meta = {}
+                for r in rows:
+                    meta[r["tool_name"]] = {
+                        "tool_name": r["tool_name"],
+                        "module": r["module"],
+                        "description": r["description"],
+                        "parameters": json.loads(r["parameters_json"]) if r["parameters_json"] else {},
+                        "keywords": r["keywords"],
+                        "signature": r["signature"],
+                        "is_native": bool(r["is_native"]),
+                        "weight": float(r["weight"]) if has_weight and r["weight"] is not None else 1.0,
+                    }
+                self._metadata_cache = meta
+                return meta
+            finally:
+                self.vector_index._release_connection(conn)
 
     def find_tools_for_query(
         self,
@@ -787,9 +808,8 @@ class JSpaceToolIndexer:
                 }
             )
 
-        # Сортируем по итоговому сходству
-        results.sort(key=lambda x: x["similarity"], reverse=True)
-        return results[:top_k]
+        # Выбираем топ-k инструментов по итоговому сходству через heapq.nlargest
+        return heapq.nlargest(top_k, results, key=lambda x: x["similarity"])
 
     def reweight_tools_from_activations(self, min_proposals: int = 2) -> Dict[str, Any]:
         """
@@ -847,6 +867,7 @@ class JSpaceToolIndexer:
                 }
 
             conn.commit()
+            self.invalidate_metadata_cache()
             return {
                 "reweighted_count": len(reweighted),
                 "tools": reweighted,

@@ -1,7 +1,7 @@
 """
 MIREA Dashboard Launcher
 Запускает оба дашборда в режиме Edge App (без браузерной строки, как PWA)
-Запуск: python C:\vazus\scripts\launch_dashboard.py
+Запуск: python /home/tarhes/Проекты/vazus/scripts/launch_dashboard.py
 Или двойной клик по ярлыку на рабочем столе
 """
 import subprocess, sys, time, os
@@ -11,8 +11,8 @@ if not os.path.exists(EDGE):
     EDGE = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
 
 DASHBOARDS = [
-    ("Академический реестр", "file:///C:/vazus/services/academic_dashboard/index.html"),
-    ("Справочник преподавателей", "file:///C:/vazus/services/teachers_directory/index.html"),
+    ("Академический реестр", "file:////home/tarhes/Проекты/vazus/services/academic_dashboard/index.html"),
+    ("Справочник преподавателей", "file:////home/tarhes/Проекты/vazus/services/teachers_directory/index.html"),
 ]
 
 for name, url in DASHBOARDS:

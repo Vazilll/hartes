@@ -49,13 +49,13 @@ def normalize_memory_chunk(raw_text: str) -> str:
 
 PASSAGES_FILE = os.environ.get(
     "LEANN_PASSAGES",
-    "C:/vazus/pyenv/leann-indexes/pyenv-project.leann.passages.jsonl"
+    "/home/tarhes/Проекты/vazus/pyenv/leann-indexes/pyenv-project.leann.passages.jsonl"
 )
 # nomic-embed-text-v1.5 (768-dim MRL, MTEB ~62) — better than all-MiniLM (384-dim, MTEB ~56)
 # Override via LEANN_MODEL env var if needed
 MODEL_NAME = os.environ.get(
     "LEANN_MODEL",
-    "C:/vazus/models/nomic-embed-v1.5"
+    "/home/tarhes/Проекты/vazus/models/nomic-embed-v1.5"
 )
 # Remote code execution disabled by default for security (opt-in via LEANN_TRUST_REMOTE=1)
 TRUST_REMOTE = os.environ.get("LEANN_TRUST_REMOTE", "0") == "1"

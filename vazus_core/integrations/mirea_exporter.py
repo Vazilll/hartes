@@ -7,9 +7,9 @@ Architecture & Authentication Flow:
 3. 🔐 Credential Auth & Error Inspection: Posts username & password, decodes Keycloakify errors.
 4. 📩 2FA Yandex IMAP Interceptor: If 2FA OTP is required, automatically scans Yandex Mail for 6-digit code.
 5. 🛑 MAX Registration Bypass: Auto-declines MAX prompts if displayed.
-6. 💾 Session Cookie Persistence: Saves MoodleSession to C:/vazus/user_mirea_session.json for instant auto-login.
+6. 💾 Session Cookie Persistence: Saves MoodleSession to /home/tarhes/Проекты/vazus/user_mirea_session.json for instant auto-login.
 7. 📚 Course Discovery: Uses Moodle 4.x AJAX Service API (`core_course_get_enrolled_courses_by_timeline_classification`) + HTML crawlers.
-8. 📂 Content Exporter: Exports lectures, PDFs, slides, and Markdown files to C:/vazus/knowledge/mirea_courses.
+8. 📂 Content Exporter: Exports lectures, PDFs, slides, and Markdown files to /home/tarhes/Проекты/vazus/knowledge/mirea_courses.
 
 vazus SuperGraph OS Ecosystem
 """
@@ -36,13 +36,13 @@ from bs4 import BeautifulSoup
 MIREA_BASE_URL = "https://online-edu.mirea.ru"
 OIDC_LOGIN_URL = f"{MIREA_BASE_URL}/auth/oidc/?source=loginpage"
 MY_URL = f"{MIREA_BASE_URL}/my/"
-DEFAULT_EXPORT_DIR = Path("C:/vazus/services/memory/knowledge/mirea_courses")
-SESSION_FILE_PATH = Path("C:/vazus/user_mirea_session.json")
-ENV_FILE_PATH = Path("C:/vazus/.env")
+DEFAULT_EXPORT_DIR = Path("/home/tarhes/Проекты/vazus/services/memory/knowledge/mirea_courses")
+SESSION_FILE_PATH = Path("/home/tarhes/Проекты/vazus/user_mirea_session.json")
+ENV_FILE_PATH = Path("/home/tarhes/Проекты/vazus/.env")
 
 
 def load_env_credentials() -> Dict[str, Optional[str]]:
-    """Loads MIREA and Yandex credentials from environment or C:/vazus/.env."""
+    """Loads MIREA and Yandex credentials from environment or /home/tarhes/Проекты/vazus/.env."""
     creds = {
         "username": None,
         "password": None,
@@ -194,7 +194,7 @@ class MoodleSessionManager:
             "cookies": cookie_dict,
             "sesskey": self.sesskey
         }
-        for target in [self.session_file, Path("C:/vazus/data/sessions/user_mirea_session.json")]:
+        for target in [self.session_file, Path("/home/tarhes/Проекты/vazus/data/sessions/user_mirea_session.json")]:
             try:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 with open(target, "w", encoding="utf-8") as f:
@@ -372,7 +372,7 @@ class MoodleSessionManager:
         yandex_password = yandex_password or creds["yandex_password"]
 
         if not username or not password:
-            print("⚠️ [MIREA Exporter] Учетные данные РТУ МИРЭА не заданы в C:\\vazus\\.env.")
+            print("⚠️ [MIREA Exporter] Учетные данные РТУ МИРЭА не заданы в /home/tarhes/Проекты/vazus/.env.")
             return False
 
         print(f"\n{'='*70}\n🔑 [MIREA SSO Auth] Старт входа через Единую Систему Аутентификации РТУ МИРЭА\n   Логин: {username}\n{'='*70}")
@@ -411,7 +411,7 @@ class MoodleSessionManager:
                 print("\n🎉 [MIREA Auth] ПОЛНАЯ АВТОРИЗАЦИЯ УСПЕШНА! Сессия сохранена в user_mirea_session.json.")
                 self.save_session_cookies()
                 return True
-            print("\n❌ [MIREA Auth] Вход не завершен. Проверьте правильность пароля в C:\\vazus\\.env.")
+            print("\n❌ [MIREA Auth] Вход не завершен. Проверьте правильность пароля в /home/tarhes/Проекты/vazus/.env.")
             return False
         except Exception as err:
             print(f"❌ [MIREA Auth] Ошибка сети при аутентификации Keycloak: {err}")

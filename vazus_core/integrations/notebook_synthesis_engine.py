@@ -24,9 +24,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-DB_PATH = Path("C:/vazus/services/memory/vazus.db")
-WIKI_DIR = Path("C:/vazus/services/memory/semantic/wiki")
-KNOWLEDGE_DIR = Path("C:/vazus/knowledge")
+DB_PATH = Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+WIKI_DIR = Path("/home/tarhes/Проекты/vazus/services/memory/semantic/wiki")
+KNOWLEDGE_DIR = Path("/home/tarhes/Проекты/vazus/knowledge")
 PODCAST_DIR = KNOWLEDGE_DIR / ".podcasts"
 STUDY_GUIDE_DIR = KNOWLEDGE_DIR / ".study_guides"
 

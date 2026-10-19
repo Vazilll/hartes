@@ -12,19 +12,19 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from vazus_core.avx512_cosine import (
+from vazus_core.memory.avx512_cosine import (
     AVX512CtypesBinding,
     AVX512VectorEngine
 )
 
 
 def test_dll_hardware_detection():
-    """Verifies that the compiled C DLL loads and reports hardware capability without crashing."""
-    dll_path = Path("C:/vazus/vazus_core/avx512_cosine.dll")
-    assert dll_path.exists(), "DLL file vazus_core/avx512_cosine.dll must exist"
+    """Verifies that the compiled C shared library loads and reports hardware capability without crashing."""
+    dll_path = Path("/home/tarhes/Проекты/vazus/vazus_core/libavx512_cosine.so")
+    assert dll_path.exists(), "Shared library vazus_core/libavx512_cosine.so must exist"
 
     binding = AVX512CtypesBinding(dll_path=str(dll_path))
-    assert binding.is_available is True, "AVX512CtypesBinding should load the DLL successfully"
+    assert binding.is_available is True, "AVX512CtypesBinding should load the shared library successfully"
 
     # Call hardware detection C functions
     dll = binding.dll

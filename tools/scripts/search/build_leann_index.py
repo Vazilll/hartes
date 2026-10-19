@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-LEANN_DIR = Path("C:/vazus/pyenv/leann-indexes")
+LEANN_DIR = Path("/home/tarhes/Проекты/vazus/pyenv/leann-indexes")
 LEANN_DIR.mkdir(parents=True, exist_ok=True)
 
 

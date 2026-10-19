@@ -35,8 +35,8 @@ except ImportError:
         UnifiedEmbeddingManager = None
 
 
-DEFAULT_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
-DEFAULT_WIKI_DIR = r"C:\vazus\services\memory\semantic\wiki"
+DEFAULT_DB_PATH = os.environ.get("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+DEFAULT_WIKI_DIR = r"/home/tarhes/Проекты/vazus/services/memory/semantic/wiki"
 
 
 def map_score_to_q(score_percent: float) -> int:

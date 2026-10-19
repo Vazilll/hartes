@@ -4,8 +4,8 @@ Vazus Health OS - One-Click Health Sync Entry Point
 
 import sys
 
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 from vazus_core.integrations.health_telemetry_pipeline import VazusHealthPipelineManager
 

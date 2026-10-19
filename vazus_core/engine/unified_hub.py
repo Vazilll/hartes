@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger("unified_hub")
 
-VAZUS_ROOT = Path(r"C:\vazus").resolve()
+VAZUS_ROOT = Path(r"/home/tarhes/Проекты/vazus").resolve()
 DB_PATH = VAZUS_ROOT / "services" / "memory" / "vazus.db"
 CLOUD_RUN_URL = os.getenv("VAZUS_CLOUD_RUN_URL", "https://gemini-bridge-617551061971.us-central1.run.app")
 STAGE1_DEADLINE = "15.10.2026"
@@ -355,9 +355,9 @@ class VazusUnifiedHub:
         }
 
         # 5. Cloud Sync
-        drive_path = Path(r"G:\My Drive\ai\vazus_sync_state.json")
+        drive_path = Path(r"G:\My Drive\ai\vazus_sync_state.json") if os.name == "nt" else None
         local_sync_path = VAZUS_ROOT / "services" / "gemini_bridge" / "data" / "vazus_sync_state.json"
-        sync_file_exists = drive_path.exists() or local_sync_path.exists()
+        sync_file_exists = (drive_path.exists() if drive_path else False) or local_sync_path.exists()
 
         cloud_run_reachable = False
         try:
@@ -452,9 +452,10 @@ class VazusUnifiedHub:
 
         def _do_sync():
             sync_paths = [
-                Path(r"G:\My Drive\ai\vazus_sync_state.json"),
                 VAZUS_ROOT / "services" / "gemini_bridge" / "data" / "vazus_sync_state.json",
             ]
+            if os.name == "nt":
+                sync_paths.append(Path(r"G:\My Drive\ai\vazus_sync_state.json"))
             payload = self.get_system_status()
             success_paths = []
             for p in sync_paths:

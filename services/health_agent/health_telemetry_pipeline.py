@@ -11,12 +11,12 @@ import sys
 import json
 import sqlite3
 
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 from google_fit_sync import fetch_and_save_fitness_data
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 class VazusHealthPipelineManager:
     def __init__(self, db_path=None):

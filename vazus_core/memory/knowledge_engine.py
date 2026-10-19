@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def get_default_db_path() -> Path:
     env_db = os.environ.get("VAZUS_DB_PATH")
-    return Path(env_db) if env_db else Path(r"C:\vazus\services\memory\vazus.db")
+    return Path(env_db) if env_db else Path(r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 DB_PATH = get_default_db_path()
 
@@ -33,7 +33,7 @@ class FullWorkspaceIndexer:
     """
 
     def __init__(self, root_dir: Optional[Union[str, Path]] = None, workspace_root: Optional[Union[str, Path]] = None, db_path: Optional[Union[str, Path]] = None, **kwargs):
-        effective_root = root_dir or workspace_root or kwargs.get("root_path") or Path(r"C:\vazus")
+        effective_root = root_dir or workspace_root or kwargs.get("root_path") or Path(r"/home/tarhes/Проекты/vazus")
         self.root_dir = Path(effective_root)
         self.workspace_root = self.root_dir
         self.db_path = Path(db_path) if db_path else get_default_db_path()

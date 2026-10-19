@@ -1,7 +1,7 @@
 """
 vazus_core.integrations.skill_author — Autonomous Skill Authoring via NousResearch Hermes Standards.
 
-Converts successful workflows into reusable SKILL.md playbooks stored in C:/vazus/skills/
+Converts successful workflows into reusable SKILL.md playbooks stored in /home/tarhes/Проекты/vazus/skills/
 following NousResearch Hardline standards:
   - name: lowercase-hyphenated, <= 64 chars
   - description: ONE sentence, <= 60 chars, ends with a period

@@ -31,7 +31,7 @@ class RaytSwarmHandoffManager:
     WORKFLOWS = ["INGEST", "QUERY", "LINT", "SAVE", "RESEARCH", "REVIEW"]
 
     def __init__(self, db_path: Optional[str | Path] = None):
-        target = db_path if db_path is not None else os.getenv("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db")
+        target = db_path if db_path is not None else os.getenv("VAZUS_DB_PATH", "/home/tarhes/Проекты/vazus/services/memory/vazus.db")
         self.db_path = Path(target)
         self.embedder = UnifiedEmbeddingManager()
         self.jury = SOTA2027JuryEngine(effort_level="high")

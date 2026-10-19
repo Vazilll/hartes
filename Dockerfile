@@ -59,8 +59,8 @@ RUN chmod +x /entrypoint.sh
 # 7. Switch to non-root user
 USER vazus
 
-# 8. Network ports (8000: API & Dashboard, 8501: Standalone HTTP)
-EXPOSE 8000 8501
+# 8. Network ports (8000: API & Dashboard)
+EXPOSE 8000
 
 # 9. Healthcheck verification
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

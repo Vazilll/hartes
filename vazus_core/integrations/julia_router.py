@@ -373,6 +373,148 @@ class RLCDCalibrator:
         return float(1.0 / (1.0 + np.exp(-scaled_logit)))
 
 
+def compute_domain_heuristics(q_clean: str, domains: Optional[Sequence[str]] = None) -> Dict[str, float]:
+    """Keyword mapping heuristics for sub-millisecond reflex and Bayesian prior fusion."""
+    target_domains = domains or CANONICAL_DOMAINS
+    weights = {d: 0.05 for d in target_domains}
+
+    # Academic signals
+    if any(
+        w in q_clean
+        for w in (
+            "мирэа",
+            "ивбо",
+            "сдо",
+            "долг",
+            "хвост",
+            "пересдач",
+            "ведомост",
+            "препод",
+            "матан",
+            "матанализ",
+            "алгебр",
+            "физр",
+            "зачет",
+            "экзамен",
+            "лабораторн",
+            "дифф",
+            "задолженност",
+            "сессия",
+            "студент",
+            "calculus",
+            "linalg",
+        )
+    ):
+        weights["academic"] += 0.85
+
+    # Code signals
+    if any(
+        w in q_clean
+        for w in (
+            "код",
+            "питон",
+            "python",
+            "def ",
+            "class ",
+            "pytest",
+            "тест",
+            "рефактор",
+            "refactor",
+            "ast",
+            "ошибк",
+            "баг",
+            "git",
+        )
+    ):
+        weights["code"] += 0.80
+
+    # Browser / Web signals
+    if any(
+        w in q_clean
+        for w in ("браузер", "browser", "сайт", "web", "найди в интернете", "playwright", "url", "http", "погугли")
+    ):
+        weights["browser"] += 0.75
+
+    # Finance signals
+    if any(
+        w in q_clean
+        for w in (
+            "финанс",
+            "деньг",
+            "тинькофф",
+            "tinkoff",
+            "налог",
+            "чек",
+            "нпд",
+            "самозанят",
+            "расход",
+            "доход",
+            "баланс",
+            "кредит",
+            "рубл",
+        )
+    ):
+        weights["finance"] += 0.85
+
+    # Health signals
+    if any(
+        w in q_clean
+        for w in (
+            "весы",
+            "вес",
+            "здоровь",
+            "сон",
+            "пульс",
+            "шаг",
+            "калори",
+            "бад",
+            "ми шкал",
+            "mi scale",
+            "fit",
+            "давлен",
+            "тренировк",
+        )
+    ):
+        weights["health"] += 0.85
+
+    # Jules signals
+    jules_patterns = (r"\bpr\b", r"\bpull request\b", "джулес", "джулс", "jules", "облачн vm")
+    if any(re.search(pat, q_clean) if pat.startswith(r"\b") else pat in q_clean for pat in jules_patterns):
+        weights["jules"] += 0.90
+
+    # Cloud Run / Spark signals
+    if any(w in q_clean for w in ("cloud run", "спарк", "spark", "клауд ран", "телефон", "мобильн", "mcp bridge")):
+        weights["cloud_run"] += 0.80
+
+    # Architecture signals
+    if any(
+        w in q_clean for w in ("хук", "hook", "vazus", "архитектур", "оркестрац", "mcp", "субагент", "supergraph")
+    ):
+        weights["system_architecture"] += 0.75
+
+    # General reasoning signals
+    if any(
+        w in q_clean
+        for w in (
+            "философ",
+            "ухтомск",
+            "почему",
+            "зачем",
+            "подумай",
+            "проанализируй",
+            "как лучше",
+            "план",
+            "что думаешь",
+            "размышлени",
+            "смысл",
+            "сознани",
+        )
+    ):
+        weights["general_reasoning"] += 0.85
+
+    return weights
+
+
 # ============================================================================
 # Hardware-Accelerated Neural Classifier for Canonical Domains
 # ============================================================================
@@ -409,7 +551,12 @@ class JuliaONNXClassifier:
         # Resolve paths
         self.model_path = self._resolve_model_path(model_path)
         self.tokenizer_path = self._resolve_tokenizer_path(tokenizer_path)
-        self.cache_dir = Path(cache_dir or "C:/vazus/data/cache/openvino")
+        try:
+            from vazus_core.paths import CACHE_DIR
+            default_cache = CACHE_DIR / "openvino"
+        except Exception:
+            default_cache = Path.home() / ".cache" / "vazus_openvino"
+        self.cache_dir = Path(cache_dir or default_cache)
 
         # Load tokenizer
         self._load_tokenizer()
@@ -426,9 +573,19 @@ class JuliaONNXClassifier:
         if user_path and Path(user_path).exists():
             return str(user_path)
 
+        try:
+            from vazus_core.paths import MODELS_DIR
+            models_dir = MODELS_DIR
+        except Exception:
+            models_dir = Path(__file__).resolve().parents[2] / "data" / "models"
+
         candidates = [
-            Path("C:/vazus/data/models/julia_router/julia_classifier.onnx"),
+            models_dir / "julia_router" / "julia_classifier.onnx",
+            models_dir / "julia_router_official" / "model.onnx",
+            Path(__file__).resolve().parents[2] / "data" / "models" / "julia_router" / "julia_classifier.onnx",
+            Path(__file__).resolve().parents[2] / "data" / "models" / "julia_router_official" / "model.onnx",
             Path(__file__).resolve().parents[2] / "models" / "julia_router" / "julia_classifier.onnx",
+            Path("data/models/julia_router/julia_classifier.onnx"),
             Path("models/julia_router/julia_classifier.onnx"),
         ]
         for c in candidates:
@@ -440,9 +597,18 @@ class JuliaONNXClassifier:
         if user_path and Path(user_path).exists():
             return str(user_path)
 
+        try:
+            from vazus_core.paths import MODELS_DIR
+            models_dir = MODELS_DIR
+        except Exception:
+            models_dir = Path(__file__).resolve().parents[2] / "data" / "models"
+
         candidates = [
-            Path("C:/vazus/data/models/openvino_npu/tokenizer/tokenizer.json"),
+            models_dir / "openvino_npu" / "tokenizer" / "tokenizer.json",
+            models_dir / "julia_router_official" / "tokenizer.json",
+            Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_npu" / "tokenizer" / "tokenizer.json",
             Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "tokenizer" / "tokenizer.json",
+            Path("data/models/openvino_npu/tokenizer/tokenizer.json"),
             Path("models/openvino_npu/tokenizer/tokenizer.json"),
         ]
         for c in candidates:
@@ -548,8 +714,20 @@ class JuliaONNXClassifier:
             return "general_reasoning", 0.1, {d: 0.1 for d in self.domains}, elapsed_ms
 
         scores = {dom: float(out[i]) for i, dom in enumerate(self.domains) if i < len(out)}
-        best_domain = max(scores.keys(), key=lambda k: scores[k])
-        confidence = float(scores[best_domain])
+
+        # Bayesian prior fusion with domain keywords
+        h_weights = compute_domain_heuristics(text.lower(), self.domains)
+        h_top = max(h_weights.keys(), key=lambda k: h_weights[k])
+        if h_weights[h_top] >= 0.70:
+            combined = {}
+            for d in self.domains:
+                combined[d] = 0.5 * scores.get(d, 0.0) + 0.5 * h_weights.get(d, 0.05)
+            best_domain = max(combined.keys(), key=lambda k: combined[k])
+            confidence = min(0.95, max(combined[best_domain], h_weights[best_domain]))
+            scores = combined
+        else:
+            best_domain = max(scores.keys(), key=lambda k: scores[k])
+            confidence = float(scores[best_domain])
 
         elapsed_ms = (time.perf_counter() - start_t) * 1000.0
         return best_domain, confidence, scores, elapsed_ms
@@ -636,102 +814,7 @@ class JuliaRouter:
 
     def _heuristic_scores(self, q_clean: str) -> Dict[str, float]:
         """Keyword mapping heuristics for sub-millisecond reflex."""
-        weights = {d: 0.05 for d in self.domains}
-
-        # Academic signals
-        if any(
-            w in q_clean
-            for w in (
-                "мирэа",
-                "ивбо",
-                "сдо",
-                "долг",
-                "хвост",
-                "пересдач",
-                "ведомост",
-                "препод",
-                "матан",
-                "алгебр",
-                "физр",
-                "зачет",
-                "экзамен",
-                "лабораторн",
-                "дифф",
-            )
-        ):
-            weights["academic"] += 0.85
-
-        # Code signals
-        if any(
-            w in q_clean
-            for w in (
-                "код",
-                "питон",
-                "python",
-                "def ",
-                "class ",
-                "pytest",
-                "тест",
-                "рефактор",
-                "refactor",
-                "ast",
-                "ошибк",
-                "баг",
-                "git",
-            )
-        ):
-            weights["code"] += 0.80
-
-        # Browser / Web signals
-        if any(
-            w in q_clean
-            for w in ("браузер", "browser", "сайт", "web", "найди в интернете", "playwright", "url", "http", "погугли")
-        ):
-            weights["browser"] += 0.75
-
-        # Finance signals
-        if any(
-            w in q_clean
-            for w in (
-                "финанс",
-                "деньг",
-                "тинькофф",
-                "tinkoff",
-                "налог",
-                "чек",
-                "нпд",
-                "самозанят",
-                "расход",
-                "доход",
-                "баланс",
-                "кредит",
-            )
-        ):
-            weights["finance"] += 0.85
-
-        # Health signals
-        if any(
-            w in q_clean
-            for w in ("весы", "вес", "здоровь", "сон", "пульс", "шаг", "калори", "бад", "ми шкал", "mi scale", "fit")
-        ):
-            weights["health"] += 0.85
-
-        # Jules signals
-        jules_patterns = (r"\bpr\b", r"\bpull request\b", "джулес", "джулс", "jules", "облачн vm")
-        if any(re.search(pat, q_clean) if pat.startswith(r"\b") else pat in q_clean for pat in jules_patterns):
-            weights["jules"] += 0.90
-
-        # Cloud Run / Spark signals
-        if any(w in q_clean for w in ("cloud run", "спарк", "spark", "клауд ран", "телефон", "мобильн", "mcp bridge")):
-            weights["cloud_run"] += 0.80
-
-        # Architecture signals
-        if any(
-            w in q_clean for w in ("хук", "hook", "vazus", "архитектур", "оркестрац", "mcp", "субагент", "supergraph")
-        ):
-            weights["system_architecture"] += 0.75
-
-        return weights
+        return compute_domain_heuristics(q_clean, self.domains)
 
     # ========================================================================
     # 1. Canonical Domain Routing (route)
@@ -1145,9 +1228,9 @@ class JuliaRouter:
 
         routine_specs = [
             (r"(запусти|прогони|запуск).*(тест|pytest)", "run_command", "pytest -v", "pytest_runner", "code"),
-            (r"(прочитай|извлеки|распознай).*(буфер|скриншот|клипборд|ocr)", "run_command", r"python C:\vazus\clip_ocr.py", "clip_ocr", "system_architecture"),
+            (r"(прочитай|извлеки|распознай).*(буфер|скриншот|клипборд|ocr)", "run_command", r"python /home/tarhes/Проекты/vazus/clip_ocr.py", "clip_ocr", "system_architecture"),
             (r"(покажи|какой|проверь).*(баланс|карт)", "mcp_call", "tinkoff_finance_manager.get_balance", "tinkoff_finance_manager", "finance"),
-            (r"(сделай|создай).*(бэкап|backup).*(баз|db)", "run_command", r"python C:\vazus\vazus_core\memory\backup_db.py", "sqlite_backup", "system_architecture"),
+            (r"(сделай|создай).*(бэкап|backup).*(баз|db)", "run_command", r"python /home/tarhes/Проекты/vazus/vazus_core/memory/backup_db.py", "sqlite_backup", "system_architecture"),
             (r"(проверь|покажи|сколько).*(долг|задолженност)", "mcp_call", "vazus-academic-debt-navigator.get_summary", "vazus-academic-debt-navigator", "academic"),
             (r"(синхронизируй|подключи|проверь).*(весы|взвешиван|mi scale)", "mcp_call", "mi_scale_sync.sync_reading", "mi_scale_sync", "health"),
         ]

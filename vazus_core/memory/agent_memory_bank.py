@@ -43,7 +43,7 @@ class AgentMemoryBank:
 
     def __init__(self, db_path: Optional[str] = None):
         env_db = os.environ.get("VAZUS_DB_PATH")
-        self.db_path = db_path or env_db or r"C:\vazus\services\memory\vazus.db"
+        self.db_path = db_path or env_db or r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_db()
 

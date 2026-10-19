@@ -17,17 +17,17 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
-VAZUS_DIR = Path(os.environ.get("VAZUS_WORKSPACE_DIR", "C:/vazus"))
+VAZUS_DIR = Path(os.environ.get("VAZUS_WORKSPACE_DIR", "/home/tarhes/Проекты/vazus"))
 
 from vazus_core.memory.embeddings import UnifiedGoogleEmbedder
 
 _env_db = os.environ.get("VAZUS_DB_PATH")
-DEFAULT_DB_PATH = Path(_env_db) if _env_db else Path("C:/vazus/services/memory/vazus.db")
+DEFAULT_DB_PATH = Path(_env_db) if _env_db else Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 DEFAULT_GRAPH_JSON_PATH = VAZUS_DIR / "services" / "gomcp" / "graphify-out" / "graph.json"
 _env_wiki = os.environ.get("VAZUS_WIKI_DIR")
 DEFAULT_WIKI_DIRS = [
-    Path(_env_wiki) if _env_wiki else Path("C:/vazus/services/memory/semantic/wiki"),
+    Path(_env_wiki) if _env_wiki else Path("/home/tarhes/Проекты/vazus/services/memory/semantic/wiki"),
 ]
 
 
@@ -245,7 +245,7 @@ class SuperGraphLinker:
             target_sec_raw = match.group(2).strip() if match.group(2) else None
             label_raw = match.group(3).strip() if match.group(3) else None
 
-            # Sanitize path-style wikilinks (e.g. [[C:/vazus/...]] to file stem)
+            # Sanitize path-style wikilinks (e.g. [[/home/tarhes/Проекты/vazus/...]] to file stem)
             cleaned_target = target_note_raw.replace("\\", "/")
             if "/" in cleaned_target or ":" in cleaned_target:
                 target_stem = Path(cleaned_target).stem

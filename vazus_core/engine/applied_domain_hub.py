@@ -327,7 +327,7 @@ class AppliedDomainHub:
         )
 
         # Mirror to NotebookLM inbox for macro synthesis
-        inbox_dir = Path("C:/vazus/data/notebooklm_inbox")
+        inbox_dir = Path("/home/tarhes/Проекты/vazus/data/notebooklm_inbox")
         inbox_dir.mkdir(parents=True, exist_ok=True)
         inbox_file = inbox_dir / f"{title}.md"
         inbox_file.write_text(

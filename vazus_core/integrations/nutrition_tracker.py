@@ -4,7 +4,7 @@ try:
 except ImportError as e:
     raise ImportError(
         f"vazus_core.nutrition_tracker: cannot import from "
-        f"'C:/vazus/services/health_agent/nutrition_tracker.py'. "
+        f"'/home/tarhes/Проекты/vazus/services/health_agent/nutrition_tracker.py'. "
         f"Ensure the file exists and has no syntax errors. Original error: {e}"
     ) from e
 

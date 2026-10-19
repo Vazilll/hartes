@@ -5,9 +5,9 @@ import asyncio
 import sqlite3
 from datetime import datetime
 
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
-sys.path.append(r"C:\vazus\services\health_agent")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus/services/health_agent")
 
 try:
     from google.protobuf import runtime_version
@@ -23,7 +23,7 @@ except ImportError:
     import health_telemetry_pb2_grpc
 from google_fit_sync import fetch_and_save_fitness_data
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 class AsyncHealthTelemetryServicer(health_telemetry_pb2_grpc.HealthTelemetryServiceServicer):
     """

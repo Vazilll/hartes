@@ -18,7 +18,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-sys.path.insert(0, "C:/vazus")
+sys.path.insert(0, "/home/tarhes/Проекты/vazus")
 
 logger = logging.getLogger("vazus_core.engine.hybrid_mcp_dispatcher")
 
@@ -119,7 +119,7 @@ class HybridMCPDispatcher:
     and 3-Tier Multi-Level Hybrid Orchestration.
     """
 
-    def __init__(self, router: Optional[JuliaRouter] = None, db_path: str = "C:/vazus/services/memory/vazus.db"):
+    def __init__(self, router: Optional[JuliaRouter] = None, db_path: str = "/home/tarhes/Проекты/vazus/services/memory/vazus.db"):
         self.router = router or JuliaRouter()
         self.db_path = db_path
         # Pre-warm SpeculativeToolPredictor once so first query is fast
@@ -234,7 +234,7 @@ class HybridMCPDispatcher:
             selected_skill=skill_dec.selected_skill,
             skill_tree_next=skill_dec.next_in_tree,
             requires_new_skill=skill_dec.requires_new_skill,
-            token_cost=150,  # ~150 tokens for 2-3 tools vs 8000 tokens for all 80 tools!
+            token_cost=max(50, len(disclosed) * 50),
             latency_ms=round(elapsed_ms, 2),
             device_used=domain_dec.metadata.get("device_used", "NPU"),
             routing_summary=f"Tier-2 Cloud Reasoning (Disclosed {len(disclosed)} of 80+ tools: {disclosed}) in {elapsed_ms:.2f}ms.",
@@ -247,8 +247,15 @@ class HybridMCPDispatcher:
         if action.action_type == "run_command" and action.suggested_command:
             # Safe allowed commands
             if "pytest" in action.suggested_command:
+                vazus_root = Path(__file__).resolve().parents[2]
+                pytest_bin = vazus_root / ".venv" / "bin" / "pytest"
+                cmd = (
+                    [str(pytest_bin), str(vazus_root / "tests" / "test_julia_router.py"), "-q"]
+                    if pytest_bin.exists()
+                    else [sys.executable, "-m", "pytest", str(vazus_root / "tests" / "test_julia_router.py"), "-q"]
+                )
                 proc = subprocess.run(
-                    [r"C:\vazus\.venv\Scripts\pytest.exe", r"C:\vazus\tests\test_julia_router.py", "-q"],
+                    cmd,
                     capture_output=True,
                     text=True,
                 )

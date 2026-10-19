@@ -17,14 +17,14 @@ from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger("repo_indexer")
 
-VAZUS_DIR = Path("C:/vazus")
+VAZUS_DIR = Path("/home/tarhes/Проекты/vazus")
 if str(VAZUS_DIR) not in sys.path:
     sys.path.insert(0, str(VAZUS_DIR))
 
 from vazus_core.memory.embeddings import UnifiedEmbeddingManager
 from vazus_core.verification.ast_pruner import ASTPruner
 
-DEFAULT_DB_PATH = Path(os.getenv("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db"))
+DEFAULT_DB_PATH = Path(os.getenv("VAZUS_DB_PATH", "/home/tarhes/Проекты/vazus/services/memory/vazus.db"))
 EXCLUDED_DIRS = {".git", ".venv", "node_modules", "__pycache__", ".agents", "dist", "build", "coverage", ".next"}
 SUPPORTED_EXTENSIONS = {".py", ".md", ".json", ".ts", ".js", ".sql", ".sh", ".ps1"}
 

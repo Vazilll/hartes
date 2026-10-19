@@ -413,7 +413,7 @@ def diagnose_table_sizes(db_path: str | Path) -> List[Dict[str, Any]]:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-    target_db = r"C:\vazus\services\memory\vazus.db"
+    target_db = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
     res = execute_consolidation(target_db, backup_first=False)
     print("\n--- Consolidation Result ---")
     print(f"Initial Size : {res['initial_size_mb']} MB")

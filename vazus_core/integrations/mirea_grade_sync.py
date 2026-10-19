@@ -12,8 +12,8 @@ import sqlite3
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-DB_PATH = "C:/vazus/services/memory/vazus.db"
-STUDY_MD_PATH = "C:/vazus/services/memory/STUDY.md"
+DB_PATH = "/home/tarhes/Проекты/vazus/services/memory/vazus.db"
+STUDY_MD_PATH = "/home/tarhes/Проекты/vazus/services/memory/STUDY.md"
 
 
 class MireaGradeSync:

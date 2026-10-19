@@ -125,7 +125,7 @@ class GraphifyEngine:
     def __init__(
         self,
         db_path: str = ":memory:",
-        workspace_root: str = r"C:\vazus",
+        workspace_root: str = r"/home/tarhes/Проекты/vazus",
         shm_bus_name: Optional[str] = r"Local\Vazus" + r"SuperGraph" + r"RingBuffer",
     ):
         import os as _os

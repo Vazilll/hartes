@@ -7,6 +7,7 @@ Connects SQLite vazus.db to REST consumers (Academic Dashboard, VAE Preview, fas
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -16,11 +17,13 @@ from services.data_fabric.entity_schema import AcademicDebtEntity, ScheduleSlotE
 from services.data_fabric.rls import RowLevelSecurity
 
 router = APIRouter(prefix="/api", tags=["DataFabric"])
-DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
+_DEFAULT_DB = Path(__file__).resolve().parents[2] / "services" / "memory" / "vazus.db"
+DB_PATH = Path(os.getenv("VAZUS_DB_PATH", str(_DEFAULT_DB)))
 
 
 def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH), timeout=20.0)
+    target = Path(os.getenv("VAZUS_DB_PATH", str(DB_PATH)))
+    conn = sqlite3.connect(str(target), timeout=20.0)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -52,6 +55,9 @@ def get_academic_debts():
 
         debts = []
         for r in rows:
+            rec = dict(r)
+            if not RowLevelSecurity.can_read("mirea_milestones", rec, {"student_id": rec.get("student_id", "25И0566")}):
+                continue
             status = r["status"]
             # Map canonical status to dashboard styling
             m_type = r["milestone_type"] or "Лабораторная"
@@ -86,17 +92,32 @@ def get_academic_schedule():
         """)
         rows = cur.fetchall()
 
+        urgent_subjects: set[str] = set()
+        try:
+            cur.execute(
+                "SELECT DISTINCT subject FROM mirea_milestones WHERE status NOT IN ('Сдано', 'CLOSED')"
+            )
+            urgent_subjects = {str(r[0]) for r in cur.fetchall() if r[0]}
+        except sqlite3.Error:
+            pass
+
         slots = []
         for r in rows:
+            ltype = str(r["lesson_type"] or "Занятие")
+            subj = str(r["subject"] or "")
+            is_urgent = (
+                any(k in ltype.lower() for k in ("экзамен", "зачет", "зачёт", "дедлайн", "контрольн"))
+                or subj in urgent_subjects
+            )
             slots.append({
                 "id": r["id"],
                 "date": r["weekday"],
                 "time": r["lesson_time"],
-                "subject": r["subject"],
+                "subject": subj,
                 "teacher": r["teacher"] or "Преподаватель",
                 "room": r["classroom"] or "Ауд.",
-                "type": r["lesson_type"] or "Занятие",
-                "urgent": False,
+                "type": ltype,
+                "urgent": is_urgent,
             })
         return slots
     finally:

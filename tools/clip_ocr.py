@@ -3,7 +3,7 @@
 import runpy
 from pathlib import Path
 
-target = Path(r"C:\vazus\services\vision\clip_ocr.py")
+target = Path(r"/home/tarhes/Проекты/vazus/services/vision/clip_ocr.py")
 if target.exists():
     runpy.run_path(str(target), run_name="__main__")
 else:

@@ -34,8 +34,8 @@ CANONICAL_DOMAINS = [
 
 DOMAIN_TO_IDX = {d: i for i, d in enumerate(CANONICAL_DOMAINS)}
 MAX_SEQ_LEN = 64
-TOKENIZER_PATH = "C:/vazus/models/openvino_npu/tokenizer/tokenizer.json"
-MODEL_DIR = "C:/vazus/models/julia_router"
+TOKENIZER_PATH = "/home/tarhes/Проекты/vazus/models/openvino_npu/tokenizer/tokenizer.json"
+MODEL_DIR = "/home/tarhes/Проекты/vazus/models/julia_router"
 ONNX_PATH = os.path.join(MODEL_DIR, "julia_classifier.onnx")
 
 

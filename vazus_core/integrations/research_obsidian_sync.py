@@ -28,7 +28,7 @@ class ResearchObsidianSyncer:
     into atomic Obsidian Zettelkasten knowledge graphs.
     """
 
-    DEFAULT_WIKI_DIR = Path(r"C:\vazus\services\memory\semantic\wiki")
+    DEFAULT_WIKI_DIR = Path(r"/home/tarhes/Проекты/vazus/services/memory/semantic/wiki")
 
     def __init__(self, wiki_dir: Optional[Path] = None):
         self.wiki_dir = wiki_dir or self.DEFAULT_WIKI_DIR
@@ -269,7 +269,7 @@ class ResearchObsidianSyncer:
             title = data.get("title", "")
             target = data.get("upgrade_target", "Level 5 SOTA")
             badge = "🟢 Level 4 (Optimized)" if lvl >= 4 else f"🟡 Level {lvl}"
-            spec_file = f"C:/vazus/{name}/SPEC.md" if not name.endswith(".md") else name
+            spec_file = f"/home/tarhes/Проекты/vazus/{name}/SPEC.md" if not name.endswith(".md") else name
             content.append(f"| **`{name}`** | **{badge}** | {title} | `{target}` | `[[{spec_file}|SPEC.md]]` |")
 
         ipc_tag = telemetry.get("ipc_ring_buffer", {}).get("tagname", "Local\\\\VazusSuperGraphRingBuffer")
@@ -278,23 +278,23 @@ class ResearchObsidianSyncer:
             [
                 "",
                 "## ⚡ Telemetry Radar & Operational Health",
-                f"- **Database**: `{db_telemetry.get('canonical_path', 'C:/vazus/services/memory/vazus.db')}` (`{db_telemetry.get('size_mb', 20.1)} MB`, WAL mode)",
+                f"- **Database**: `{db_telemetry.get('canonical_path', '/home/tarhes/Проекты/vazus/services/memory/vazus.db')}` (`{db_telemetry.get('size_mb', 20.1)} MB`, WAL mode)",
                 f"- **Hooks Latency**: SessionStart `{hooks_telemetry.get('session_start_latency_ms', 18.5)} ms` | PreInvocation `{hooks_telemetry.get('pre_invocation_latency_ms', 1.4)} ms`",
                 f"- **GC Governor**: `{telemetry.get('gc_governor', {}).get('frozen_objects_count', 42800)}` core framework objects frozen",
                 f"- **IPC Ring Buffer**: `{ipc_tag}` (`{ipc_mb:.0f} MB`)",
                 "",
                 "## 🔗 Core System Links",
-                "- [[C:/vazus/SYSTEM_STATE.json|SYSTEM_STATE.json (2.3 KB)]]",
-                "- [[C:/vazus/services/memory/vazus.db|vazus.db Canonical]]",
-                "- [[C:/vazus/vazus_core/engine/SPEC.md|Engine Core SPEC.md]]",
-                "- [[C:/vazus/vazus_core/memory/SPEC.md|Memory Core SPEC.md]]",
-                "- [[C:/vazus/vazus_core/hooks/SPEC.md|Lifecycle Hooks SPEC.md]]",
+                "- [[/home/tarhes/Проекты/vazus/SYSTEM_STATE.json|SYSTEM_STATE.json (2.3 KB)]]",
+                "- [[/home/tarhes/Проекты/vazus/services/memory/vazus.db|vazus.db Canonical]]",
+                "- [[/home/tarhes/Проекты/vazus/vazus_core/engine/SPEC.md|Engine Core SPEC.md]]",
+                "- [[/home/tarhes/Проекты/vazus/vazus_core/memory/SPEC.md|Memory Core SPEC.md]]",
+                "- [[/home/tarhes/Проекты/vazus/vazus_core/hooks/SPEC.md|Lifecycle Hooks SPEC.md]]",
                 "",
             ]
         )
         return "\n".join(content)
 
-    def sync_skill_tree_map(self, manifest_path: Union[str, Path] = r"C:\vazus\SYSTEM_STATE.json") -> Dict[str, Any]:
+    def sync_skill_tree_map(self, manifest_path: Union[str, Path] = r"/home/tarhes/Проекты/vazus/SYSTEM_STATE.json") -> Dict[str, Any]:
         """Synthesizes the complete Skill Tree into an interactive Obsidian Markdown dashboard."""
         p = Path(manifest_path)
         if not p.exists():

@@ -2,7 +2,7 @@
 
 > **Subsystem**: `vazus_core/integrations`  
 > **Path**: `vazus_core/integrations`  
-> **Last Auto-Synchronized**: 2026-10-05 17:13:52  
+> **Last Auto-Synchronized**: 2026-10-05 18:23:14  
 
 ## 1. Core Mission & Domain Scope (Responsibilities & Boundaries)
 ### 1.1 Primary Mission
@@ -82,7 +82,7 @@ class DashboardRequestHandler:
     def handle_search(self, query_params): ...
     def handle_stream(self, query_params): ...
     def handle_thumbnail(self, query_params): ...
-    # ... (+11 additional methods)
+    # ... (+20 additional methods)
 
 class SparkPipelineStage:
     pass
@@ -324,7 +324,7 @@ def render_terminal_harness_hud(active_skills: List[str], ast_saved_pct: float=8
   - *Methods*: `generate_morning_briefing, generate_evening_digest, format_telegram_card, save_briefing_to_wiki`
 - **`ThreadedHTTPServer`** (`dashboard_server.py`): No description
 - **`DashboardRequestHandler`** (`dashboard_server.py`): No description
-  - *Methods*: `log_message, do_OPTIONS, do_GET, do_POST, handle_serve_html, ... (+14)`
+  - *Methods*: `log_message, do_OPTIONS, do_GET, do_POST, handle_serve_html, ... (+23)`
 - **`SparkPipelineStage`** (`gemini_spark_connector.py`): No description
 - **`GeminiSparkConnector`** (`gemini_spark_connector.py`): Bridge connecting vazus SuperGraph OS with Google Gemini,
   - *Methods*: `get_pipeline_stages, get_public_bridge_url, dispatch_spark_task`

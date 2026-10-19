@@ -15,7 +15,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, Any, List, Union
 
-DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
+DB_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 
 class TinkoffFinanceManager:

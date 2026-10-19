@@ -77,7 +77,7 @@ def ast_grep_search(
     Args:
         pattern: AST pattern to search, e.g. "def $FUNC($$$ARGS): ..." or "assert True"
         language: Language code: python, javascript, typescript, rust, go, java, ...
-        path: Root directory or file to search (default: C:/vazus)
+        path: Root directory or file to search (default: /home/tarhes/Проекты/vazus)
         max_results: Max number of results to return
 
     Returns:

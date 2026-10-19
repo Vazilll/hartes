@@ -7,8 +7,8 @@ import sys
 import json
 
 sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 class GoogleGemmaLocalEngine:
     def __init__(self, model_name="google/gemma-2-9b-it"):

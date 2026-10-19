@@ -26,8 +26,8 @@ logger = logging.getLogger("sync_bobusy")
 DRIVE_BOBUSY_ROOT = Path(r"G:\My Drive\бобусы")
 LOCAL_DOCUMENTS = Path(r"C:\Users\Vaz\Documents")
 LOCAL_STUDY_OS = Path(r"C:\Users\Vaz\Documents\mirea_study_os")
-LOCAL_KNOWLEDGE_MIREA = Path(r"C:\vazus\knowledge\mirea")
-LOCAL_NOTEBOOKLM_READY = Path(r"C:\vazus\data\notebooklm_ready")
+LOCAL_KNOWLEDGE_MIREA = Path(r"/home/tarhes/Проекты/vazus/knowledge/mirea")
+LOCAL_NOTEBOOKLM_READY = Path(r"/home/tarhes/Проекты/vazus/data/notebooklm_ready")
 
 STUDENTS = ["Жуков", "Артём", "Вадим"]
 

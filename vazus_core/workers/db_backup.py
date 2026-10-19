@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 
 logger = logging.getLogger("db_backup")
 
-VAZUS_ROOT = Path(r"C:\vazus").resolve()
+VAZUS_ROOT = Path(r"/home/tarhes/Проекты/vazus").resolve()
 DB_PATH = VAZUS_ROOT / "services" / "memory" / "vazus.db"
 BACKUP_DIR = VAZUS_ROOT / "backups"
 GDRIVE_BACKUP_DIR = Path(r"G:\My Drive\ai\backups")

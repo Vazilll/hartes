@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from typing import Dict, Any
 
-VAZUS_ROOT = Path("C:/vazus")
+VAZUS_ROOT = Path("/home/tarhes/Проекты/vazus")
 if str(VAZUS_ROOT) not in sys.path:
     sys.path.insert(0, str(VAZUS_ROOT))
 

@@ -15,7 +15,7 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
-sys.path.insert(0, "C:/vazus")
+sys.path.insert(0, "/home/tarhes/Проекты/vazus")
 
 logging.basicConfig(level=logging.ERROR, stream=sys.stderr)
 logging.getLogger("fastmcp").setLevel(logging.ERROR)

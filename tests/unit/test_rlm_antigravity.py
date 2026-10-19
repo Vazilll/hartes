@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 # Ensure rlm-mit is in path
-PYENV_DIR = Path(r"C:\vazus")
-RLM_MIT_DIR = PYENV_DIR / "labs" / "mit" / "rlm-mit"
-for p in [str(PYENV_DIR), str(RLM_MIT_DIR)]:
+HARNET_RLM_DIR = Path("/home/tarhes/Проекты/harnet/vendor/rlm")
+PYENV_DIR = Path("/home/tarhes/Проекты/vazus")
+for p in [str(HARNET_RLM_DIR), str(PYENV_DIR)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 

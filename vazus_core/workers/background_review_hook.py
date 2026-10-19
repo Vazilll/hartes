@@ -9,7 +9,7 @@ import time
 import threading
 import logging
 
-sys.path.insert(0, "C:/vazus")
+sys.path.insert(0, "/home/tarhes/Проекты/vazus")
 
 from vazus_core.integrations.skill_author import create_autonomous_skill
 from vazus_core.memory.mem0_memory_engine import Mem0Engine
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     BackgroundReviewHook.spawn_review_async(
         turn_prompt="Build custom architecture pipeline",
         response_summary="Implemented custom pipeline with SMT Z3 and mem0",
-        files_modified=["C:/vazus/vazus_core/mem0_memory_engine.py"]
+        files_modified=["/home/tarhes/Проекты/vazus/vazus_core/mem0_memory_engine.py"]
     )
     time.sleep(1.0)
     print("[+] Background Review Hook test executed successfully.")

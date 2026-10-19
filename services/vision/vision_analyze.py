@@ -8,12 +8,12 @@ from dotenv import load_dotenv
 sys.stdout.reconfigure(encoding='utf-8')
 
 def analyze_image(image_path: str, prompt: str = "Подробно опиши всё, что находится на этом скриншоте: визуальный контекст, интерфейсы, текст, объекты, события.") -> None:
-    # Load environment variables from C:\vazus\.env
-    load_dotenv(r'C:\vazus\.env')
+    # Load environment variables from /home/tarhes/Проекты/vazus/.env
+    load_dotenv(r'/home/tarhes/Проекты/vazus/.env')
     
     api_key = os.getenv('GEMINI_API_KEY')
     if not api_key:
-        print("ERROR: GEMINI_API_KEY not found in C:\\vazus\\.env")
+        print("ERROR: GEMINI_API_KEY not found in /home/tarhes/Проекты/vazus/.env")
         sys.exit(1)
         
     try:

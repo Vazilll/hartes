@@ -228,7 +228,7 @@ def build_media_index(
     media_by_msg_id: Dict[int, List[Tuple[str, str]]] = {}
 
     if target_dbs is None:
-        target_dbs = ["C:/vazus/services/memory/vazus.db"]
+        target_dbs = ["/home/tarhes/Проекты/vazus/services/memory/vazus.db"]
 
     for db_file in target_dbs:
         _query_db_media_scenes(db_file, scene_by_file, media_by_msg_id)
@@ -411,13 +411,13 @@ def _persist_kg_batch(
 
 
 def index_telegram_messages(
-    messages_dir: str = "C:/vazus/knowledge/telegram_messages",
-    db_path: str = "C:/vazus/services/memory/vazus.db"
+    messages_dir: str = "/home/tarhes/Проекты/vazus/knowledge/telegram_messages",
+    db_path: str = "/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 ) -> Dict[str, int]:
     """Parses .jsonl/.md files, links Q&A discussion threads, and persists kg_nodes/kg_edges."""
     messages_dir = os.path.abspath(messages_dir).replace('\\', '/')
     db_path = os.path.abspath(db_path).replace('\\', '/')
-    target_dbs = list(dict.fromkeys([db_path, "C:/vazus/services/memory/vazus.db"]))
+    target_dbs = list(dict.fromkeys([db_path, "/home/tarhes/Проекты/vazus/services/memory/vazus.db"]))
 
     embedder = get_embedding_manager()
     courses_dir = DEFAULT_COURSES_DIR

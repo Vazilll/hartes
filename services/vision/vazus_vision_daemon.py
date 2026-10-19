@@ -1,6 +1,6 @@
 """
 Milestone M3: Real-Time Vision & Clipboard Watcher Daemon for vazus SuperGraph OS.
-File: C:\\vazus\\vazus_vision_daemon.py
+File: /home/tarhes/Проекты/vazus/vazus_vision_daemon.py
 
 Features:
 1. Dual-channel real-time event monitoring:
@@ -29,7 +29,7 @@ from typing import Dict, Any, Optional, Set
 from PIL import Image, ImageGrab
 
 # --- Workspace Imports ---
-sys.path.insert(0, r"C:\vazus")
+sys.path.insert(0, r"/home/tarhes/Проекты/vazus")
 
 from vazus_core.memory.multimodal_resolver import MultimodalResolver
 from vazus_core.integrations.tui_preview_renderer import TUIPreviewRenderer
@@ -73,9 +73,9 @@ DEFAULT_WS_HOST = "127.0.0.1"
 # Vision WS lives on 8766 to avoid the collision (audit 2026-08-15).
 DEFAULT_WS_PORT = int(os.getenv("VAZUS_VISION_WS_PORT", "8766"))
 DEFAULT_WS_PATH = "/ws/vision"
-DEFAULT_WORKSPACE_DIR = r"C:\vazus\labs\native_vision_system"
-DEFAULT_DB_PATH = r"C:\vazus\services\memory\vazus.db"
-PID_FILE_PATH = r"C:\vazus\services\memory\vision_daemon.pid"
+DEFAULT_WORKSPACE_DIR = r"/home/tarhes/Проекты/vazus/labs/native_vision_system"
+DEFAULT_DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
+PID_FILE_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vision_daemon.pid"
 
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 IGNORED_DIRECTORIES = {".git", ".agents", "node_modules", "__pycache__", ".venv", "venv", "build", "dist", ".idea", ".vscode"}

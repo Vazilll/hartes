@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 sys.stdout.reconfigure(encoding='utf-8')
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
-CREDENTIALS_FILE = r"C:\vazus\credentials.json"
-TOKEN_FILE = r"C:\vazus\token.json"
+DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
+CREDENTIALS_FILE = r"/home/tarhes/Проекты/vazus/credentials.json"
+TOKEN_FILE = r"/home/tarhes/Проекты/vazus/token.json"
 
 SCOPES = [
     'https://www.googleapis.com/auth/fitness.activity.read',

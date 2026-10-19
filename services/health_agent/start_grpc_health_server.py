@@ -3,8 +3,8 @@ import asyncio
 import grpc
 from concurrent import futures
 
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 import health_telemetry_pb2_grpc
 from vazus_core.grpc_health_servicer import AsyncHealthTelemetryServicer

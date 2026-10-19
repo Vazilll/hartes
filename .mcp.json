@@ -1,30 +1,14 @@
 {
     "mcpServers": {
         "sequential-thinking": {
-            "command": "npx.cmd",
+            "command": "npx",
             "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@2026.7.4"],
             "description": "Structured step-by-step reasoning"
         },
-
         "playwright": {
-            "command": "npx.cmd",
+            "command": "npx",
             "args": ["-y", "@playwright/mcp@0.0.79"],
             "description": "Browser automation"
-        },
-        "colab-mcp": {
-            "command": "C:\\vazus\\.venv\\Scripts\\python.exe",
-            "args": ["-m", "colab_mcp"],
-            "description": "Google Colab Cloud GPU & Notebook execution"
-        },
-        "ckb": {
-            "command": "ckb.cmd",
-            "args": ["mcp"],
-            "description": "Code Knowledge Backend (SCIP + LSP + Blast Radius + Semantic Impact Analysis)"
-        },
-        "telegram-mcp": {
-            "command": "C:\\vazus\\.venv\\Scripts\\python.exe",
-            "args": ["C:/vazus/tools/scripts/mcp_servers/telegram_mcp.py"],
-            "description": "Telegram user account integration: media downloader, history, dialogs"
         }
     }
 }

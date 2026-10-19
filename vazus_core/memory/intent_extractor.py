@@ -1,4 +1,4 @@
-﻿"""
+"""
 vazus_core.memory.intent_extractor
 ==================================
 Heuristic "meaning" extraction for J-Space intent anchors, plus a tiny CLI to review them.

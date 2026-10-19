@@ -393,10 +393,10 @@ class GoSubagentBusClient:
         timeout: float = 10.0
     ):
         if binary_path is None:
-            if os.path.exists(r"C:\vazus\services\subagent_bus\subagent_bus.exe"):
-                binary_path = r"C:\vazus\services\subagent_bus\subagent_bus.exe"
+            if os.path.exists(r"/home/tarhes/Проекты/vazus/services/subagent_bus/subagent_bus.exe"):
+                binary_path = r"/home/tarhes/Проекты/vazus/services/subagent_bus/subagent_bus.exe"
             else:
-                binary_path = r"C:\vazus\tools\bin\subagent_bus.exe"
+                binary_path = r"/home/tarhes/Проекты/vazus/tools/bin/subagent_bus.exe"
         self.binary_path = os.path.normpath(binary_path)
         self.sse_url = sse_url
         self.timeout = timeout
@@ -1095,7 +1095,7 @@ class SubagentBackgroundDispatcher:
     def _log_dispatch_to_db(self, handle: SubagentDispatchHandle, prompt: str):
         """Logs task dispatch event into vazus.db subagent_memory_traces table using canonical schema."""
         try:
-            target_db = os.getenv("VAZUS_DB_PATH", "C:/vazus/services/memory/vazus.db")
+            target_db = os.getenv("VAZUS_DB_PATH", "/home/tarhes/Проекты/vazus/services/memory/vazus.db")
             persister = SubagentDialoguePersister(db_path=target_db)
             content_json = fast_json_dumps({
                 "task_id": handle.task_id,

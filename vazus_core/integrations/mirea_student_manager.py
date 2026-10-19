@@ -20,9 +20,9 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception as exc:
         logger.debug("Failed stdout reconfigure: %s", exc)
 
-sys.path.append(r"C:\vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
 
-DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
+DB_PATH = os.getenv("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 # Fail-Closed Exception Architecture
 try:
@@ -124,7 +124,7 @@ class MireaStudentManager:
         Enforces fail-closed requirement for authenticated session tokens.
         Raises SessionRequiredError if session file or tokens are absent.
         """
-        path = session_path or os.getenv("MIREA_SESSION_FILE", r"C:\vazus\user_mirea_session.json")
+        path = session_path or os.getenv("MIREA_SESSION_FILE", r"/home/tarhes/Проекты/vazus/user_mirea_session.json")
         if not os.path.exists(path):
             raise SessionRequiredError(f"Fail-closed: MIREA session file not found at {path}")
         try:

@@ -21,7 +21,7 @@ try:
 except ImportError:
     _resolve_target_db_path = None
 
-DEFAULT_DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DEFAULT_DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 DB_PATH = os.getenv("VAZUS_DB_PATH", DEFAULT_DB_PATH)
 
 def _is_test_environment() -> bool:

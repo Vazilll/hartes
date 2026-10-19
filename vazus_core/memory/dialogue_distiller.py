@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("dialogue_distiller")
 
 BRAIN_DIR = Path(r"C:\Users\Vaz\.gemini\antigravity\brain")
-DISTILLED_FILE = Path(r"C:\vazus\services\memory\DISTILLED_SESSIONS.md")
+DISTILLED_FILE = Path(r"/home/tarhes/Проекты/vazus/services/memory/DISTILLED_SESSIONS.md")
 
 
 def extract_session_essence(messages: List[Dict[str, Any]]) -> str:

@@ -40,7 +40,7 @@ class SystemDiscoveryEngine:
     """
 
     def __init__(self, workspace_root: Optional[Path] = None):
-        self.workspace_root = Path(workspace_root or "C:/vazus").resolve()
+        self.workspace_root = Path(workspace_root or "/home/tarhes/Проекты/vazus").resolve()
         self.defined_symbols: Dict[str, SymbolDefinition] = {}
         self.referenced_symbols: Set[str] = set()
         self.file_imports: Dict[str, Set[str]] = {} # file -> imported module paths

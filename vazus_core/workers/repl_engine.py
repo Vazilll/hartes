@@ -98,7 +98,7 @@ class ZigSandboxBridge:
     with 100% transparent fallback to pure Python if uncompiled or missing.
     """
 
-    def __init__(self, temp_dir: Optional[str] = None, workspace_root: str = "C:/vazus"):
+    def __init__(self, temp_dir: Optional[str] = None, workspace_root: str = "/home/tarhes/Проекты/vazus"):
         self.temp_dir = temp_dir
         self.workspace_root = workspace_root
         self._lib = None
@@ -107,9 +107,9 @@ class ZigSandboxBridge:
 
     def _load_native_library(self):
         candidates = [
-            Path("C:/vazus/tools/bin/vazus_runner.dll"),
-            Path("C:/vazus/tools/sandbox/zig_runner/zig-out/bin/vazus_runner.dll"),
-            Path("C:/vazus/tools/sandbox/zig_runner/zig-out/lib/vazus_runner.dll"),
+            Path("/home/tarhes/Проекты/vazus/tools/bin/vazus_runner.dll"),
+            Path("/home/tarhes/Проекты/vazus/tools/sandbox/zig_runner/zig-out/bin/vazus_runner.dll"),
+            Path("/home/tarhes/Проекты/vazus/tools/sandbox/zig_runner/zig-out/lib/vazus_runner.dll"),
         ]
         dll_path = None
         for p in candidates:

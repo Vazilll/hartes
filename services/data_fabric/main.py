@@ -16,8 +16,12 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastmcp import FastMCP
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Ensure root in sys.path
-ROOT_DIR = Path(r"C:\vazus")
+ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
@@ -55,13 +59,49 @@ def query_knowledge_graph(query: str, top_k: int = 10) -> List[Dict[str, Any]]:
         cur = conn.cursor()
         search_pat = f"%{query.strip()}%"
         cur.execute("""
-            SELECT id, name, domain, node_type, description, tags 
-            FROM kg_nodes 
+            SELECT id, name, domain, node_type, description, tags
+            FROM kg_nodes
             WHERE name LIKE ? OR description LIKE ? OR tags LIKE ?
             LIMIT ?
-        """, (search_pat, search_pat, search_pat, top_k))
-        rows = cur.fetchall()
-        return [dict(r) for r in rows]
+        """, (search_pat, search_pat, search_pat, top_k * 2))
+        results: List[Dict[str, Any]] = [
+            {**dict(r), "source": "kg_nodes"} for r in cur.fetchall()
+        ]
+
+        try:
+            cur.execute("""
+                SELECT id, category AS domain, insight_text AS description, confidence, created_at
+                FROM organic_insights
+                WHERE insight_text LIKE ? OR category LIKE ?
+                LIMIT ?
+            """, (search_pat, search_pat, top_k * 2))
+            for r in cur.fetchall():
+                d = dict(r)
+                results.append({
+                    "id": f"insight:{d.get('id')}",
+                    "name": f"Insight ({d.get('domain', 'general')})",
+                    "domain": d.get("domain", "general"),
+                    "node_type": "OrganicInsight",
+                    "description": d.get("description", ""),
+                    "tags": str(d.get("confidence", "")),
+                    "source": "organic_insights",
+                })
+        except Exception as e:
+            logger.debug("organic_insights query note: %s", e)
+
+        if query.strip() and results:
+            try:
+                from vazus_core.memory.embeddings import compute_similarity, get_embedding
+
+                q_vec = get_embedding(query)
+                for item in results:
+                    text_repr = f"{item.get('name', '')} {item.get('description', '')} {item.get('tags', '')}"
+                    item["score"] = round(float(compute_similarity(q_vec, get_embedding(text_repr[:512]))), 4)
+                results.sort(key=lambda x: x.get("score", 0.0), reverse=True)
+            except Exception as e:
+                logger.debug("Semantic reranking fallback note: %s", e)
+
+        return results[:top_k]
     finally:
         conn.close()
 
@@ -117,8 +157,8 @@ def get_academic_schedule(weekday: Optional[str] = None) -> List[Dict[str, Any]]
 # Mount FastMCP ASGI App onto FastAPI
 try:
     app.mount("/mcp", mcp.get_asgi_app())
-except Exception:
-    pass
+except Exception as exc:
+    logger.warning("FastMCP ASGI mount skipped: %s", exc)
 
 
 # 5. WebSocket HMR Bridge

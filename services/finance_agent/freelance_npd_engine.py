@@ -15,7 +15,7 @@ import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
 
-DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
+DB_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 def _resolve_db_path(explicit_path: Optional[Union[str, Path]], target_mod: str) -> Path:
     if explicit_path is not None:

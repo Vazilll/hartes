@@ -31,7 +31,7 @@ class SelfHealingCompiler:
     Autonomous execution feedback loop for automated bug localization and repair.
     """
 
-    def __init__(self, workspace_root: str = r"C:\vazus", max_repair_iterations: int = 3):
+    def __init__(self, workspace_root: str = r"/home/tarhes/Проекты/vazus", max_repair_iterations: int = 3):
         self.workspace_root = Path(workspace_root).resolve()
         self.max_repair_iterations = max_repair_iterations
 

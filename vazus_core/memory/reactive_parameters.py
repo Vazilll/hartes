@@ -24,16 +24,16 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger("reactive_parameters")
 
 # Default paths
-DEFAULT_DB_PATH = Path(r"C:\vazus\services\memory\vazus.db")
+DEFAULT_DB_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 DEFAULT_SUBSCRIBER_FILES = [
-    Path(r"C:\vazus\services\memory\NOTES.md"),
-    Path(r"C:\vazus\services\memory\USER.md"),
-    Path(r"C:\vazus\services\memory\STUDY.md"),
+    Path(r"/home/tarhes/Проекты/vazus/services/memory/NOTES.md"),
+    Path(r"/home/tarhes/Проекты/vazus/services/memory/USER.md"),
+    Path(r"/home/tarhes/Проекты/vazus/services/memory/STUDY.md"),
     Path(r"C:\Users\Vaz\Documents\Саморазвитие\Конспекты_и_Заметки\Zettel_Keep_Notes_Deconstruction.md"),
     Path(r"C:\Users\Vaz\Documents\Саморазвитие\Конспекты_и_Заметки\Supplements_Stack.md"),
     Path(r"C:\Users\Vaz\Documents\Саморазвитие\Конспекты_и_Заметки\Reading_List_Master.md"),
     Path(r"C:\Users\Vaz\Documents\Саморазвитие\Чеклисты\PHONE_NOTES_CHECKLIST.md"),
-    Path(r"C:\vazus\services\memory\semantic\wiki\MIREA_Debts_Registry\PHONE_NOTES_CHECKLIST.md"),
+    Path(r"/home/tarhes/Проекты/vazus/services/memory/semantic/wiki/MIREA_Debts_Registry/PHONE_NOTES_CHECKLIST.md"),
 ]
 
 # Standard baseline parameters

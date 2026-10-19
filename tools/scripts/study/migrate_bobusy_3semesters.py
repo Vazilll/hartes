@@ -22,7 +22,7 @@ logger = logging.getLogger("migrate_3semesters")
 DRIVE_BOBUSY = Path(r"G:\My Drive\бобусы")
 DRIVE_DEBTS_1 = Path(r"G:\My Drive\МИРЭА_Задолженности_1_семестр")
 LOCAL_DOCS = Path(r"C:\Users\Vaz\Documents")
-LOCAL_KNOWLEDGE = Path(r"C:\vazus\knowledge\mirea")
+LOCAL_KNOWLEDGE = Path(r"/home/tarhes/Проекты/vazus/knowledge/mirea")
 LOCAL_STUDY_OS = Path(r"C:\Users\Vaz\Documents\mirea_study_os")
 
 def safe_copy_tree(src: Path, dst: Path, overwrite: bool = False):

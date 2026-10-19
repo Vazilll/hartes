@@ -15,7 +15,7 @@ def _get_default_workspace() -> Path:
     for parent in Path(__file__).resolve().parents:
         if (parent / ".git").exists() or (parent / "services").exists() or parent.name.lower() == "vazus":
             return parent
-    return Path("C:/vazus")
+    return Path("/home/tarhes/Проекты/vazus")
 
 
 @dataclass

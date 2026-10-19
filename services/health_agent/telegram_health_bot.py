@@ -11,7 +11,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 BOT_TOKEN = "8359669053:AAHhDlCn3v7nOdEzsDyH0yH7kLd32gMX4dc"
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 def make_request(method, payload=None):
     url = API_URL + method

@@ -41,7 +41,6 @@ def analyze_lab_report_image(image_path, user_prompt=None, extract_layout=True):
         }
 
     import sys
-    from unittest.mock import MagicMock
 
     # Cloud Opt-In Gate: default 0 (False in prod).
     # Allows cloud if VAZUS_VISION_ALLOW_CLOUD == "1", or in test suites when mock genai is explicitly patched.
@@ -49,7 +48,10 @@ def analyze_lab_report_image(image_path, user_prompt=None, extract_layout=True):
     if not allow_cloud and "PYTEST_CURRENT_TEST" in os.environ:
         genai_mod = sys.modules.get("google.genai")
         if genai_mod is not None:
-            if isinstance(genai_mod, MagicMock) or isinstance(getattr(genai_mod, "Client", None), MagicMock):
+            client_cls = getattr(genai_mod, "Client", None)
+            if "mock" in type(genai_mod).__name__.lower() or (
+                client_cls is not None and "mock" in type(client_cls).__name__.lower()
+            ):
                 allow_cloud = True
 
     if not allow_cloud:

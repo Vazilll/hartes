@@ -1,8 +1,9 @@
 # ==============================================================================
-# Vazus SuperGraph OS — Optional Local AI & Inference Dependencies
+# Vazus OS — Optional Local AI & Inference Dependencies
 # ==============================================================================
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-torch>=2.4.0 --index-url https://download.pytorch.org/whl/cpu
+torch>=2.4.0
 transformers>=4.44.0
 openvino>=2024.4.0
 optimum>=1.22.0

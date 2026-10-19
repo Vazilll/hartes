@@ -19,7 +19,7 @@ class WikiCompiler:
     WIKILINK_PATTERN = re.compile(r'\[\[(.*?)\]\]')
 
     def __init__(self, wiki_root: Optional[Path] = None):
-        self.wiki_root = Path(wiki_root or "C:/vazus/services/memory/semantic/wiki").resolve()
+        self.wiki_root = Path(wiki_root or "/home/tarhes/Проекты/vazus/services/memory/semantic/wiki").resolve()
         self.wiki_root.mkdir(parents=True, exist_ok=True)
         self.pages: Dict[str, str] = {}
         self.forward_links: Dict[str, Set[str]] = defaultdict(set)

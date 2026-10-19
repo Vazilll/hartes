@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Optional, Union, List, Dict, Any
 if TYPE_CHECKING:
     pass
 
-DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"C:\vazus\services\memory\vazus.db"
+DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 class SuperGraphMasterOrchestrator:
     def __init__(self, db_path=None):
@@ -200,10 +200,10 @@ class SuperGraphMasterOrchestrator:
         """
         Executes Requirement R3 AST pruning and token reduction on target_file,
         logging metadata to vazus.db and organic memory.
-        Defaults target_file to C:\\vazus\\vazus_core\\kgb_analytical_extractor.py if None.
+        Defaults target_file to /home/tarhes/Проекты/vazus/vazus_core/kgb_analytical_extractor.py if None.
         """
         if target_file is None:
-            target_file = r"C:\vazus\vazus_core\kgb_analytical_extractor.py"
+            target_file = r"/home/tarhes/Проекты/vazus/vazus_core/kgb_analytical_extractor.py"
 
         from vazus_core.verification.ast_pruner import ASTPruner
         pruned_code, stats = ASTPruner.prune_file(target_file, log_memory=True)

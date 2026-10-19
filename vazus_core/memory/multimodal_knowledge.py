@@ -436,7 +436,7 @@ def generate_thumbnail(
     Extracts keyframe at timestamp_sec from video_path or renders dark-mode preview card for audio/corrupt video.
     Saves image as JPEG to output_path and returns the absolute file path string.
     """
-    default_thumb_dir = "C:/vazus/knowledge/.thumbnails"
+    default_thumb_dir = "/home/tarhes/Проекты/vazus/knowledge/.thumbnails"
     os.makedirs(default_thumb_dir, exist_ok=True)
 
     if not output_path or os.path.isdir(output_path):
@@ -555,7 +555,7 @@ def _build_scene_metadata_dict(
 def hybrid_semantic_chunking(
     segments: List[Dict[str, Any]],
     source_file: str,
-    output_thumbnail_dir: str = "C:/vazus/knowledge/.thumbnails"
+    output_thumbnail_dir: str = "/home/tarhes/Проекты/vazus/knowledge/.thumbnails"
 ) -> List[Dict[str, Any]]:
     """
     Applies hybrid semantic chunking boundary decision matrix and tail merging logic to ASR segments,
@@ -691,7 +691,7 @@ def _transcribe_with_transformers_fallback(file_path: str) -> List[Dict[str, Any
 def transcribe_media_high_precision(
     file_path: str,
     model_name: str = "large-v3-turbo",
-    output_thumbnail_dir: str = "C:/vazus/knowledge/.thumbnails"
+    output_thumbnail_dir: str = "/home/tarhes/Проекты/vazus/knowledge/.thumbnails"
 ) -> List[Dict[str, Any]]:
     """
     High-precision ASR pipeline with language='ru', vad_filter=True, compute_type='int8',
@@ -719,7 +719,7 @@ def transcribe_media_high_precision(
 
 def transcribe_and_chunk_media(
     file_path: str,
-    output_thumbnail_dir: str = "C:/vazus/knowledge/.thumbnails"
+    output_thumbnail_dir: str = "/home/tarhes/Проекты/vazus/knowledge/.thumbnails"
 ) -> List[Dict[str, Any]]:
     """
     Transcribes audio/video file using high-precision ASR, applies hybrid semantic
@@ -786,7 +786,7 @@ def _persist_scene_nodes_and_edges(cursor: Any, sc: Dict[str, Any], emb: Any) ->
 
 def index_scenes_to_supergraph(
     scenes: List[Dict[str, Any]],
-    db_path: str = "C:/vazus/services/memory/vazus.db"
+    db_path: str = "/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 ) -> int:
     """
     Generates 768D vector embeddings using UnifiedEmbeddingManager and persists

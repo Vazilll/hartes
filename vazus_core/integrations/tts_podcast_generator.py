@@ -4,7 +4,7 @@ vazus_core/tts_podcast_generator.py — TTS Audio Synthesizer for NotebookLM 2-H
 Features:
 1. 🎙️ Converts 2-host conversational scripts ('Алексей' & 'Елена') into MP3/WAV audio files.
 2. 🔊 Uses gTTS / pyttsx3 fallback with Russian voice modulation.
-3. 📂 Saves podcasts to C:/vazus/knowledge/.podcasts/podcast_<id>.mp3 for web player streaming.
+3. 📂 Saves podcasts to /home/tarhes/Проекты/vazus/knowledge/.podcasts/podcast_<id>.mp3 for web player streaming.
 
 vazus SuperGraph OS Ecosystem
 """
@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-PODCAST_DIR = Path("C:/vazus/knowledge/.podcasts")
+PODCAST_DIR = Path("/home/tarhes/Проекты/vazus/knowledge/.podcasts")
 PODCAST_DIR.mkdir(parents=True, exist_ok=True)
 
 

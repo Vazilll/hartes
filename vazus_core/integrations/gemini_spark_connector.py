@@ -12,8 +12,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-SPARK_PIPELINE_PATH = "C:/vazus/services/gemini_bridge/spark_task_pipeline.json"
-BRIDGE_DIR = "C:/vazus/services/gemini_bridge"
+SPARK_PIPELINE_PATH = "/home/tarhes/Проекты/vazus/services/gemini_bridge/spark_task_pipeline.json"
+BRIDGE_DIR = "/home/tarhes/Проекты/vazus/services/gemini_bridge"
 PUBLIC_URL_PATH = os.path.join(BRIDGE_DIR, "public_url.txt")
 
 

@@ -15,6 +15,8 @@ Eliminates memory fragmentation, split-brain knowledge, and redundant queries.
 
 import os
 import re
+import heapq
+import sqlite3
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Union
@@ -27,7 +29,7 @@ from vazus_core.memory.db import DEFAULT_VAZUS_DB
 logger = logging.getLogger("vazus_core.memory.gateway")
 
 DEFAULT_DB_PATH: str = DEFAULT_VAZUS_DB
-DEFAULT_WIKI_ROOT: str = r"C:\vazus\services\memory\semantic\wiki"
+DEFAULT_WIKI_ROOT: str = r"/home/tarhes/Проекты/vazus/services/memory/semantic/wiki"
 
 
 class UnifiedMemoryGateway:
@@ -86,6 +88,73 @@ class UnifiedMemoryGateway:
             "entity": entity,
         }
 
+    def crystallize_insight(
+        self,
+        category: str,
+        insight_text: str,
+        node_id: Optional[str] = None,
+        timestamp: Optional[float] = None,
+    ) -> Optional[int]:
+        """
+        Crystallizes a verified architectural optimization or rejected candidate
+        into the organic_insights ledger with bitemporal deduplication and idempotence.
+        """
+        if not node_id:
+            import hashlib
+            digest = hashlib.sha256(f"{category}:{insight_text}".encode()).hexdigest()[:16]
+            resolved_node_id = f"node_{digest}"
+        else:
+            resolved_node_id = node_id
+
+        import time
+        valid_ts = timestamp if timestamp is not None else time.time()
+
+        try:
+            with self.pool.connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT id FROM organic_insights WHERE node_id = ?",
+                    (resolved_node_id,),
+                )
+                existing = cur.fetchone()
+                if existing:
+                    cur.execute(
+                        """
+                        UPDATE organic_insights
+                        SET category = ?, insight = ?, timestamp = ?, created_at = datetime('now')
+                        WHERE id = ?
+                        """,
+                        (category, insight_text, valid_ts, existing[0]),
+                    )
+                    insight_id = existing[0]
+                else:
+                    try:
+                        cur.execute(
+                            """
+                            INSERT INTO organic_insights (category, insight, timestamp, node_id, created_at)
+                            VALUES (?, ?, ?, ?, datetime('now'))
+                            """,
+                            (category, insight_text, valid_ts, resolved_node_id),
+                        )
+                        insight_id = cur.lastrowid
+                    except sqlite3.IntegrityError:
+                        cur.execute(
+                            """
+                            UPDATE organic_insights
+                            SET category = ?, insight = ?, timestamp = ?, created_at = datetime('now')
+                            WHERE node_id = ?
+                            """,
+                            (category, insight_text, valid_ts, resolved_node_id),
+                        )
+                        cur.execute("SELECT id FROM organic_insights WHERE node_id = ?", (resolved_node_id,))
+                        row = cur.fetchone()
+                        insight_id = row[0] if row else None
+                conn.commit()
+                return insight_id
+        except (sqlite3.Error, OSError) as e:
+            logger.warning("[MemoryGateway] Failed to crystallize insight: %s", e)
+            return None
+
     def recall(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
         Unified recall across Episodic memory (Mem0), Organic insights, and Code topology.
@@ -109,38 +178,55 @@ class UnifiedMemoryGateway:
             cursor = conn.cursor()
             try:
                 q_words = [w.strip() for w in re.findall(r"\w+", query.lower()) if len(w.strip()) > 2]
+                rows = []
                 if q_words:
-                    conditions = " OR ".join(["insight LIKE ? OR category LIKE ?" for _ in q_words])
-                    params = []
-                    for w in q_words:
-                        params.extend([f"%{w}%", f"%{w}%"])
-                    cursor.execute(f"""
-                        SELECT category, insight FROM organic_insights
-                        WHERE {conditions}
-                        ORDER BY id DESC LIMIT 50
-                    """, params)
+                    try:
+                        fts_query = " OR ".join(f'"{w}"' for w in q_words)
+                        cursor.execute(
+                            "SELECT category, insight FROM organic_insights_fts "
+                            "WHERE organic_insights_fts MATCH ? ORDER BY rank LIMIT 50",
+                            (fts_query,),
+                        )
+                        rows = cursor.fetchall()
+                    except (sqlite3.OperationalError, sqlite3.DatabaseError) as fts_err:
+                        logger.debug("[MemoryGateway] FTS recall fallback: %s", fts_err)
+                        rows = []
+
+                    if not rows:
+                        conditions = " OR ".join(["insight LIKE ? OR category LIKE ?" for _ in q_words])
+                        params = []
+                        for w in q_words:
+                            params.extend([f"%{w}%", f"%{w}%"])
+                        cursor.execute(
+                            f"SELECT category, insight FROM organic_insights WHERE {conditions} ORDER BY id DESC LIMIT 50",
+                            params,
+                        )
+                        rows = cursor.fetchall()
                 else:
-                    cursor.execute("""
-                        SELECT category, insight FROM organic_insights
-                        ORDER BY id DESC LIMIT 10
-                    """)
+                    cursor.execute("SELECT category, insight FROM organic_insights ORDER BY id DESC LIMIT 10")
+                    rows = cursor.fetchall()
 
                 q_token_set = set(q_words)
-                for row in cursor.fetchall():
+                organic_matches = []
+                seen_insights = set()
+                for row in rows:
                     cat, ins = row[0], row[1]
-                    ins_tokens = set(re.findall(r"\w+", (ins or "").lower()))
+                    if not ins or ins in seen_insights:
+                        continue
+                    seen_insights.add(ins)
+                    ins_tokens = set(re.findall(r"\w+", ins.lower()))
                     overlap = len(q_token_set & ins_tokens) / max(1, len(q_token_set)) if q_token_set else 0.5
                     # Dynamic score based on lexical overlap
                     relevance_score = 0.5 + (0.5 * overlap)
-                    results.append({
+                    organic_matches.append({
                         "source": "sqlite_organic",
                         "content": ins,
                         "score": round(relevance_score, 3),
                         "category": cat
                     })
-            except Exception as e:
+                results.extend(heapq.nlargest(top_k, organic_matches, key=lambda x: x["score"]))
+            except (sqlite3.Error, OSError) as e:
                 logger.warning(f"[MemoryGateway] SQLite recall warning: {e}")
-
         # 3. Search Karpathy Markdown Wiki notes (title + full text content)
         try:
             wiki_matches = []
@@ -188,9 +274,8 @@ class UnifiedMemoryGateway:
             })
 
         # Sort aggregated results across all 4 layers by confidence score
-        results.sort(key=lambda x: x.get("score", 0.0), reverse=True)
-        return results[:top_k]
-
+        # Select top_k aggregated results across all 4 layers by confidence score
+        return heapq.nlargest(top_k, results, key=lambda x: x.get("score", 0.0))
     def query_code_symbol(self, symbol_name: str) -> str:
         """Retrieves exact deterministic 1-hop AST topology for a code symbol."""
         return self.graphify.get_compact_subgraph_context(symbol_name)

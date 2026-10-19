@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-PROJECT_ROOT = Path("C:/vazus")
-DB_PATH = Path("C:/vazus/services/memory/vazus.db")
-TOKEN_PATH = Path("C:/vazus/token.json") if Path("C:/vazus/token.json").exists() else Path("C:/vazus/data/sessions/token.json")
-CREDENTIALS_PATH = Path("C:/vazus/credentials.json") if Path("C:/vazus/credentials.json").exists() else Path("C:/vazus/data/sessions/credentials.json")
-WIKI_DIR = Path("C:/vazus/services/memory/semantic/wiki")
+PROJECT_ROOT = Path("/home/tarhes/Проекты/vazus")
+DB_PATH = Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+TOKEN_PATH = Path("/home/tarhes/Проекты/vazus/token.json") if Path("/home/tarhes/Проекты/vazus/token.json").exists() else Path("/home/tarhes/Проекты/vazus/data/sessions/token.json")
+CREDENTIALS_PATH = Path("/home/tarhes/Проекты/vazus/credentials.json") if Path("/home/tarhes/Проекты/vazus/credentials.json").exists() else Path("/home/tarhes/Проекты/vazus/data/sessions/credentials.json")
+WIKI_DIR = Path("/home/tarhes/Проекты/vazus/services/memory/semantic/wiki")
 
 SUPER_SCOPES = [
     "https://www.googleapis.com/auth/fitness.activity.read",

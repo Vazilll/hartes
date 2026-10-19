@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 from vazus_core.memory.db import get_db_connection
 from vazus_core.memory.embeddings import get_embedding_manager
 
-DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"C:\vazus\services\memory\vazus.db"
+DB_PATH = os.environ.get("VAZUS_DB_PATH") or r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 
 class Mem0Engine:

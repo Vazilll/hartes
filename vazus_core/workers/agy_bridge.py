@@ -83,7 +83,7 @@ class AgyBridge:
             cmd.append("--dangerously-skip-permissions")
 
         t0 = asyncio.get_event_loop().time()
-        work_dir = str(cwd) if cwd else r"C:\vazus"
+        work_dir = str(cwd) if cwd else r"/home/tarhes/Проекты/vazus"
 
         try:
             proc = await asyncio.create_subprocess_exec(

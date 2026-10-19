@@ -18,7 +18,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-INBOX_PATH = Path("C:/vazus/services/memory/semantic/wiki/inbox")
+INBOX_PATH = Path("/home/tarhes/Проекты/vazus/services/memory/semantic/wiki/inbox")
 PROFILE_PATH = Path("C:/Users/Vaz/AppData/Local/Google/Chrome/User Data")
 FALLBACK_PROFILE = Path("C:/Users/Vaz/.vazus_keep_browser_profile")
 

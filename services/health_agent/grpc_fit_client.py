@@ -3,8 +3,8 @@ import time
 import asyncio
 import grpc
 
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 import health_telemetry_pb2
 import health_telemetry_pb2_grpc

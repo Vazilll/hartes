@@ -26,7 +26,7 @@ from vazus_core.engine.config import settings
 from vazus_core.memory.db import get_db_connection
 from vazus_core.memory.embeddings import get_embedding
 
-DEFAULT_WHISPER_PATH = Path("C:/vazus/services/memory/knowledge/.whisper_cache/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf")
+DEFAULT_WHISPER_PATH = Path("/home/tarhes/Проекты/vazus/services/memory/knowledge/.whisper_cache/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo/snapshots/0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf")
 
 
 def _sanitize_filename(title: str) -> str:

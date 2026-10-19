@@ -5,7 +5,7 @@ vazus.scripts.sync_user_notes — Automated Multi-Source Note Ingestion & Memory
 Scans:
   1. C:\\Users\\Vaz\\Documents\\Саморазвитие\\Конспекты_и_Заметки\\
   2. G:\\My Drive\\dnts_vault\\ (Obsidian vault)
-  3. C:\\vazus\\services\\memory\\ (NOTES.md, STUDY.md, USER.md)
+  3. /home/tarhes/Проекты/vazus/services/memory/ (NOTES.md, STUDY.md, USER.md)
   4. vazus.db (mem0_facts 768D semantic memory)
 
 Ensures that all user notes, priorities, psychological deconstructions, and university
@@ -24,10 +24,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("sync_user_notes")
 
 # Ensure vazus root in path
-sys.path.insert(0, "C:/vazus")
+sys.path.insert(0, "/home/tarhes/Проекты/vazus")
 
-NOTES_MD_PATH = Path(r"C:\vazus\services\memory\NOTES.md")
-USER_MD_PATH = Path(r"C:\vazus\services\memory\USER.md")
+NOTES_MD_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/NOTES.md")
+USER_MD_PATH = Path(r"/home/tarhes/Проекты/vazus/services/memory/USER.md")
 LOCAL_NOTES_DIR = Path(r"C:\Users\Vaz\Documents\Саморазвитие\Конспекты_и_Заметки")
 DRIVE_VAULT_DIR = Path(r"G:\My Drive\dnts_vault")
 

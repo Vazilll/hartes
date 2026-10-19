@@ -24,7 +24,7 @@ logger = logging.getLogger("vazus_core.embeddings")
 try:
     import dotenv
     for candidate in [
-        Path("C:/vazus/.env"),
+        Path("/home/tarhes/Проекты/vazus/.env"),
         Path(__file__).resolve().parents[2] / ".env",
         Path(__file__).resolve().parents[1] / ".env"
     ]:
@@ -73,27 +73,22 @@ class OpenVINONPUEmbedder:
 
         if model_path is None:
             cands = [
-                MODELS_DIR / "openvino_paraphrase_mpnet" / "openvino_model.xml",
-                MODELS_DIR / "openvino_multilingual_e5" / "openvino_model.xml",
-                MODELS_DIR / "openvino_npu" / "embedder_768d.xml",
-                Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_paraphrase_mpnet" / "openvino_model.xml",
-                Path(__file__).resolve().parents[2] / "data" / "models" / "openvino_multilingual_e5" / "openvino_model.xml",
-                Path(__file__).resolve().parents[2] / "models" / "openvino_npu" / "embedder_768d.xml",
-                Path("models/openvino_npu/embedder_768d.xml"),
+                MODELS_DIR / "embeddinggemma-2-onnx" / "onnx" / "model_q4.onnx",
+                Path("/home/tarhes/Проекты/harnet/data/models/embeddinggemma-2-onnx/onnx/model_q4.onnx"),
             ]
             for c in cands:
                 if c.exists():
                     model_path = str(c)
                     break
-        self.model_path = str(model_path or (MODELS_DIR / "openvino_paraphrase_mpnet" / "openvino_model.xml"))
+        self.model_path = str(model_path or (MODELS_DIR / "embeddinggemma-2-onnx" / "onnx" / "model_q4.onnx"))
 
-        # Fast local Rust tokenizer (loads in 12ms instead of 8s transformers overhead)
+        # Fast local Rust tokenizer (EmbeddingGemma-2 262k vocab)
         self._fast_tokenizer = None
         tok_candidates = [
+            MODELS_DIR / "embeddinggemma-2-onnx" / "tokenizer.json",
+            Path("/home/tarhes/Проекты/harnet/data/models/embeddinggemma-2-onnx/tokenizer.json"),
             Path(self.model_path).parent / "tokenizer.json",
-            Path(self.model_path).parent / "tokenizer" / "tokenizer.json",
-            MODELS_DIR / "openvino_paraphrase_mpnet" / "tokenizer.json",
-            MODELS_DIR / "openvino_multilingual_e5" / "tokenizer.json",
+            Path(self.model_path).parent.parent / "tokenizer.json",
         ]
         self._tok_dir = Path(self.model_path).parent
         for tok_json in tok_candidates:
@@ -101,7 +96,6 @@ class OpenVINONPUEmbedder:
                 try:
                     from tokenizers import Tokenizer
                     self._fast_tokenizer = Tokenizer.from_file(str(tok_json))
-                    self._fast_tokenizer.enable_padding(length=128)
                     self._fast_tokenizer.enable_truncation(max_length=128)
                     self._tok_dir = tok_json.parent
                     break
@@ -114,7 +108,8 @@ class OpenVINONPUEmbedder:
 
         try:
             self.core = ov.Core()
-            cache_dir = Path("C:/vazus/data/cache/openvino")
+            vazus_root = Path(__file__).resolve().parents[2]
+            cache_dir = vazus_root / "data" / "cache" / "openvino"
             cache_dir.mkdir(parents=True, exist_ok=True)
             try:
                 self.core.set_property({"CACHE_DIR": str(cache_dir)})
@@ -132,19 +127,22 @@ class OpenVINONPUEmbedder:
 
             if os.path.exists(self.model_path):
                 self.model = self.core.read_model(self.model_path)
-                try:
-                    # Intel NPU VPUX compiler requires static input dimensions
-                    self.model.reshape({
-                        "input_ids": [1, self.max_seq_len],
-                        "attention_mask": [1, self.max_seq_len]
-                    })
-                except Exception as reshape_err:
-                    logger.debug("Model reshape for NPU notice: %s", reshape_err)
+                is_gemma2_mm = len(self.model.inputs) >= 5
+                if is_gemma2_mm:
+                    ordered = ["CPU"]
+                else:
+                    try:
+                        self.model.reshape({
+                            "input_ids": [1, self.max_seq_len],
+                            "attention_mask": [1, self.max_seq_len]
+                        })
+                    except Exception as reshape_err:
+                        logger.debug("Model reshape for NPU notice: %s", reshape_err)
 
                 for dev in ordered:
                     try:
                         compile_config = {
-                            "PERFORMANCE_HINT": "THROUGHPUT",
+                            "PERFORMANCE_HINT": "LATENCY",
                             "CACHE_DIR": str(cache_dir)
                         }
                         self._compiled_model = self.core.compile_model(
@@ -155,7 +153,7 @@ class OpenVINONPUEmbedder:
                         self._infer_request = self._compiled_model.create_infer_request()
                         self.device = dev
                         self._initialized = True
-                        logger.info("OpenVINO 768D Embedder initialized on device: %s (cached in %s)", dev, cache_dir)
+                        logger.info("OpenVINO 768D Embedder (EmbeddingGemma-2) initialized on device: %s", dev)
                         break
                     except Exception as dev_err:
                         logger.debug("OpenVINO compile on %s failed: %s", dev, dev_err)
@@ -171,7 +169,7 @@ class OpenVINONPUEmbedder:
 
     def embed_tokens(self, input_ids: np.ndarray, attention_mask: Optional[np.ndarray] = None) -> list[float]:
         """
-        Executes hardware-accelerated OpenVINO inference leaving host CPU at 0% load.
+        Executes hardware-accelerated OpenVINO EmbeddingGemma-2 inference.
         """
         if not self._initialized:
             raise RuntimeError("OpenVINO NPU embedder is not initialized")
@@ -183,41 +181,48 @@ class OpenVINONPUEmbedder:
             cur_ids = input_ids.astype(np.int64)
             if cur_ids.ndim == 1:
                 cur_ids = cur_ids.reshape(1, -1)
-            if cur_ids.shape[1] < self.max_seq_len:
-                pad = np.zeros((1, self.max_seq_len - cur_ids.shape[1]), dtype=np.int64)
-                cur_ids = np.hstack([cur_ids, pad])
-            elif cur_ids.shape[1] > self.max_seq_len:
+            if cur_ids.shape[1] > self.max_seq_len:
                 cur_ids = cur_ids[:, :self.max_seq_len]
 
-            inputs_dict = {"input_ids": cur_ids}
+            is_gemma2_mm = self._compiled_model is not None and len(self._compiled_model.inputs) >= 5
+            if not is_gemma2_mm and cur_ids.shape[1] < self.max_seq_len:
+                pad = np.zeros((1, self.max_seq_len - cur_ids.shape[1]), dtype=np.int64)
+                cur_ids = np.hstack([cur_ids, pad])
+
             if attention_mask is not None:
                 cur_mask = attention_mask.astype(np.int64)
                 if cur_mask.ndim == 1:
                     cur_mask = cur_mask.reshape(1, -1)
-                if cur_mask.shape[1] < self.max_seq_len:
-                    pad = np.zeros((1, self.max_seq_len - cur_mask.shape[1]), dtype=np.int64)
+                if cur_mask.shape[1] > cur_ids.shape[1]:
+                    cur_mask = cur_mask[:, :cur_ids.shape[1]]
+                elif cur_mask.shape[1] < cur_ids.shape[1]:
+                    pad = np.zeros((1, cur_ids.shape[1] - cur_mask.shape[1]), dtype=np.int64)
                     cur_mask = np.hstack([cur_mask, pad])
-                elif cur_mask.shape[1] > self.max_seq_len:
-                    cur_mask = cur_mask[:, :self.max_seq_len]
-                inputs_dict["attention_mask"] = cur_mask
             else:
-                inputs_dict["attention_mask"] = (cur_ids != 0).astype(np.int64)
+                cur_mask = (cur_ids != 0).astype(np.int64)
 
-            # Dictionary-based infer handles input port naming and shape broadcast cleanly
             with self._infer_lock:
-                res = self._infer_request.infer(inputs_dict)
-                out_tensor = list(res.values())[0]  # First output is last_hidden_state [batch, seq_len, 768]
-            
-            if len(out_tensor.shape) == 3:
-                # Masked mean pooling across valid attention tokens
-                mask = inputs_dict.get("attention_mask")
-                if mask is not None:
-                    mask_expanded = np.expand_dims(mask, -1).astype(np.float32)
-                    sum_embeddings = np.sum(out_tensor * mask_expanded, axis=1)
-                    sum_mask = np.clip(np.sum(mask_expanded, axis=1), a_min=1e-9, a_max=None)
-                    pooled = (sum_embeddings / sum_mask)[0]
+                if is_gemma2_mm:
+                    empty_mm = np.zeros((0, 512), dtype=np.float32)
+                    self._infer_request.infer({
+                        0: cur_ids,
+                        1: cur_mask,
+                        2: empty_mm,
+                        3: empty_mm,
+                        4: empty_mm,
+                    })
+                    out_idx = 1 if len(self._compiled_model.outputs) > 1 else 0
+                    out_tensor = self._infer_request.get_output_tensor(out_idx).data
                 else:
-                    pooled = np.mean(out_tensor, axis=1)[0]
+                    inputs_dict = {"input_ids": cur_ids, "attention_mask": cur_mask}
+                    res = self._infer_request.infer(inputs_dict)
+                    out_tensor = list(res.values())[0]
+
+            if len(out_tensor.shape) == 3:
+                mask_expanded = np.expand_dims(cur_mask, -1).astype(np.float32)
+                sum_embeddings = np.sum(out_tensor * mask_expanded, axis=1)
+                sum_mask = np.clip(np.sum(mask_expanded, axis=1), a_min=1e-9, a_max=None)
+                pooled = (sum_embeddings / sum_mask)[0]
             elif len(out_tensor.shape) == 2:
                 pooled = out_tensor[0]
             else:
@@ -489,7 +494,7 @@ class UnifiedEmbeddingManager:
     def search_unified_vector_space(
         self,
         query: str,
-        db_path: Path | str = Path("C:/vazus/services/memory/vazus.db"),
+        db_path: Path | str = Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db"),
         top_k: int = 10,
         domain_filter: str | None = None
     ) -> list[dict[str, Any]]:
@@ -559,8 +564,8 @@ class UnifiedEmbeddingManager:
     def _search_sqlite_native(self, query_vec, query_words, db_path, top_k, domain_filter):
         from vazus_core.memory.db import get_db_connection
         db_path = Path(db_path)
-        if not db_path.exists() and Path("C:/vazus/services/memory/vazus.db").exists():
-            db_path = Path("C:/vazus/services/memory/vazus.db")
+        if not db_path.exists() and Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db").exists():
+            db_path = Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db")
         if not db_path.exists():
             return []
 

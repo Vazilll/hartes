@@ -23,7 +23,7 @@ os.environ["OV_ENABLE_PROFILING"] = "0"
 
 import openvino_genai as ov_genai
 
-MODEL_DIR = "C:/vazus/models/gemma-4-e2b-it-int4-ov"
+MODEL_DIR = "/home/tarhes/Проекты/vazus/models/gemma-4-e2b-it-int4-ov"
 
 def check_model_complete() -> bool:
     """Проверяет наличие всех нужных файлов."""
@@ -60,7 +60,7 @@ def load_pipeline(device: str = "GPU") -> ov_genai.VLMPipeline:
             # Latency hint — не держать лишних инференс-очередей
             "PERFORMANCE_HINT": "LATENCY",
             # GPU кэш скомпилированных ядер
-            "CACHE_DIR": "C:/vazus/models/.ov_cache",
+            "CACHE_DIR": "/home/tarhes/Проекты/vazus/models/.ov_cache",
         }
     elif device == "CPU":
         device_config = {
@@ -68,7 +68,7 @@ def load_pipeline(device: str = "GPU") -> ov_genai.VLMPipeline:
             "PERFORMANCE_HINT": "LATENCY",
             "INFERENCE_NUM_THREADS": "4",  # 4 потока вместо 16 — меньше энергопотребления
             "ENABLE_CPU_PINNING": "NO",
-            "CACHE_DIR": "C:/vazus/models/.ov_cache",
+            "CACHE_DIR": "/home/tarhes/Проекты/vazus/models/.ov_cache",
         }
 
     print(f"[*] Loading VLMPipeline on {device}...", flush=True)

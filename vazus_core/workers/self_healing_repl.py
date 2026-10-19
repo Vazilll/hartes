@@ -149,7 +149,7 @@ class SelfHealingREPLManager:
         """Runs external pytest or regression command within sandbox."""
         cmd_args = test_cmd if isinstance(test_cmd, list) else shlex.split(test_cmd)
         try:
-            proc = subprocess.run(cmd_args, capture_output=True, text=True, timeout=30, cwd=r"C:\vazus")
+            proc = subprocess.run(cmd_args, capture_output=True, text=True, timeout=30, cwd=r"/home/tarhes/Проекты/vazus")
             output = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
             if proc.returncode != 0:
                 return False, output, f"Test command exited with status code {proc.returncode}"

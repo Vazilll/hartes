@@ -16,8 +16,9 @@ import pytest
 from pathlib import Path
 
 # Ensure root workspace is on sys.path
-if "C:/vazus" not in sys.path and "C:\\vazus" not in sys.path:
-    sys.path.insert(0, "C:/vazus")
+_ROOT = str(Path(__file__).resolve().parent.parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from vazus_core.hooks.pre_tool_hook import run_pre_tool, _validate_security_policies
 from vazus_core.hooks.stop_hook import _increment_block_count, _clear_block_count
@@ -28,14 +29,14 @@ from vazus_core.engine.health_registry import health_registry
 
 def test_pre_tool_hook_allowed_safe_action():
     """Verifies that standard safe editing actions pass validation cleanly."""
-    res = run_pre_tool("write_to_file", {"TargetFile": r"C:\vazus\tests\sample.py", "CodeContent": "x = 1"})
+    res = run_pre_tool("write_to_file", {"TargetFile": "/home/tarhes/Проекты/vazus/tests/sample.py", "CodeContent": "x = 1"})
     assert res.get("decision") == "allow"
     assert "validated" in res.get("reason", "")
 
 
 def test_pre_tool_hook_blocks_forbidden_path():
     """Verifies that writes to protected paths (e.g. .git) are denied."""
-    res = run_pre_tool("write_to_file", {"TargetFile": r"C:\vazus\.git\config", "CodeContent": "malicious"})
+    res = run_pre_tool("write_to_file", {"TargetFile": "/home/tarhes/Проекты/vazus/.git/config", "CodeContent": "malicious"})
     assert res.get("decision") == "deny"
 
 

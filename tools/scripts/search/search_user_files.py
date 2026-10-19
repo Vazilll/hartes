@@ -6,7 +6,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 search_dirs = [
     r"C:\Users\Vaz\Documents",
     r"C:\Users\Vaz\Downloads",
-    r"C:\vazus"
+    r"/home/tarhes/Проекты/vazus"
 ]
 
 keywords = ["Кодировка", "Системы", "Домик", "Домик2", "4C3B", "D35E", "9B7D", "Практическая работа"]

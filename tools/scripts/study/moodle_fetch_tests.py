@@ -21,7 +21,7 @@ sys.stderr.reconfigure(encoding="utf-8")
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"
 
-sys.path.insert(0, r"C:\vazus")
+sys.path.insert(0, r"/home/tarhes/Проекты/vazus")
 from vazus_core.integrations.mirea_exporter import (
     load_env_credentials,
     MoodleSessionManager,
@@ -36,7 +36,7 @@ SEMESTER_1_COURSES = [
     {"id": 16017, "title": "Иностранный язык", "folder": "04_english_it"},
 ]
 
-OUTPUT_DIR = Path(r"C:\vazus\knowledge\mirea\tests")
+OUTPUT_DIR = Path(r"/home/tarhes/Проекты/vazus/knowledge/mirea/tests")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -64,7 +64,7 @@ def do_login(mgr: MoodleSessionManager, otp_code: str = None) -> bool:
             print("\n" + "=" * 60)
             print("📩 [2FA ТРЕБУЕТСЯ] 6-значный код отправлен на почту zhukov.m.d1@edu.mirea.ru!")
             print("Для завершения входа запустите команду:")
-            print(f"python C:\\vazus\\scripts\\moodle_fetch_tests.py --code <ВАШ_КОД>")
+            print(f"python /home/tarhes/Проекты/vazus/scripts/moodle_fetch_tests.py --code <ВАШ_КОД>")
             print("=" * 60 + "\n")
             return False
 

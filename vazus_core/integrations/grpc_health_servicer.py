@@ -4,7 +4,7 @@ try:
 except ImportError as e:
     raise ImportError(
         f"vazus_core.grpc_health_servicer: cannot import from "
-        f"'C:/vazus/services/health_agent/grpc_health_servicer.py'. "
+        f"'/home/tarhes/Проекты/vazus/services/health_agent/grpc_health_servicer.py'. "
         f"Ensure the file exists and has no syntax errors. Original error: {e}"
     ) from e
 

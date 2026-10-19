@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-_HA_DIR = str(Path("C:/vazus/services/health_agent").resolve())
+_HA_DIR = str(Path("/home/tarhes/Проекты/vazus/services/health_agent").resolve())
 if _HA_DIR not in sys.path:
     sys.path.insert(0, _HA_DIR)
 
@@ -10,7 +10,7 @@ try:
 except ImportError as e:
     raise ImportError(
         f"vazus_core.langgraph_health_workflow: cannot import from "
-        f"'C:/vazus/services/health_agent/langgraph_health_workflow.py'. "
+        f"'/home/tarhes/Проекты/vazus/services/health_agent/langgraph_health_workflow.py'. "
         f"Ensure the file exists and has no syntax errors. Original error: {e}"
     ) from e
 

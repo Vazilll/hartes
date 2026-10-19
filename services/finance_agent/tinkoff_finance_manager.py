@@ -16,19 +16,19 @@ import urllib3
 from datetime import datetime, timedelta, timezone
 
 sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(r"C:\vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
-TOKEN_PATH = r"C:\vazus\tinkoff_token.txt"
+DB_PATH = os.getenv("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+TOKEN_PATH = r"/home/tarhes/Проекты/vazus/tinkoff_token.txt"
 TINKOFF_API_BASE = "https://invest-public-api.tinkoff.ru/rest/"
 
 def _get_effective_db_path(db_path=None):
     if db_path is not None:
         return db_path
     vazus_tfm = sys.modules.get("vazus_core.tinkoff_finance_manager")
-    if vazus_tfm and hasattr(vazus_tfm, "DB_PATH") and vazus_tfm.DB_PATH != r"C:\vazus\services\memory\vazus.db":
+    if vazus_tfm and hasattr(vazus_tfm, "DB_PATH") and vazus_tfm.DB_PATH != r"/home/tarhes/Проекты/vazus/services/memory/vazus.db":
         return vazus_tfm.DB_PATH
     return os.getenv("VAZUS_DB_PATH") or DB_PATH
 

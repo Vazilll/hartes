@@ -21,7 +21,7 @@ import sys
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("update_parameter")
 
-sys.path.insert(0, "C:/vazus")
+sys.path.insert(0, "/home/tarhes/Проекты/vazus")
 from vazus_core.memory.reactive_parameters import get_parameter_engine
 
 

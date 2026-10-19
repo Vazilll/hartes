@@ -29,7 +29,7 @@ class AsyncWorktreeWorker:
 
     def __init__(
         self,
-        repo_root: Union[str, Path] = r"C:\vazus",
+        repo_root: Union[str, Path] = r"/home/tarhes/Проекты/vazus",
         max_workers: int = 4,
         snapshot_items: Optional[List[str]] = None,
     ):

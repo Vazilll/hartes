@@ -11,8 +11,8 @@ import sqlite3
 from datetime import datetime
 
 sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 try:
     import vazus_core.integrations.google_multimodal_vision as google_multimodal_vision
@@ -31,7 +31,7 @@ def analyze_lab_report_image(image_path, user_prompt=None, extract_layout=True):
         image_path, user_prompt=user_prompt, extract_layout=extract_layout
     )
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 def _safe_float(val, default=0.0):
     """

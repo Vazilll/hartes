@@ -21,7 +21,7 @@ class SuperGraphBridge:
     Synchronizes Layer 1 static code symbols and relationships into vazus.db (kg_nodes / kg_edges).
     """
 
-    def __init__(self, db_path: str = DEFAULT_VAZUS_DB, workspace_root: str = r"C:\vazus"):
+    def __init__(self, db_path: str = DEFAULT_VAZUS_DB, workspace_root: str = r"/home/tarhes/Проекты/vazus"):
         self.db_path = db_path
         self.workspace_root = Path(workspace_root).resolve()
 

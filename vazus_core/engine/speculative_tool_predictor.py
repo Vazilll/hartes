@@ -43,11 +43,11 @@ logger = logging.getLogger("vazus_core.engine.speculative_tool_predictor")
 # ---------------------------------------------------------------------------
 # Paths & constants
 # ---------------------------------------------------------------------------
-_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
-_TIMESFM_LOCAL = "C:/vazus/data/models/timesfm3"
-_JULIA_ONNX_PATH = "C:/vazus/data/models/julia_router/julia_classifier.onnx"
-_JULIA_CONFIG_PATH = "C:/vazus/data/models/julia_router/config.json"
-_JULIA_TOKENIZER_PATH = "C:/vazus/data/models/openvino_npu/tokenizer/tokenizer.json"
+_DB_PATH = Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db")
+_TIMESFM_LOCAL = "/home/tarhes/Проекты/vazus/data/models/timesfm3"
+_JULIA_ONNX_PATH = "/home/tarhes/Проекты/vazus/data/models/julia_router/julia_classifier.onnx"
+_JULIA_CONFIG_PATH = "/home/tarhes/Проекты/vazus/data/models/julia_router/config.json"
+_JULIA_TOKENIZER_PATH = "/home/tarhes/Проекты/vazus/data/models/openvino_npu/tokenizer/tokenizer.json"
 
 _WINDOW_SIZE = 128      # sliding window of last N activations
 _HORIZON = 8            # forecast this many steps ahead

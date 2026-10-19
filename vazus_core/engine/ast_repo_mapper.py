@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 from collections import defaultdict
 
-VAZUS_ROOT = Path("C:/vazus")
+VAZUS_ROOT = Path("/home/tarhes/Проекты/vazus")
 
 
 class ASTRepoMapper:

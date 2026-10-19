@@ -131,7 +131,7 @@ class CustomizationSnapshot:
 # ─────────────────────────────────────────────────────────
 
 GLOBAL_CONFIG  = Path(r"C:\Users\Vaz\.gemini\config")
-WORKSPACE_ROOT = Path(r"C:\vazus")
+WORKSPACE_ROOT = Path(r"/home/tarhes/Проекты/vazus")
 AGENTS_DIR     = WORKSPACE_ROOT / ".agents"
 SKILLS_DIR     = GLOBAL_CONFIG / "skills"
 PLUGINS_DIR    = GLOBAL_CONFIG / "plugins"
@@ -246,7 +246,7 @@ class CustomizationScanner:
 
     def _check_status(self, name: str, cmd: str, args: List[str]) -> str:
         if "vazus_organic_mcp" in " ".join(args):
-            return "ready" if Path(r"C:\vazus\tools\scripts\vazus_organic_mcp.py").exists() else "missing"
+            return "ready" if Path(r"/home/tarhes/Проекты/vazus/tools/scripts/vazus_organic_mcp.py").exists() else "missing"
         if "playwright" in " ".join(args):
             return "lazy"
         return "configured"
@@ -338,7 +338,7 @@ class CustomizationsHUD:
             f"Skills: {CYAN}{len(snap.skills)}{RESET}  "
             f"MCP: {YELLOW}{len(snap.mcp_servers)}{RESET}  "
             f"Plugins: {MAGENTA}{len(snap.plugins)}{RESET}",
-            f"Workspace: {BOLD}C:\\vazus{RESET}    Global: {BOLD}~/.gemini/config{RESET}",
+            f"Workspace: {BOLD}/home/tarhes/Проекты/vazus{RESET}    Global: {BOLD}~/.gemini/config{RESET}",
         ]
         for l in _box(f"AGY CUSTOMIZATIONS HUD  [{ts}]", lines, color=CYAN):
             _p(l)

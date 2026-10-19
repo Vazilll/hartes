@@ -17,7 +17,7 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
-# Ensure workspace root (C:\vazus) is in sys.path
+# Ensure workspace root (/home/tarhes/Проекты/vazus) is in sys.path
 workspace_root = str(Path(__file__).resolve().parent.parent)
 if workspace_root not in sys.path:
     sys.path.insert(0, workspace_root)
@@ -29,7 +29,7 @@ from vazus_core.engine.reasoning_effort_controller import ReasoningEffortControl
 
 DEFAULT_SKILLS_DIRS = [
     r"C:\Users\Vaz\.gemini\config\skills",
-    r"C:\vazus"
+    r"/home/tarhes/Проекты/vazus"
 ]
 
 
@@ -84,7 +84,7 @@ class TranscriptLoopGuardrails:
             err_msg = (
                 f"[GUARDRAIL BLOCKED] Binary image extension detected ({ext}) on view_file('{path.name}'). "
                 f"Calling view_file on binary images corrupts context streams. "
-                f"Use 'python C:\\vazus\\clip_ocr.py' or RapidOCR script instead."
+                f"Use 'python /home/tarhes/Проекты/vazus/clip_ocr.py' or RapidOCR script instead."
             )
             return False, err_msg
         return True, "Path is valid text/code file"
@@ -93,7 +93,7 @@ class TranscriptLoopGuardrails:
     def enforce_windows_sandbox_bypass(cls, command_kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """
         Enforces BypassSandbox: True on Windows CLI commands targeting local drive paths
-        (e.g., C:\\vazus, C:\\Users\\Vaz) to prevent permission denied retry loops.
+        (e.g., /home/tarhes/Проекты/vazus, C:\\Users\\Vaz) to prevent permission denied retry loops.
         """
         if sys.platform == "win32":
             command_kwargs["BypassSandbox"] = True

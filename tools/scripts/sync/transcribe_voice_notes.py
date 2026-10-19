@@ -12,11 +12,11 @@ def transcribe_and_append():
     model = WhisperModel("tiny", device="cpu", compute_type="int8")
     
     files = [
-        ("3868", r"C:\vazus\data\voice_notes\media_msg_3868"),
-        ("3869", r"C:\vazus\data\voice_notes\media_msg_3869"),
+        ("3868", r"/home/tarhes/Проекты/vazus/data/voice_notes/media_msg_3868"),
+        ("3869", r"/home/tarhes/Проекты/vazus/data/voice_notes/media_msg_3869"),
     ]
     
-    out_file = r"C:\vazus\data\voice_notes\pavel_inakov_2026_09_20_transcription.md"
+    out_file = r"/home/tarhes/Проекты/vazus/data/voice_notes/pavel_inakov_2026_09_20_transcription.md"
     
     lines = []
     for msg_id, file_path in files:

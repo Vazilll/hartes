@@ -24,7 +24,7 @@ class RepoMapEngine:
     Constructs PageRank-weighted structural repository maps.
     """
 
-    def __init__(self, workspace_root: str = r"C:\vazus", max_tokens: int = 1024):
+    def __init__(self, workspace_root: str = r"/home/tarhes/Проекты/vazus", max_tokens: int = 1024):
         self.workspace_root = Path(workspace_root).resolve()
         self.max_tokens = max_tokens
         self.definitions: Dict[str, Set[str]] = defaultdict(set)

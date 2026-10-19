@@ -27,8 +27,8 @@ try:
     DEFAULT_WIKI_DIR = str(_settings.WIKI_DIR)
     DEFAULT_DB_PATH = str(_settings.VAZUS_DB_PATH)
 except ImportError:
-    DEFAULT_WIKI_DIR = os.getenv("VAZUS_WIKI_DIR", r"C:\vazus\services\memory\semantic\wiki")
-    DEFAULT_DB_PATH = os.getenv("VAZUS_DB_PATH", r"C:\vazus\services\memory\vazus.db")
+    DEFAULT_WIKI_DIR = os.getenv("VAZUS_WIKI_DIR", r"/home/tarhes/Проекты/vazus/services/memory/semantic/wiki")
+    DEFAULT_DB_PATH = os.getenv("VAZUS_DB_PATH", r"/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 # Try importing SuperGraphLinker via canonical path only
 try:

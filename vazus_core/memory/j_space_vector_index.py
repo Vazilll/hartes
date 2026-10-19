@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-DEFAULT_DB_PATH = Path("C:/vazus/services/memory/vazus.db")
+DEFAULT_DB_PATH = Path("/home/tarhes/Проекты/vazus/services/memory/vazus.db")
 
 
 class JSpaceVectorIndex:

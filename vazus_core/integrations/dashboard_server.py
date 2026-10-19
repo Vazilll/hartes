@@ -83,8 +83,30 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         try:
             if path in ("/", "/dashboard.html", "/index.html"):
                 self.handle_serve_html()
+            elif path == "/favicon.ico":
+                self.send_response(204)
+                self.end_headers()
+                return
             elif path in ("/api/health", "/healthz", "/health"):
                 self.send_json_response({"status": "ok", "service": "vazus-supergraph-os", "timestamp": datetime.datetime.now().isoformat()})
+            elif path == "/api/v1/system/overview":
+                self.handle_system_overview()
+            elif path == "/api/v1/knowledge/insights":
+                self.handle_knowledge_insights(query_params)
+            elif path == "/api/v1/academic/debts":
+                self.handle_academic_debts()
+            elif path == "/api/v1/tools/catalog":
+                self.handle_tools_catalog(query_params)
+            elif path == "/api/v1/wiki/tree":
+                self.handle_wiki_tree()
+            elif path == "/api/v1/wiki/content":
+                self.handle_wiki_content(query_params)
+            elif path == "/api/v1/finance/summary":
+                self.handle_finance_summary()
+            elif path == "/api/v1/health/summary":
+                self.handle_health_summary()
+            elif path == "/api/v1/ai/status":
+                self.handle_ai_status()
             elif path == "/api/v1/knowledge/search":
                 self.handle_search(query_params)
             elif path == "/api/v1/knowledge/stream":
@@ -114,7 +136,9 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         path = parsed_url.path
 
         try:
-            if path == "/api/v1/cognitive/evaluate-answer":
+            if path == "/api/v1/security/verify":
+                self.handle_security_verify()
+            elif path == "/api/v1/cognitive/evaluate-answer":
                 self.handle_cognitive_evaluate_answer()
             elif path == "/api/v1/wiki/checkbox":
                 self.handle_wiki_checkbox()
@@ -218,7 +242,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def _resolve_media_stream_path(self, raw_path: str) -> tuple[Optional[Path], bool]:
         file_path = Path(urllib.parse.unquote(raw_path))
-        allowed_base = Path("C:/vazus").resolve()
+        allowed_base = Path("/home/tarhes/Проекты/vazus").resolve()
         try:
             resolved_path = file_path.resolve()
             resolved_path.relative_to(allowed_base)
@@ -309,7 +333,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         clean_path = urllib.parse.unquote(raw_path)
         file_path = Path(clean_path)
 
-        allowed_base = Path("C:/vazus").resolve()
+        allowed_base = Path("/home/tarhes/Проекты/vazus").resolve()
         try:
             resolved_path = file_path.resolve()
             resolved_path.relative_to(allowed_base)
@@ -321,7 +345,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
             return
 
         if not resolved_path.exists():
-            default_thumb_dir = Path("C:/vazus/knowledge/.thumbnails")
+            default_thumb_dir = Path("/home/tarhes/Проекты/vazus/knowledge/.thumbnails")
             fallback_path = default_thumb_dir / file_path.name
             try:
                 resolved_path = fallback_path.resolve()
@@ -582,7 +606,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _resolve_wiki_note_file(raw_id: str) -> Optional[Path]:
-        wiki_base = Path("C:/vazus/services/memory/semantic/wiki").resolve()
+        wiki_base = Path("/home/tarhes/Проекты/vazus/services/memory/semantic/wiki").resolve()
         clean_id = urllib.parse.unquote(raw_id).strip()
         if not clean_id:
             return None
@@ -700,7 +724,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def handle_notebooklm_study_guides(self):
         try:
-            guide_dir = Path("C:/vazus/knowledge/.study_guides")
+            guide_dir = Path("/home/tarhes/Проекты/vazus/knowledge/.study_guides")
             guides = []
             if guide_dir.exists():
                 for f in guide_dir.glob("*.md"):
@@ -716,7 +740,7 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
 
     def handle_notebooklm_podcasts(self):
         try:
-            podcast_dir = Path("C:/vazus/knowledge/.podcasts")
+            podcast_dir = Path("/home/tarhes/Проекты/vazus/knowledge/.podcasts")
             podcasts = []
             if podcast_dir.exists():
                 for f in podcast_dir.glob("*.*"):
@@ -742,12 +766,308 @@ class DashboardRequestHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)
 
-    def handle_notebooklm_generate_study_guide(self):
+    def handle_system_overview(self):
         try:
-            from vazus_core.integrations.notebook_synthesis_engine import NotebookSynthesisEngine
-            engine = NotebookSynthesisEngine()
-            guide = engine.generate_study_guide(title="Общий Учебный Гид по Базе Знаний")
-            self.send_json_response({"status": "ok", "guide": guide})
+            from vazus_core.paths import DEFAULT_DB_PATH, VAZUS_ROOT
+            from vazus_core.engine.health_registry import health_registry
+            import platform
+
+            db_target = Path(self.db_path) if self.db_path else DEFAULT_DB_PATH
+            db_size_mb = round(db_target.stat().st_size / (1024 * 1024), 2) if db_target.exists() else 0.0
+
+            table_counts = {}
+            if db_target.exists():
+                try:
+                    conn = sqlite3.connect(str(db_target), timeout=2.0)
+                    cur = conn.cursor()
+                    tables_to_check = [
+                        "organic_insights", "kg_nodes", "kg_edges", "j_space_tool_metadata",
+                        "j_space_tool_activations", "finance_transactions", "nutrition_log",
+                        "mirea_milestones", "mem0_facts", "telemetry_function_hits", "improvement_suggestions"
+                    ]
+                    for tbl in tables_to_check:
+                        try:
+                            cur.execute(f"SELECT count(*) FROM {tbl}")
+                            table_counts[tbl] = cur.fetchone()[0]
+                        except Exception:
+                            table_counts[tbl] = 0
+                    conn.close()
+                except Exception:
+                    pass
+
+            health_rep = health_registry.get_health_report()
+
+            cpu_pct = 0.0
+            ram_pct = 0.0
+            ram_used_gb = 0.0
+            ram_total_gb = 0.0
+            try:
+                import psutil
+                cpu_pct = psutil.cpu_percent(interval=None)
+                ram = psutil.virtual_memory()
+                ram_pct = ram.percent
+                ram_used_gb = round((ram.used / (1024**3)), 1)
+                ram_total_gb = round((ram.total / (1024**3)), 1)
+            except Exception:
+                pass
+
+            overview = {
+                "system": {
+                    "platform": platform.platform(),
+                    "python_version": platform.python_version(),
+                    "vazus_root": str(VAZUS_ROOT),
+                    "db_path": str(db_target),
+                    "db_size_mb": db_size_mb,
+                    "cpu_percent": cpu_pct,
+                    "ram_used_gb": ram_used_gb,
+                    "ram_total_gb": ram_total_gb,
+                    "ram_percent": ram_pct,
+                },
+                "health": health_rep,
+                "metrics": table_counts,
+                "timestamp": datetime.datetime.now().isoformat(),
+            }
+            self.send_json_response(overview)
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_knowledge_insights(self, query_params):
+        try:
+            q = query_params.get("query", [""])[0].strip()
+            limit = min(int(query_params.get("limit", [60])[0]), 200)
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            cur = conn.cursor()
+            if q:
+                cur.execute(
+                    "SELECT id, category, insight, timestamp, created_at FROM organic_insights WHERE insight LIKE ? OR category LIKE ? ORDER BY id DESC LIMIT ?",
+                    (f"%{q}%", f"%{q}%", limit),
+                )
+            else:
+                cur.execute(
+                    "SELECT id, category, insight, timestamp, created_at FROM organic_insights ORDER BY id DESC LIMIT ?",
+                    (limit,),
+                )
+            rows = [
+                {
+                    "id": r[0],
+                    "category": r[1] or "General",
+                    "insight": r[2],
+                    "tags": r[1] or "Insight",
+                    "created_at": str(r[4] or r[3] or "")[:19],
+                }
+                for r in cur.fetchall()
+            ]
+            conn.close()
+            self.send_json_response({"total": len(rows), "insights": rows})
+        except Exception as e:
+            self.send_json_response({"error": str(e), "insights": []}, status=500)
+
+    def handle_academic_debts(self):
+        try:
+            deadline = datetime.date(2026, 10, 15)
+            today = datetime.date.today()
+            days_remaining = max(0, (deadline - today).days)
+
+            debts = []
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            cur = conn.cursor()
+            try:
+                cur.execute("SELECT id, title, status, deadline, credits, difficulty, teacher, notes FROM mirea_milestones ORDER BY id ASC")
+                for r in cur.fetchall():
+                    debts.append({
+                        "id": str(r[0]),
+                        "title": r[1],
+                        "status": r[2] or "IN_PROGRESS",
+                        "deadline": r[3] or "15.10.2026",
+                        "credits": r[4] or 3,
+                        "difficulty": r[5] or "Medium",
+                        "teacher": r[6] or "Кафедра КИТПиПИ",
+                        "notes": r[7] or "",
+                    })
+            except Exception:
+                pass
+            conn.close()
+
+            if not debts:
+                canonical_18 = [
+                    ("1", "ЭВМ и периферийные устройства", "Кафедра КИТПиПИ", "High", 4, "Лабораторные 1-4, типовой расчет"),
+                    ("2", "Информатика", "Кафедра КИТПиПИ", "Medium", 3, "Тесты СДО, практические задания"),
+                    ("3", "Алгоритмы и структуры данных", "Кафедра КИТПиПИ", "High", 4, "Деревья, графы, балансировка"),
+                    ("4", "Высшая математика (Математический анализ)", "Кафедра ВМ", "High", 5, "Интегралы, ряды, ДУ"),
+                    ("5", "Физика", "Кафедра общей физики", "Medium", 4, "Лабораторные работы, коллоквиум"),
+                    ("6", "Базы данных", "Кафедра КИТПиПИ", "Medium", 3, "SQL нормализация, реляционные схемы"),
+                    ("7", "Объектно-ориентированное программирование", "Кафедра КИТПиПИ", "Medium", 4, "Паттерны проектирования, SOLID"),
+                    ("8", "Операционные системы", "Кафедра КИТПиПИ", "High", 4, "Процессы, потоки, планировщик Linux/Win32"),
+                    ("9", "Сети и телекоммуникации", "Кафедра КИТПиПИ", "Medium", 3, "TCP/IP, маршрутизация, Wireshark"),
+                    ("10", "Дискретная математика", "Кафедра ВМ", "Medium", 3, "Теория графов, логика предикатов"),
+                    ("11", "Архитектура вычислительных систем", "Кафедра КИТПиПИ", "High", 4, "Ассемблер, микроархитектура, конвейер"),
+                    ("12", "Теория вероятностей и математическая статистика", "Кафедра ВМ", "Medium", 3, "Случайные величины, регрессия"),
+                    ("13", "Инженерная и компьютерная графика", "Кафедра ИГ", "Low", 2, "Чертежи AutoCAD / Компас"),
+                    ("14", "Экология", "Кафедра экологии", "Low", 2, "Реферат, тестирование"),
+                    ("15", "История России", "Кафедра истории", "Low", 2, "Эссе, тест"),
+                    ("16", "Иностранный язык (Английский)", "Кафедра ИЯ", "Low", 2, "Технический перевод, лексика IT"),
+                    ("17", "Правоведение", "Кафедра права", "Low", 2, "Правовые основы в сфере IT"),
+                    ("18", "Физическая культура и спорт", "Кафедра ФК", "Low", 2, "Нормативы / реферат")
+                ]
+                debts = [
+                    {
+                        "id": d[0],
+                        "title": d[1],
+                        "teacher": d[2],
+                        "difficulty": d[3],
+                        "credits": d[4],
+                        "notes": d[5],
+                        "status": "ACADEMIC_DEBT",
+                        "deadline": "15.10.2026",
+                    }
+                    for d in canonical_18
+                ]
+
+            self.send_json_response({
+                "student": {
+                    "name": "Жуков Максим Дмитриевич",
+                    "group": "ИВБО-22-25",
+                    "student_id": "25И0566",
+                    "institute": "РТУ МИРЭА, ИИТ, кафедра КИТПиПИ",
+                },
+                "deadline": "2026-10-15",
+                "days_remaining": days_remaining,
+                "total_debts": len(debts),
+                "debts": debts
+            })
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_tools_catalog(self, query_params):
+        try:
+            q = query_params.get("query", [""])[0].strip().lower()
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            cur = conn.cursor()
+            cur.execute("SELECT tool_name, module, description, parameters_json, keywords, is_native FROM j_space_tool_metadata")
+            tools = []
+            for r in cur.fetchall():
+                t_name, mod, desc, schema, kw, is_nat = r[0], r[1], r[2], r[3], r[4], r[5]
+                if q and (q not in str(t_name).lower() and q not in str(desc).lower() and q not in str(mod).lower()):
+                    continue
+                tools.append({
+                    "id": t_name,
+                    "name": t_name,
+                    "module": mod or "vazus_core",
+                    "description": desc or "J-Space system tool",
+                    "schema": schema or "{}",
+                    "keywords": kw or "",
+                    "is_native": bool(is_nat)
+                })
+            conn.close()
+            self.send_json_response({"total": len(tools), "tools": tools})
+        except Exception as e:
+            self.send_json_response({"error": str(e), "tools": []}, status=500)
+
+    def handle_wiki_tree(self):
+        try:
+            from vazus_core.paths import MEMORY_DIR
+            files = []
+            for p in sorted(MEMORY_DIR.glob("*.md")):
+                files.append({
+                    "name": p.name,
+                    "size": p.stat().st_size,
+                    "modified": datetime.datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+                })
+            self.send_json_response({"files": files})
+        except Exception as e:
+            self.send_json_response({"error": str(e), "files": []}, status=500)
+
+    def handle_wiki_content(self, query_params):
+        try:
+            from vazus_core.paths import MEMORY_DIR
+            f_name = query_params.get("file", ["USER.md"])[0]
+            safe_name = Path(f_name).name
+            target = MEMORY_DIR / safe_name
+            if not target.exists() or not target.is_file():
+                self.send_error(404, "Wiki document not found")
+                return
+            content = target.read_text(encoding="utf-8", errors="replace")
+            self.send_json_response({"file": safe_name, "content": content})
+        except Exception as e:
+            self.send_json_response({"error": str(e)}, status=500)
+
+    def handle_security_verify(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(length).decode("utf-8")
+            data = json.loads(raw_body)
+            from vazus_core.verification.substrate_guard import SubstrateGuard, ToolCallRequest
+            guard = SubstrateGuard()
+            req = ToolCallRequest.from_raw(data.get("tool_name", "write_to_file"), data)
+            res = guard.verify_tool_action(req)
+            self.send_json_response(res)
+        except Exception as e:
+            self.send_json_response({"error": str(e), "decision": "deny", "reason": f"Verification error: {e}"}, status=400)
+
+    def handle_finance_summary(self):
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            cur = conn.cursor()
+            cur.execute("SELECT category, sum(amount_rub), count(*) FROM finance_transactions GROUP BY category")
+            categories = [{"category": r[0] or "Прочее", "total": round(r[1] or 0, 2), "count": r[2]} for r in cur.fetchall()]
+            cur.execute("SELECT id, timestamp, amount_rub, category, merchant, operation_type FROM finance_transactions ORDER BY id DESC LIMIT 20")
+            recent = [
+                {"id": r[0], "date": str(r[1])[:10] if r[1] else "", "amount": r[2], "category": r[3] or "Прочее", "description": r[4] or r[5] or ""}
+                for r in cur.fetchall()
+            ]
+            conn.close()
+            self.send_json_response({"categories": categories, "recent": recent})
+        except Exception as e:
+            self.send_json_response({"error": str(e), "categories": [], "recent": []}, status=500)
+
+    def handle_health_summary(self):
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=5.0)
+            cur = conn.cursor()
+            cur.execute("SELECT substr(timestamp, 1, 10) as d, sum(calories_kcal), sum(protein_g), sum(carbs_g), sum(fat_g) FROM nutrition_log GROUP BY d ORDER BY d DESC LIMIT 14")
+            nutrition = [
+                {"date": r[0] or "", "calories": round(r[1] or 0), "protein": round(r[2] or 0, 1), "carbs": round(r[3] or 0, 1), "fat": round(r[4] or 0, 1)}
+                for r in cur.fetchall()
+            ]
+            cur.execute("SELECT substr(timestamp, 1, 10), weight_kg, body_fat_pct, muscle_mass_kg FROM mi_scale_weighins ORDER BY id DESC LIMIT 10")
+            weighins = [
+                {"date": r[0] or "", "weight": r[1], "fat": r[2], "muscle": r[3]}
+                for r in cur.fetchall()
+            ]
+            conn.close()
+            self.send_json_response({"nutrition": nutrition, "weighins": weighins})
+        except Exception as e:
+            self.send_json_response({"error": str(e), "nutrition": [], "weighins": []}, status=500)
+
+    def handle_ai_status(self):
+        try:
+            import urllib.request
+            ollama_online = False
+            ollama_models = []
+            try:
+                req = urllib.request.Request("http://127.0.0.1:11434/api/tags", headers={"User-Agent": "Vazus/5.0"})
+                with urllib.request.urlopen(req, timeout=1.0) as resp:
+                    if resp.status == 200:
+                        ollama_online = True
+                        data = json.loads(resp.read().decode("utf-8"))
+                        ollama_models = [m.get("name") for m in data.get("models", [])]
+            except Exception:
+                pass
+
+            from vazus_core.paths import MODELS_DIR
+            gemma_installed = (MODELS_DIR / "gemma-4-e2b-it-int4-ov").exists()
+
+            self.send_json_response({
+                "openvino": {
+                    "gemma_installed": gemma_installed,
+                    "model_dir": str(MODELS_DIR / "gemma-4-e2b-it-int4-ov"),
+                },
+                "ollama": {
+                    "online": ollama_online,
+                    "host": "http://127.0.0.1:11434",
+                    "models": ollama_models
+                }
+            })
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)
 

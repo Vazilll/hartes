@@ -2,7 +2,7 @@
 vazus_core.paths
 ================
 Single Source of Truth (SSOT) for filesystem topology and cross-platform path resolution.
-Guarantees seamless execution on Windows (C:\\vazus), Linux (/app or /vazus), and Docker containers.
+Guarantees seamless execution on Windows (/home/tarhes/Проекты/vazus), Linux (/app or /vazus), and Docker containers.
 """
 
 from __future__ import annotations
@@ -60,12 +60,18 @@ def get_skill_search_dirs() -> list[Path]:
         user_profile = os.environ.get("USERPROFILE")
         if user_profile:
             dirs.append(Path(user_profile) / ".gemini" / "antigravity" / "builtin" / "skills")
-    else:
-        home = Path.home()
-        dirs.append(home / ".local" / "share" / "hermes" / "hermes-agent" / "skills")
-        dirs.append(home / ".gemini" / "antigravity" / "builtin" / "skills")
-        dirs.append(Path("/root/.gemini/antigravity/builtin/skills"))
-    return [d for d in dirs if d.exists()]
+    home = Path.home()
+    dirs.append(home / ".gemini" / "config" / "skills")
+    dirs.append(home / ".local" / "share" / "hermes" / "hermes-agent" / "skills")
+    dirs.append(home / ".gemini" / "antigravity" / "builtin" / "skills")
+    result: list[Path] = []
+    for d in dirs:
+        try:
+            if d.is_dir():
+                result.append(d)
+        except (PermissionError, OSError):
+            continue
+    return result
 
 
 def get_sqlite_ro_uri(db_path: Optional[Union[str, Path]] = None) -> str:

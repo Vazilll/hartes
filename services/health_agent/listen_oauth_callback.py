@@ -5,8 +5,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-CREDENTIALS_FILE = r"C:\vazus\credentials.json"
-TOKEN_FILE = r"C:\vazus\token.json"
+CREDENTIALS_FILE = r"/home/tarhes/Проекты/vazus/credentials.json"
+TOKEN_FILE = r"/home/tarhes/Проекты/vazus/token.json"
 
 SCOPES = [
     'https://www.googleapis.com/auth/fitness.activity.read',

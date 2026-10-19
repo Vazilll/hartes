@@ -10,8 +10,8 @@ and creating SuperMemo SM-2 active recall cards in vazus.db and Obsidian.
 import sys
 from pathlib import Path
 
-if "C:/vazus" not in sys.path and "C:\\vazus" not in sys.path:
-    sys.path.insert(0, "C:/vazus")
+if "/home/tarhes/Проекты/vazus" not in sys.path and "/home/tarhes/Проекты/vazus" not in sys.path:
+    sys.path.insert(0, "/home/tarhes/Проекты/vazus")
 
 import hashlib
 import json
@@ -44,7 +44,7 @@ class DialogueSynthesizer:
 
         self.db_path = db_path
         self.tutor = CognitiveTutorEngine(db_path=db_path)
-        self.wiki_dir = Path("C:/vazus/services/memory/semantic/wiki")
+        self.wiki_dir = Path("/home/tarhes/Проекты/vazus/services/memory/semantic/wiki")
         self.wiki_dir.mkdir(parents=True, exist_ok=True)
 
     def extract_core_dialogue_insights(self) -> List[Dict[str, Any]]:

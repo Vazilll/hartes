@@ -42,7 +42,7 @@ class GlobalJWorkspace:
         self.capacity = capacity
         self.embedding_dim = embedding_dim
         env_db = os.environ.get("VAZUS_DB_PATH")
-        self.db_path = db_path or env_db or r"C:\vazus\services\memory\vazus.db"
+        self.db_path = db_path or env_db or r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
         self.active_concepts: Dict[str, JSpaceConcept] = {}
         self.broadcast_history: List[Dict[str, Any]] = []
 

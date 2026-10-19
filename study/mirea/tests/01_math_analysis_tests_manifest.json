@@ -1,0 +1,405 @@
+{
+  "course": {
+    "id": 16479,
+    "title": "Математический анализ",
+    "folder": "01_math_analysis"
+  },
+  "items": [
+    {
+      "section": "Балльно-рейтинговая система по дисциплине 🌟",
+      "name": "Входной тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=770652",
+      "type": "quiz"
+    },
+    {
+      "section": "Балльно-рейтинговая система по дисциплине 🌟",
+      "name": "Входной тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=770652",
+      "type": "quiz"
+    },
+    {
+      "section": "Балльно-рейтинговая система по дисциплине 🌟",
+      "name": "Входной тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=770652",
+      "type": "quiz"
+    },
+    {
+      "section": "Балльно-рейтинговая система по дисциплине 🌟",
+      "name": "Входной тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=770652",
+      "type": "quiz"
+    },
+    {
+      "section": "Балльно-рейтинговая система по дисциплине 🌟",
+      "name": "Входной тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=770652",
+      "type": "quiz"
+    },
+    {
+      "section": "Балльно-рейтинговая система по дисциплине 🌟",
+      "name": "Входной тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=770652",
+      "type": "quiz"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 12-40 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842398",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 12-40 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842398",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 12-40 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842398",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 12-40 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842398",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 12-40 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842398",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 12-40 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842398",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 14-20 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842408",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 14-20 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842408",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 14-20 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842408",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 14-20 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842408",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 14-20 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842408",
+      "type": "assignment/test"
+    },
+    {
+      "section": "КОНСУЛЬТАЦИИ ПЕРЕД ЭКЗАМЕНОМ",
+      "name": "21.01. 14-20 Консультация перед экзаменом Шмурак МИ Математический анализВебинар MTS-LINK",
+      "url": "https://online-edu.mirea.ru/mod/webinars/view.php?id=842408",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Итоговый тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=876076",
+      "type": "quiz"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Итоговый тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=876076",
+      "type": "quiz"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Итоговый тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=876076",
+      "type": "quiz"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Итоговый тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=876076",
+      "type": "quiz"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Итоговый тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=876076",
+      "type": "quiz"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Итоговый тест",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=876076",
+      "type": "quiz"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Теоретические вопросы к промежуточной аттестацииФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768718",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Теоретические вопросы к промежуточной аттестацииФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768718",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Теоретические вопросы к промежуточной аттестацииФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768718",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Теоретические вопросы к промежуточной аттестацииФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768718",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Теоретические вопросы к промежуточной аттестацииФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768718",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Теоретические вопросы к промежуточной аттестацииФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768718",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Пример экзаменационного билета. Критерии оцениванияФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768719",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Пример экзаменационного билета. Критерии оцениванияФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768719",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Пример экзаменационного билета. Критерии оцениванияФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768719",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Пример экзаменационного билета. Критерии оцениванияФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768719",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Пример экзаменационного билета. Критерии оцениванияФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768719",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Пример экзаменационного билета. Критерии оцениванияФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768719",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Разбор задач экзаменационного билетаФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768720",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Разбор задач экзаменационного билетаФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768720",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Разбор задач экзаменационного билетаФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768720",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Разбор задач экзаменационного билетаФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768720",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Разбор задач экзаменационного билетаФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768720",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Разбор задач экзаменационного билетаФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768720",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Задачи для подготовки к экзаменуФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768721",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Задачи для подготовки к экзаменуФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768721",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Задачи для подготовки к экзаменуФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768721",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Задачи для подготовки к экзаменуФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768721",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Задачи для подготовки к экзаменуФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768721",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Зачет (экзамен)",
+      "name": "Аттестация. Задачи для подготовки к экзаменуФайл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768721",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. Разбор типовых задач экзамена (дополнительные)Файл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768771",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. Разбор типовых задач экзамена (дополнительные)Файл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768771",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. Разбор типовых задач экзамена (дополнительные)Файл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768771",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. Разбор типовых задач экзамена (дополнительные)Файл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768771",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. Разбор типовых задач экзамена (дополнительные)Файл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768771",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. Разбор типовых задач экзамена (дополнительные)Файл",
+      "url": "https://online-edu.mirea.ru/mod/resource/view.php?id=768771",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. [Видео] Разбор типовых задач экзамена (1 семестр)Страница",
+      "url": "https://online-edu.mirea.ru/mod/page/view.php?id=768778",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. [Видео] Разбор типовых задач экзамена (1 семестр)Страница",
+      "url": "https://online-edu.mirea.ru/mod/page/view.php?id=768778",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. [Видео] Разбор типовых задач экзамена (1 семестр)Страница",
+      "url": "https://online-edu.mirea.ru/mod/page/view.php?id=768778",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. [Видео] Разбор типовых задач экзамена (1 семестр)Страница",
+      "url": "https://online-edu.mirea.ru/mod/page/view.php?id=768778",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. [Видео] Разбор типовых задач экзамена (1 семестр)Страница",
+      "url": "https://online-edu.mirea.ru/mod/page/view.php?id=768778",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Дополнительные материалы",
+      "name": "Дополнительно. [Видео] Разбор типовых задач экзамена (1 семестр)Страница",
+      "url": "https://online-edu.mirea.ru/mod/page/view.php?id=768778",
+      "type": "assignment/test"
+    },
+    {
+      "section": "Ликвидация академической задолженности",
+      "name": "Итоговый тест (пересдача)",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=768082",
+      "type": "quiz"
+    },
+    {
+      "section": "Ликвидация академической задолженности",
+      "name": "Итоговый тест (пересдача)",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=768082",
+      "type": "quiz"
+    },
+    {
+      "section": "Ликвидация академической задолженности",
+      "name": "Итоговый тест (пересдача)",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=768082",
+      "type": "quiz"
+    },
+    {
+      "section": "Ликвидация академической задолженности",
+      "name": "Итоговый тест (пересдача)",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=768082",
+      "type": "quiz"
+    },
+    {
+      "section": "Ликвидация академической задолженности",
+      "name": "Итоговый тест (пересдача)",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=768082",
+      "type": "quiz"
+    },
+    {
+      "section": "Ликвидация академической задолженности",
+      "name": "Итоговый тест (пересдача)",
+      "url": "https://online-edu.mirea.ru/mod/quiz/view.php?id=768082",
+      "type": "quiz"
+    }
+  ]
+}

@@ -13,7 +13,7 @@ import argparse
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-VAZUS_DIR = Path("C:/vazus")
+VAZUS_DIR = Path("/home/tarhes/Проекты/vazus")
 RAYTSYSTEM_SRC = VAZUS_DIR / "labs" / "raytsystem" / "src"
 
 for p in [str(VAZUS_DIR), str(RAYTSYSTEM_SRC)]:
@@ -157,7 +157,7 @@ def calculate_discount(price: float, discount_rate: float) -> float:
 
     # Run Item 1: SMT Z3 & Jury
     verif_res = bridge.verify_code_with_jury_and_smt(
-        file_path="C:/vazus/labs/raytsystem/src/raytsystem/control.py",
+        file_path="/home/tarhes/Проекты/vazus/labs/raytsystem/src/raytsystem/control.py",
         code_content=sample_code,
         expected_functions=["calculate_discount"],
         smt_depth=10,

@@ -5,15 +5,15 @@ Extracts media manifests and downloads video/media files from:
   2) BIOMACHINE SPACE (@bmchnbot, ID: 6414975843)
 
 Saves metadata files to:
-  - C:\vazus\knowledge\telegram_courses\pokoritel_natashek_7_0_manifest.json
-  - C:\vazus\knowledge\telegram_courses\pokoritel_natashek_7_0_manifest.md
-  - C:\vazus\knowledge\telegram_courses\biomachine_space_manifest.json
-  - C:\vazus\knowledge\telegram_courses\biomachine_space_manifest.md
-  - C:\vazus\knowledge\telegram_courses\telegram_media_export_summary.md
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/pokoritel_natashek_7_0_manifest.json
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/pokoritel_natashek_7_0_manifest.md
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/biomachine_space_manifest.json
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/biomachine_space_manifest.md
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/telegram_media_export_summary.md
 
 Downloads media files to:
-  - C:\vazus\knowledge\telegram_courses\Курс «Покоритель Наташек 7.0»\
-  - C:\vazus\knowledge\telegram_courses\BIOMACHINE SPACE\
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/Курс «Покоритель Наташек 7.0»\
+  - /home/tarhes/Проекты/vazus/knowledge/telegram_courses/BIOMACHINE SPACE\
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ logger = logging.getLogger("media_exporter")
 
 API_ID = 20546097
 API_HASH = "60bf36fbdae62d5370f529a539b97542"
-SESSION_PATH = r"C:\vazus\data\sessions\user_telegram_session"
+SESSION_PATH = r"/home/tarhes/Проекты/vazus/data/sessions/user_telegram_session"
 BASE_DIR = Path(os.environ.get("VAZUS_COURSES_DIR", r"C:\Users\Vaz\Videos\Courses"))
 
 TARGETS = [

@@ -10,13 +10,13 @@ import sys
 import sqlite3
 
 sys.stdout.reconfigure(encoding='utf-8')
-sys.path.append(r"C:\vazus")
-sys.path.append(r"C:\vazus\vazus_core")
+sys.path.append(r"/home/tarhes/Проекты/vazus")
+sys.path.append(r"/home/tarhes/Проекты/vazus/vazus_core")
 
 from google_fit_sync import fetch_and_save_fitness_data
 from vazus_core.integrations.gemma_local_processor import GoogleGemmaLocalEngine
 
-DB_PATH = r"C:\vazus\services\memory\vazus.db"
+DB_PATH = r"/home/tarhes/Проекты/vazus/services/memory/vazus.db"
 
 class LangGraphHealthMultiAgentWorkflow:
     def __init__(self):

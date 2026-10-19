@@ -14,6 +14,8 @@ import pytest
 from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
+if str(WORKSPACE_ROOT) not in sys.path:
+    sys.path.insert(0, str(WORKSPACE_ROOT))
 CANONICAL_DB = (WORKSPACE_ROOT / "services" / "memory" / "vazus.db").resolve()
 
 from vazus_core.memory.db import (
