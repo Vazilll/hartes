@@ -1,1 +1,1 @@
-# vazus_core.integrations subpackage
+"""vazus_core.integrations — Domain integrations (MIREA, Finance, Telegram, Google Sync, Dashboard)."""

@@ -1,1 +1,1 @@
-# vazus_core.workers subpackage
+"""vazus_core.workers — Database backup and Google Jules client."""
