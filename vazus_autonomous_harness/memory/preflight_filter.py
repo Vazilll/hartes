@@ -55,6 +55,14 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
         self.violated_rule: Optional[ExecutableNegativeConstraint] = None
         self.violation_message: Optional[str] = None
 
+        # ⚡ Bolt Optimization: Pre-compile string operations for AST_PATTERN_DENY rules
+        # to avoid O(N*M) overhead inside recursive visit_Call iterations
+        self.deny_patterns = []
+        for rule in rules:
+            if rule.rule_type == "AST_PATTERN_DENY" and rule.pattern:
+                target = rule.pattern.replace("call:", "").replace("Call:", "").rstrip("(").strip().lower()
+                self.deny_patterns.append((rule, target))
+
     def check(self, tree: ast.AST) -> Tuple[bool, Optional[ExecutableNegativeConstraint], Optional[str]]:
         self.visit(tree)
         if self.violated_rule:
@@ -101,13 +109,14 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
             if isinstance(node.func.value, ast.Name):
                 full_name = f"{node.func.value.id}.{node.func.attr}"
 
-        for rule in self.rules:
-            if rule.rule_type == "AST_PATTERN_DENY":
-                target = rule.pattern.replace("call:", "").replace("Call:", "").rstrip("(").strip().lower()
-                if (func_name and func_name.lower() == target) or (full_name and full_name.lower() == target) or (target and target in full_name.lower()):
-                    self.violated_rule = rule
-                    self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
-                    return
+        func_name_lower = func_name.lower() if func_name else ""
+        full_name_lower = full_name.lower() if full_name else ""
+
+        for rule, target in self.deny_patterns:
+            if (func_name_lower == target) or (full_name_lower == target) or (target and target in full_name_lower):
+                self.violated_rule = rule
+                self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
+                return
 
         self.generic_visit(node)
 
