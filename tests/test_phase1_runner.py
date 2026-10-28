@@ -225,6 +225,44 @@ class TestHelpers:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Task
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestTask:
+    def test_task_content_hash(self):
+        class DummyTask(Task):
+            def __init__(self, prob: str, s: str):
+                super().__init__()
+                self._prob = prob
+                self._s = s
+            @property
+            def problem_description(self) -> str:
+                return self._prob
+            @property
+            def seed(self) -> str:
+                return self._s
+            def evaluator(self, candidate: Candidate) -> float:
+                return 0.0
+            def generate_candidate(self, planner_fn, dead_ends, round_n=1) -> Candidate:
+                return Candidate(code="")
+
+        task1 = DummyTask("desc A", "seed A")
+        task2 = DummyTask("desc A", "seed B")
+        task3 = DummyTask("desc B", "seed A")
+
+        # Deterministic
+        assert task1.content_hash() == task1.content_hash()
+
+        # Different seed or description produces different hashes
+        assert task1.content_hash() != task2.content_hash()
+        assert task1.content_hash() != task3.content_hash()
+        assert task2.content_hash() != task3.content_hash()
+
+        # Should match expected hash
+        expected_hash = hashlib.sha256(b"desc A|seed A").hexdigest()[:16]
+        assert task1.content_hash() == expected_hash
+
+# ─────────────────────────────────────────────────────────────────────────────
 # TaskRegistry
 # ─────────────────────────────────────────────────────────────────────────────
 
