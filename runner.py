@@ -306,7 +306,7 @@ def main(argv: Optional[list] = None) -> int:
         try:
             result = run(
                 task_name=args.task,
-                max_rounds=args.rounds,
+                max_rounds=getattr(args, "rounds", DEFAULT_MAX_ROUNDS),
                 model=args.model,
                 **task_kwargs,
             )
