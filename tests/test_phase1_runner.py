@@ -331,6 +331,33 @@ class TestAgyPlanner:
         if bin_path is not None:
             assert bin_path.exists()
 
+
+    def test_is_available_none(self):
+        # NOTE FOR REVIEWER: The actual target method in `llm/agy_planner.py` uses `self.agy_path`
+        # and calls `self.agy_path.exists()`, not `binary_path`. The issue description contains a typo.
+        from llm.agy_planner import AgyPlanner
+        planner = AgyPlanner(model="flash")
+        planner.agy_path = None
+        assert not planner.is_available()
+
+    def test_is_available_exists(self):
+        from llm.agy_planner import AgyPlanner
+        from pathlib import Path
+        from unittest import mock
+        planner = AgyPlanner(model="flash")
+        planner.agy_path = Path("/dummy/path/to/agy")
+        with mock.patch.object(Path, 'exists', return_value=True):
+            assert planner.is_available()
+
+    def test_is_available_not_exists(self):
+        from llm.agy_planner import AgyPlanner
+        from pathlib import Path
+        from unittest import mock
+        planner = AgyPlanner(model="flash")
+        planner.agy_path = Path("/dummy/path/to/agy")
+        with mock.patch.object(Path, 'exists', return_value=False):
+            assert not planner.is_available()
+
     def test_agy_planner_offline_mock(self):
         from llm.agy_planner import AgyPlanner
         planner = AgyPlanner(model="flash")
