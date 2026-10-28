@@ -340,3 +340,118 @@ class TestAgyPlanner:
         assert "thought_signature" in res
         assert res["model"] == "gemini-3.8-flash-high"
         assert "def foo" in res["response"]
+
+class TestRunnerMain:
+    def test_main_list_command(self, capsys, monkeypatch):
+        import runner
+        from tasks.registry import TaskRegistry
+        monkeypatch.setattr(TaskRegistry, "list_available", lambda: ["task_a", "task_b"])
+
+        result = runner.main(["list"])
+        assert result == runner.EXIT_SUCCESS
+
+        captured = capsys.readouterr()
+        assert "Available tasks:" in captured.out
+        assert "task_a" in captured.out
+        assert "task_b" in captured.out
+
+    def test_main_run_command_success(self, monkeypatch, capsys):
+        import runner
+
+        def mock_run(task_name, max_rounds, model, **kwargs):
+            assert task_name == "my_task"
+            assert max_rounds == runner.DEFAULT_MAX_ROUNDS
+            assert model == runner.DEFAULT_MODEL
+            return {
+                "status": "SUCCESS",
+                "score": 100.0,
+                "rounds_used": 1,
+                "duration_s": 1.0,
+                "best_candidate_preview": "def my_func(): pass"
+            }
+
+        monkeypatch.setattr(runner, "run", mock_run)
+
+        result = runner.main(["run", "--task", "my_task"])
+        assert result == runner.EXIT_SUCCESS
+
+        captured = capsys.readouterr()
+        assert "Status : SUCCESS" in captured.out
+        assert "Score  : 100.0/100.0" in captured.out
+
+    def test_main_run_command_error(self, monkeypatch, capsys):
+        import runner
+
+        def mock_run(*args, **kwargs):
+            return {
+                "status": "ERROR",
+                "score": 0.0,
+                "rounds_used": 1,
+                "duration_s": 1.0
+            }
+
+        monkeypatch.setattr(runner, "run", mock_run)
+
+        result = runner.main(["run", "--task", "my_task"])
+        assert result == runner.EXIT_ERROR
+
+    def test_main_run_command_exception(self, monkeypatch, capsys):
+        import runner
+
+        def mock_run(*args, **kwargs):
+            raise ValueError("Test exception")
+
+        monkeypatch.setattr(runner, "run", mock_run)
+
+        result = runner.main(["run", "--task", "my_task"])
+        assert result == runner.EXIT_ERROR
+
+    def test_main_daemon_command(self, monkeypatch):
+        import runner
+        from vazus_autonomous_harness.daemon.autonomous_flywheel import AutonomousFlywheelDaemon
+
+        class MockDaemon:
+            def __init__(self, interval_seconds, model, max_cycles):
+                self.interval_seconds = interval_seconds
+                self.model = model
+                self.max_cycles = max_cycles
+                self.started = False
+
+            def start(self):
+                self.started = True
+
+        monkeypatch.setattr(runner.sys.modules["vazus_autonomous_harness.daemon.autonomous_flywheel"], "AutonomousFlywheelDaemon", MockDaemon)
+
+        # we need to make sure the mocked class is imported inside the function
+        # since python caches imports, patching sys.modules should work if it's imported locally
+        # actually, easier is just to patch the module after it's loaded, but it's loaded locally.
+        # Let's mock the sys.modules before it's loaded
+
+        # better yet, monkeypatch the AutonomousFlywheelDaemon at its source
+        monkeypatch.setattr("vazus_autonomous_harness.daemon.autonomous_flywheel.AutonomousFlywheelDaemon", MockDaemon)
+
+        result = runner.main(["daemon", "--interval", "10", "--max-cycles", "5"])
+        assert result == runner.EXIT_SUCCESS
+
+    def test_main_run_with_json_output(self, monkeypatch, capsys):
+        import runner
+        import json
+
+        res_dict = {
+            "status": "SUCCESS",
+            "score": 95.0,
+            "rounds_used": 2,
+            "duration_s": 1.5
+        }
+
+        def mock_run(*args, **kwargs):
+            return res_dict
+
+        monkeypatch.setattr(runner, "run", mock_run)
+
+        result = runner.main(["run", "--task", "t", "--json"])
+        assert result == runner.EXIT_SUCCESS
+
+        captured = capsys.readouterr()
+        loaded = json.loads(captured.out)
+        assert loaded == res_dict
