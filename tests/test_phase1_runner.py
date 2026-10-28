@@ -340,3 +340,23 @@ class TestAgyPlanner:
         assert "thought_signature" in res
         assert res["model"] == "gemini-3.8-flash-high"
         assert "def foo" in res["response"]
+
+    def test_agy_planner_subprocess_error(self, monkeypatch):
+        import subprocess
+        from llm.agy_planner import AgyPlanner
+        import llm.agy_planner
+
+        planner = AgyPlanner(model="flash")
+
+        # Bypass mock and availability check
+        monkeypatch.setattr(llm.agy_planner, "is_test_mode", lambda: False)
+        monkeypatch.setattr(planner, "is_available", lambda: True)
+
+        # Make subprocess.run raise CalledProcessError
+        def mock_run(*args, **kwargs):
+            raise subprocess.CalledProcessError(1, 'cmd')
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+
+        with pytest.raises(RuntimeError, match="Failed to execute agy.exe: Command 'cmd' returned non-zero exit status 1."):
+            planner.plan("def foo(): return 1", history=[])
