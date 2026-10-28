@@ -378,7 +378,9 @@ class EpisodicMemoryStore:
         params.append(limit)
 
         cur.execute(query, params)
-        return [self._row_to_record(r) for r in cur.fetchall()]
+        # ⚡ Bolt: Optimize SQLite fetch loop
+        # Iterate directly over cursor to avoid fetchall() memory allocations
+        return [self._row_to_record(r) for r in cur]
 
     def increment_intercept_count(self, identifier: str, count: int = 1) -> bool:
         """
@@ -425,16 +427,20 @@ class EpisodicMemoryStore:
         rules: List[ExecutableNegativeConstraint] = []
         seen_patterns = set()
 
-        for row in cur.fetchall():
+        # ⚡ Bolt: Optimize JSON parsing in SQLite fetch loops
+        # Avoid fetchall() memory allocations and hoist json.loads
+        _loads = json.loads
+        for row in cur:
             if not row["negative_rules_json"]:
                 continue
             try:
-                data = json.loads(row["negative_rules_json"])
+                data = _loads(row["negative_rules_json"])
                 for item in data:
-                    rule = ExecutableNegativeConstraint.from_dict(item)
-                    if rule.pattern not in seen_patterns:
-                        seen_patterns.add(rule.pattern)
-                        rules.append(rule)
+                    # ⚡ Bolt: Defer heavy object instantiation until after deduplication check
+                    pat = item.get("pattern", "")
+                    if pat not in seen_patterns:
+                        seen_patterns.add(pat)
+                        rules.append(ExecutableNegativeConstraint.from_dict(item))
             except Exception as e:
                 logger.debug("Failed parsing negative_rules_json: %s", e)
 
@@ -464,7 +470,9 @@ class EpisodicMemoryStore:
                 """, (clean_query, limit))
 
                 results: List[Tuple[ReflexionRecord, float]] = []
-                for row in cur.fetchall():
+                # ⚡ Bolt: Optimize SQLite fetch loop
+                # Iterate directly over cursor to avoid memory allocations
+                for row in cur:
                     rec = self._row_to_record(row)
                     bm25_raw = float(row["bm25_rank"])
                     # Normalize BM25 rank to [0, 1] range (rank is negative)
