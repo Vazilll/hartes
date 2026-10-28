@@ -270,6 +270,8 @@ def _build_parser() -> argparse.ArgumentParser:
                        help=f"LLM model for agy. Options: flash (Gemini 3.8 Flash), flash-lite (Gemini 3.7 Flash), pro (Gemini 3.1 Pro), sonnet (Claude Sonnet 4.6), opus (Claude Opus 4.6). Default: {DEFAULT_MODEL}")
     run_p.add_argument("--json", dest="output_json", action="store_true",
                        help="Output result as JSON.")
+    run_p.add_argument("--rounds", type=int, default=DEFAULT_MAX_ROUNDS,
+                       help=f"Maximum number of rounds to run (default: {DEFAULT_MAX_ROUNDS}).")
 
     # daemon
     daemon_p = subparsers.add_parser("daemon", help="Run the always-on autonomous flywheel daemon.")
