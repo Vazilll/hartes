@@ -47,7 +47,9 @@ def test_gemini_planner_plan_success(mock_genai, clean_env):
     mock_chat = MagicMock()
     mock_client.start_chat.return_value = mock_chat
 
-    mock_resp = MagicMock()
+    class MockResp:
+        pass
+    mock_resp = MockResp()
     mock_resp.text = "test response"
 
     # Mocking usage metadata
@@ -106,7 +108,9 @@ def test_gemini_planner_call_proxy(mock_genai, clean_env):
     mock_chat = MagicMock()
     mock_client.start_chat.return_value = mock_chat
 
-    mock_resp = MagicMock()
+    class MockResp:
+        pass
+    mock_resp = MockResp()
     mock_resp.text = "test response"
     mock_resp.usage_metadata = None
     mock_chat.send_message.return_value = mock_resp
