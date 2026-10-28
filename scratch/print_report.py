@@ -1,21 +1,18 @@
-import json, sys
-sys.stdout.reconfigure(encoding='utf-8')
+import sys
+sys.path.append(".")
+import runner
+from unittest import mock
+import subprocess
 
-with open(r'C:\vazus\hartes\scratch\debt_retake_summary.json', 'r', encoding='utf-8') as f:
-    summary = json.load(f)
+def mock_run(*args, **kwargs):
+    raise subprocess.CalledProcessError(1, cmd="dummy")
 
-for num, items in summary.items():
-    print(f"\n==========================================")
-    print(f"=== ДОЛГ #{num} ({len(items)} записей в расписании) ===")
-    if not items:
-        print("  [!] Не найдено прямых записей в текущем файле (проверить СДО/деканат)")
-        continue
-    for idx, item in enumerate(items[:3], 1):
-        ivbo_mark = "🎯 [ИВБО!]" if item['is_ivbo'] else "  [Общий поток]"
-        print(f"{ivbo_mark} {item['discipline']}")
-        print(f"   Кафедра: {item['sheet']} | Преподаватель: {item['teacher']} | Формат: {item['format']}")
-        print(f"   Аудитория: {item['room']}")
-        print(f"   Даты: {item['dates']}")
-        print(f"   Время: {item['times']}")
-        if item['groups']:
-            print(f"   Группы: {item['groups'][:100]}...")
+with mock.patch("subprocess.run", mock_run):
+    result = runner.run(
+        task_name="code_optimizer",
+        max_rounds=1,
+        model="flash-lite",
+        inline_code="def foo(): pass",
+        test_command="pytest foo.py"
+    )
+    print(result)
