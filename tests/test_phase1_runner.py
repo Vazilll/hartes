@@ -217,6 +217,12 @@ class TestHelpers:
     def test_extract_top_level_names_empty_on_syntax_error(self):
         assert _extract_top_level_names(BAD_SYNTAX_CODE) == set()
 
+    def test_extract_top_level_names_syntax_error(self):
+        """Test that syntax errors in the target code evaluate as expected."""
+        # Using a distinct invalid syntax string just in case
+        invalid_code = "def parse_me!():\n    return 42"
+        assert _extract_top_level_names(invalid_code) == set()
+
     def test_extract_top_level_names_excludes_nested(self):
         code = "def outer():\n    def inner(): pass\n"
         names = _extract_top_level_names(code)
