@@ -15,7 +15,7 @@ import os
 import re
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 from vazus_autonomous_harness.skills.skill_tree import SkillTree, SkillNode
 from vazus_autonomous_harness.verification.smt_prover import SMTProver
