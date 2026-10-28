@@ -92,6 +92,8 @@ class AutonomousFlywheelDaemon:
         self.cycle_count = 0
         self.start_time = 0.0
         self.history: List[CycleResult] = []
+        self._mem_store = None
+        self._reflexion_gen = None
 
     def _ensure_queues(self) -> None:
         self.inbox_dir.mkdir(parents=True, exist_ok=True)
@@ -218,19 +220,22 @@ class AutonomousFlywheelDaemon:
 
                 # Record reflexion for future pre-flight filtering
                 try:
-                    from vazus_autonomous_harness.memory.reflexion_engine import ContinuousReflexionGenerator
-                    from vazus_autonomous_harness.memory.episodic_store import EpisodicMemoryStore
                     import traceback
-                    generator = ContinuousReflexionGenerator()
+                    if self._reflexion_gen is None:
+                        from vazus_autonomous_harness.memory.reflexion_engine import ContinuousReflexionGenerator
+                        self._reflexion_gen = ContinuousReflexionGenerator()
+                    if self._mem_store is None:
+                        from vazus_autonomous_harness.memory.episodic_store import EpisodicMemoryStore
+                        self._mem_store = EpisodicMemoryStore()
+
                     safe_directive = directive if 'directive' in locals() else {}
-                    record = generator.from_exception(
+                    record = self._reflexion_gen.from_exception(
                         task_id=safe_directive.get('directive_id', directive_file.stem),
                         candidate_code=json.dumps(safe_directive, ensure_ascii=False)[:500],
                         exc=exc,
                         traceback_str=traceback.format_exc(),
                     )
-                    mem_store = EpisodicMemoryStore()
-                    mem_store.record_failure(record)
+                    self._mem_store.record_failure(record)
                 except Exception:
                     pass  # reflexion is best-effort
 
