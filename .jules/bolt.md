@@ -9,3 +9,7 @@
 ## 2025-03-01 - [Cosine Similarity Vector Redundancy via C-math]
 **Learning:** Dense vector operations in pure Python can be vastly optimized in Python 3.12+ using `math.sumprod(v1, v2)` for dot products and `math.hypot(*vec)` for L2 norms, which operate at the C level. This bypasses the previously required slow single-pass Python loops or `map(operator.mul, ...)` workarounds, yielding ~3.8x - 5.3x speedups on 768D embeddings.
 **Action:** When working in Python 3.12+, default to `math.sumprod` and `math.hypot(*vec)` for L2 norms and dot products instead of manual unrolled loops.
+
+## 2024-10-28 - Optimized JSON Fetch Loop in Episodic Store
+**Learning:** `cur.fetchall()` eager allocation and duplicate `json.loads` inside hot database loops can create significant memory and CPU bottlenecks. Furthermore, using `sqlite3.register_converter('json', json.loads)` can sometimes be *slower* than a highly optimized direct Python loop because of C-API boundary overheads.
+**Action:** Iterate directly over the cursor (`for row in cur:`), hoist function lookups outside the loop (`_loads = json.loads`), and defer heavy object instantiation until after dictionary-level deduplication checks (`item.get("pattern")`).
