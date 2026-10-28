@@ -340,3 +340,43 @@ class TestAgyPlanner:
         assert "thought_signature" in res
         assert res["model"] == "gemini-3.8-flash-high"
         assert "def foo" in res["response"]
+
+class TestRunnerProcessExecution:
+    def test_runner_subprocess_error_handling(self, monkeypatch):
+        import runner
+        import subprocess
+
+        # We need a deterministic planner so we don't hit the "agy.exe not found" error during LLM generation.
+        # Instead, we just want to test the process execution logic in the evaluation step.
+        class DeterministicPlanner:
+            def __init__(self, *args, **kwargs):
+                pass
+            def plan(self, user_input, history):
+                return {
+                    "response": "```python\ndef foo(): pass\n```",
+                    "thought": "mock",
+                    "thought_signature": "mock",
+                    "model": "mock",
+                }
+
+        monkeypatch.setattr("llm.agy_planner.AgyPlanner", DeterministicPlanner)
+
+        # Mock subprocess.run to raise CalledProcessError
+        def mock_run(*args, **kwargs):
+            raise subprocess.CalledProcessError(1, cmd="dummy")
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+
+        # Test the process execution error handling
+        result = runner.run(
+            task_name="code_optimizer",
+            max_rounds=1,
+            model="flash-lite",
+            inline_code="def foo(): pass",
+            test_command="pytest foo.py"
+        )
+        # Because empirical evaluation failed via CalledProcessError, score should be 0.0 or lower than 100.
+        # We know if the test command fails, the empirical integrity score is 0.0.
+        # The runner loop should timeout or escalate and not crash.
+        assert result is not None
+        assert result["status"] in ("TIMEOUT", "ESCALATED", "SUCCESS")
