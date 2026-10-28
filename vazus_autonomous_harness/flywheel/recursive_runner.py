@@ -13,7 +13,7 @@ from typing import Dict, Any, List, Optional
 import time
 import logging
 
-from vazus_autonomous_harness.skills.skill_tree import SkillTree, SkillNode
+from vazus_autonomous_harness.skills.skill_tree import SkillTree
 from vazus_autonomous_harness.skills.substrate_guard import SubstrateGuard
 from vazus_autonomous_harness.skills.skill_distiller import SkillDistiller
 from vazus_autonomous_harness.meta_search.epistemic_engine import EpistemicSearchEngine
