@@ -34,7 +34,6 @@ from vazus_autonomous_harness.telemetry.cloud_bridge import (
     CloudTelemetryBridge,
     DEFAULT_DRIVE_ROOT,
     LOCAL_FALLBACK_ROOT,
-    SystemHealthReport,
 )
 
 logger = logging.getLogger("hartes.flywheel.daemon")
