@@ -87,6 +87,10 @@ class AutonomousFlywheelDaemon:
         self.outbox_dir = self.drive_root / "spark_outbox"
         self._ensure_queues()
 
+        # Lazy loaded components
+        self._reflexion_generator = None
+        self._episodic_store = None
+
         # State
         self.running = False
         self.cycle_count = 0
@@ -218,19 +222,25 @@ class AutonomousFlywheelDaemon:
 
                 # Record reflexion for future pre-flight filtering
                 try:
-                    from vazus_autonomous_harness.memory.reflexion_engine import ContinuousReflexionGenerator
-                    from vazus_autonomous_harness.memory.episodic_store import EpisodicMemoryStore
                     import traceback
-                    generator = ContinuousReflexionGenerator()
                     safe_directive = directive if 'directive' in locals() else {}
-                    record = generator.from_exception(
+
+                    if self._reflexion_generator is None:
+                        from vazus_autonomous_harness.memory.reflexion_engine import ContinuousReflexionGenerator
+                        self._reflexion_generator = ContinuousReflexionGenerator()
+
+                    record = self._reflexion_generator.from_exception(
                         task_id=safe_directive.get('directive_id', directive_file.stem),
                         candidate_code=json.dumps(safe_directive, ensure_ascii=False)[:500],
                         exc=exc,
                         traceback_str=traceback.format_exc(),
                     )
-                    mem_store = EpisodicMemoryStore()
-                    mem_store.record_failure(record)
+
+                    if self._episodic_store is None:
+                        from vazus_autonomous_harness.memory.episodic_store import EpisodicMemoryStore
+                        self._episodic_store = EpisodicMemoryStore()
+
+                    self._episodic_store.record_failure(record)
                 except Exception:
                     pass  # reflexion is best-effort
 
