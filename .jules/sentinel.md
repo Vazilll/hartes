@@ -13,3 +13,7 @@
 **Learning:** Hardcoding standard `pathlib.Path` for cross-platform file validation introduces a vulnerability where input representing paths from a different OS can bypass the directory traversal protections. In this case, Windows-style directory jumps (`..\`) in strings sent to the Linux server were not accurately resolved or rejected.
 **Prevention:** For paths that may come from other Operating Systems or rely on a different OS format, use explicit parsers (`pathlib.PureWindowsPath` or `pathlib.PurePosixPath`) and sanitize traversals before validating if they fall within an approved directory constraint.
 
+## 2026-10-28 - Prevent Arbitrary Code Execution in Optimizer
+**Vulnerability:** Code Optimizer executed AI-generated candidate code without validation, risking arbitrary code execution.
+**Learning:** AI-generated files must be filtered through a security preflight gate before execution.
+**Prevention:** Added PreFlightFilter().check_negative_constraints(code) before executing tests.
