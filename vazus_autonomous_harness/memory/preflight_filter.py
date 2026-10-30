@@ -123,8 +123,16 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
         func_name_lower = func_name.lower() if func_name else ""
         full_name_lower = full_name.lower() if full_name else ""
 
+        # ⚡ Bolt Optimization: Use O(1) dictionary lookups for exact matches to avoid
+        # iterating through all self.call_targets rules inside recursive visit loops.
+        rule = self.call_targets.get(func_name_lower) or self.call_targets.get(full_name_lower)
+        if rule:
+            self.violated_rule = rule
+            self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
+            return
+
         for target, rule in self.call_targets.items():
-            if (func_name_lower and func_name_lower == target) or (full_name_lower and full_name_lower == target) or (target and target in full_name_lower):
+            if target and target in full_name_lower:
                 self.violated_rule = rule
                 self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
                 return
