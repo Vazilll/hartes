@@ -13,3 +13,6 @@
 ## 2026-10-26 - [AST Pattern Parsing Overhead in Recursive Visitors]
 **Learning:** Repeated string manipulation methods (`.replace()`, `.lower()`, `.rstrip()`) inside recursive `ast.NodeVisitor` handlers (like `visit_Call` or custom import checks) applied across a list of negative rules create significant overhead, especially during deep AST traversal.
 **Action:** When optimizing `ast.NodeVisitor` implementations that evaluate many rule patterns, avoid string manipulation inside the recursive visit loops. Pre-compile rule patterns into dictionary lookups as class attributes during `__init__` to minimize interpreter overhead and achieve fast, single-pass lookups.
+## 2026-10-29 - [Daemon Loop Hot-Path Instantiation]
+**Learning:** In persistent daemons like AutonomousFlywheelDaemon, repeatedly instantiating heavy stateful classes (e.g., ContinuousReflexionGenerator, EpisodicMemoryStore) and performing local imports inside hot-path error handlers creates massive, hidden I/O and object creation overhead per exception.
+**Action:** Lazily initialize and explicitly cache heavy, stateful components as instance attributes (e.g., self._episodic_store = None in __init__) to execute the instantiation cost exactly once and reuse the instance across the daemon's lifecycle.
