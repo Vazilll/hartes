@@ -268,6 +268,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--test-cmd", dest="test_command", help="Shell command to run tests.")
     run_p.add_argument("--model", default=DEFAULT_MODEL,
                        help=f"LLM model for agy. Options: flash (Gemini 3.8 Flash), flash-lite (Gemini 3.7 Flash), pro (Gemini 3.1 Pro), sonnet (Claude Sonnet 4.6), opus (Claude Opus 4.6). Default: {DEFAULT_MODEL}")
+    run_p.add_argument("--rounds", type=int, default=DEFAULT_MAX_ROUNDS,
+                       help=f"Max rounds for the harness loop (default: {DEFAULT_MAX_ROUNDS}).")
     run_p.add_argument("--json", dest="output_json", action="store_true",
                        help="Output result as JSON.")
 
