@@ -17,3 +17,8 @@
 **Vulnerability:** Code Optimizer executed AI-generated candidate code without validation, risking arbitrary code execution.
 **Learning:** AI-generated files must be filtered through a security preflight gate before execution.
 **Prevention:** Added PreFlightFilter().check_negative_constraints(code) before executing tests.
+
+## 2025-02-23 - Prevent Path Traversal in Vault File Exports
+**Vulnerability:** Found `record.category` being used directly in f-strings to construct file paths for Markdown Zettelkasten exports (`vazus_autonomous_harness/memory/episodic_store.py` and `tests/e2e/contract_loader.py`), creating path traversal risks if the category contained `../`.
+**Learning:** Hardcoding string formatting for file paths without sanitizing the variables introduces vulnerabilities, especially when those variables can be dynamically set or loaded.
+**Prevention:** Always sanitize dynamically loaded string variables using `clean_var = re.sub(r"[^\w\-]", "_", var)` or using explicit Path parsers (e.g. `Path(var).name`) before using them to build paths or filenames.

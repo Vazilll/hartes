@@ -489,8 +489,10 @@ class EpisodicMemoryStore:
         Generates or updates an Obsidian-compliant Zettelkasten note in the 30 TB Vault.
         Features YAML frontmatter, failure breakdown, counterexample JSON, and wikilinks.
         """
+        # Sentinel: Sanitize inputs to prevent path traversal
         clean_id = re.sub(r"[^\w\-]", "_", record.record_id)
-        note_name = f"Reflexion_{record.category}_{clean_id}.md"
+        clean_category = re.sub(r"[^\w\-]", "_", record.category)
+        note_name = f"Reflexion_{clean_category}_{clean_id}.md"
         dest_path = self.wiki_root / note_name
 
         date_str = time.strftime("%Y-%m-%d", time.localtime(record.timestamp))
