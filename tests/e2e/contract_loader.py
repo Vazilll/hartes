@@ -326,7 +326,8 @@ except ImportError:
             self.conn.commit()
 
             # Generate Markdown Zettelkasten note in wiki
-            wiki_note = self.wiki_dir / f"Reflexion_{record.record_id}.md"
+            clean_id = re.sub(r"[^\w\-]", "_", record.record_id)
+            wiki_note = self.wiki_dir / f"Reflexion_{clean_id}.md"
             md_content = f"""---
 id: {record.record_id}
 task_id: {record.task_id}
@@ -355,7 +356,8 @@ dedup_hash: {dedup_hash}
 """
             wiki_note.write_text(md_content, encoding="utf-8")
             if record.category and record.category != "general_failure":
-                cat_note = self.wiki_dir / f"Reflexion_{record.category}_{record.record_id}.md"
+                clean_category = re.sub(r"[^\w\-]", "_", record.category)
+                cat_note = self.wiki_dir / f"Reflexion_{clean_category}_{clean_id}.md"
                 cat_note.write_text(md_content, encoding="utf-8")
 
         def retrieve_similar_dead_ends(self, task_description: str, limit: int = 5) -> List[ReflexionRecord]:
