@@ -426,22 +426,21 @@ class AcademicDebtNavigator:
 
     def _load_from_sqlite(self, db_path: Path) -> List[AcademicDebtItem]:
         """Queries mirea_milestones from vazus.db."""
+        conn = sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        query = """
+            SELECT id, subject, milestone_name, milestone_type, due_date,
+                   stage1_deadline, student_id, external_id, semester,
+                   moodle_course_id, status, description
+            FROM mirea_milestones
+            WHERE student_id = ? OR group_name = ?
+            ORDER BY id
+        """
+        cur.execute(query, (self.student_id, self.group_name))
+
         debts: List[AcademicDebtItem] = []
-
-        with contextlib.closing(sqlite3.connect(str(db_path))) as conn:
-            cur = conn.cursor()
-            query = """
-                SELECT id, subject, milestone_name, milestone_type, due_date,
-                       stage1_deadline, student_id, external_id, semester,
-                       moodle_course_id, status, description
-                FROM mirea_milestones
-                WHERE student_id = ? OR group_name = ?
-                ORDER BY id
-            """
-            cur.execute(query, (self.student_id, self.group_name))
-
-            # ⚡ Bolt: Optimize SQLite fetch loop
-            # Iterate directly over cursor to avoid fetchall() memory allocations
+        try:
+            # ⚡ Bolt: Optimize SQLite fetch loop, iterate directly over cursor
             for r in cur:
                 (
                     row_id, subject, milestone_name, milestone_type, due_date,
@@ -485,6 +484,8 @@ class AcademicDebtNavigator:
                     description=description,
                 )
                 debts.append(debt)
+        finally:
+            conn.close()
 
         return debts
 
