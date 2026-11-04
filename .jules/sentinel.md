@@ -22,3 +22,7 @@
 **Vulnerability:** Found `record.category` being used directly in f-strings to construct file paths for Markdown Zettelkasten exports (`vazus_autonomous_harness/memory/episodic_store.py` and `tests/e2e/contract_loader.py`), creating path traversal risks if the category contained `../`.
 **Learning:** Hardcoding string formatting for file paths without sanitizing the variables introduces vulnerabilities, especially when those variables can be dynamically set or loaded.
 **Prevention:** Always sanitize dynamically loaded string variables using `clean_var = re.sub(r"[^\w\-]", "_", var)` or using explicit Path parsers (e.g. `Path(var).name`) before using them to build paths or filenames.
+## 2025-02-24 - Pre-Flight Security Check on AI Generated Code
+**Vulnerability:** `quality_engine.py` evaluated the quality of candidate AI generated code by running the `evaluate` method. During this evaluation, the code was tested (which includes `subprocess.run`), but the candidate code had not been filtered for arbitrary code execution constraints.
+**Learning:** Any component that executes or evaluates untrusted AI generated code must run it through the negative constraints filter *before* testing. The previous fix in the `quality_engine.py` prevented `exec`, but a pre-flight filter on the content before test is still required.
+**Prevention:** Added `is_blocked, violation_msg = PreFlightFilter().check_negative_constraints(candidate_code)` in the `evaluate` method to block malicious AI code before evaluating it via SMT or testing it inline.
