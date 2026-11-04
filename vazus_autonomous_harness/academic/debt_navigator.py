@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import contextlib
 import re
 import sqlite3
 from dataclasses import dataclass
@@ -425,67 +426,65 @@ class AcademicDebtNavigator:
 
     def _load_from_sqlite(self, db_path: Path) -> List[AcademicDebtItem]:
         """Queries mirea_milestones from vazus.db."""
-        conn = sqlite3.connect(str(db_path))
-        cur = conn.cursor()
-        query = """
-            SELECT id, subject, milestone_name, milestone_type, due_date,
-                   stage1_deadline, student_id, external_id, semester,
-                   moodle_course_id, status, description
-            FROM mirea_milestones
-            WHERE student_id = ? OR group_name = ?
-            ORDER BY id
-        """
-        cur.execute(query, (self.student_id, self.group_name))
-        rows = cur.fetchall()
-        conn.close()
-
-        if not rows:
-            return []
-
         debts: List[AcademicDebtItem] = []
-        for r in rows:
-            (
-                row_id, subject, milestone_name, milestone_type, due_date,
-                stage1_deadline, st_id, external_id, semester,
-                moodle_course_id, status, description
-            ) = r
 
-            ext_id = str(external_id) if external_id is not None else str(row_id)
-            sem = int(semester) if semester is not None else 1
-            deadline = _normalize_deadline(stage1_deadline or due_date)
-            exam_type = _normalize_exam_type(milestone_type)
+        with contextlib.closing(sqlite3.connect(str(db_path))) as conn:
+            cur = conn.cursor()
+            query = """
+                SELECT id, subject, milestone_name, milestone_type, due_date,
+                       stage1_deadline, student_id, external_id, semester,
+                       moodle_course_id, status, description
+                FROM mirea_milestones
+                WHERE student_id = ? OR group_name = ?
+                ORDER BY id
+            """
+            cur.execute(query, (self.student_id, self.group_name))
 
-            # Determine priority: Semester 1 Math & English
-            is_priority = (sem == 1) and (
-                ext_id in PRIORITY_DISCIPLINE_IDS
-                or any(k in subject.lower() for k in ("линейная алгебра", "математический анализ", "математическая логика", "иностранный язык"))
-            )
+            # ⚡ Bolt: Optimize SQLite fetch loop
+            # Iterate directly over cursor to avoid fetchall() memory allocations
+            for r in cur:
+                (
+                    row_id, subject, milestone_name, milestone_type, due_date,
+                    stage1_deadline, st_id, external_id, semester,
+                    moodle_course_id, status, description
+                ) = r
 
-            # Check canonical mapping for default retake info
-            def_teacher = None
-            def_room = None
-            def_dates = None
-            if row_id <= len(CANONICAL_18_DEBTS):
-                c = CANONICAL_18_DEBTS[row_id - 1]
-                def_teacher = c.get("default_teacher")
-                def_room = c.get("default_auditorium")
-                def_dates = c.get("default_dates")
+                ext_id = str(external_id) if external_id is not None else str(row_id)
+                sem = int(semester) if semester is not None else 1
+                deadline = _normalize_deadline(stage1_deadline or due_date)
+                exam_type = _normalize_exam_type(milestone_type)
 
-            debt = AcademicDebtItem(
-                discipline_id=ext_id,
-                discipline_name=subject,
-                semester=sem,
-                exam_type=exam_type,
-                deadline=deadline,
-                retake_date=def_dates,
-                retake_auditorium=def_room,
-                teacher=def_teacher,
-                is_priority=is_priority,
-                moodle_course_id=int(moodle_course_id) if moodle_course_id else None,
-                status=status,
-                description=description,
-            )
-            debts.append(debt)
+                # Determine priority: Semester 1 Math & English
+                is_priority = (sem == 1) and (
+                    ext_id in PRIORITY_DISCIPLINE_IDS
+                    or any(k in subject.lower() for k in ("линейная алгебра", "математический анализ", "математическая логика", "иностранный язык"))
+                )
+
+                # Check canonical mapping for default retake info
+                def_teacher = None
+                def_room = None
+                def_dates = None
+                if row_id <= len(CANONICAL_18_DEBTS):
+                    c = CANONICAL_18_DEBTS[row_id - 1]
+                    def_teacher = c.get("default_teacher")
+                    def_room = c.get("default_auditorium")
+                    def_dates = c.get("default_dates")
+
+                debt = AcademicDebtItem(
+                    discipline_id=ext_id,
+                    discipline_name=subject,
+                    semester=sem,
+                    exam_type=exam_type,
+                    deadline=deadline,
+                    retake_date=def_dates,
+                    retake_auditorium=def_room,
+                    teacher=def_teacher,
+                    is_priority=is_priority,
+                    moodle_course_id=int(moodle_course_id) if moodle_course_id else None,
+                    status=status,
+                    description=description,
+                )
+                debts.append(debt)
 
         return debts
 
