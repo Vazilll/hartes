@@ -92,6 +92,11 @@ class Task(ABC):
     def task_id(self) -> str:
         return self._task_id
 
+    def content_hash(self) -> str:
+        # Compute hash based on task definition
+        data = f"{self.problem_description}|{self.seed}"
+        return hashlib.sha256(data.encode()).hexdigest()[:16]
+
     @property
     @abstractmethod
     def problem_description(self) -> str:

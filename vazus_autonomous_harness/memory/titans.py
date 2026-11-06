@@ -11,9 +11,8 @@ Mathematical Formulation:
 - M_t = (1 - α_t) * M_{t-1} + S_t ⊗ v_t^T (associative matrix update)
 """
 
-import math
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import numpy as np
 
 

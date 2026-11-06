@@ -575,7 +575,7 @@ def fibonacci(n: int) -> int:
 
 def test_tri_hybrid_retrieval_ranking(temp_store):
     """Verifies tri-hybrid search combines BM25 lexical, vector similarity, and recurrence boost."""
-    # Record 1: Highly recurrent matrix multiplication bug
+    # Record 1: Highly recurrent matrix multiplication issue mock data
     rec1 = ReflexionRecord(
         record_id="refl_tri_01",
         timestamp=time.time(),
@@ -588,7 +588,7 @@ def test_tri_hybrid_retrieval_ranking(temp_store):
         intercept_count=3,
         category="linear_algebra",
     )
-    # Record 2: Irrelevant string formatting bug
+    # Record 2: Irrelevant string formatting issue mock data
     rec2 = ReflexionRecord(
         record_id="refl_tri_02",
         timestamp=time.time(),
