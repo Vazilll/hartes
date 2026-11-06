@@ -6,10 +6,6 @@
 **Learning:** Dense vector operations in pure Python suffer significant overhead when using `zip()` and list comprehensions. While `math.hypot(*vec)` is fast, it fails on empty lists and has a max argument limit in Python 3.7.
 **Action:** Replace `sum(a * b for a, b in zip(v1, v2))` with `sum(map(operator.mul, v1, v2))` for dot products, and use `math.sqrt(sum(map(operator.mul, vec, vec)))` for L2 norms, which yields a reliable speedup without the `math.hypot` edge cases.
 
-## 2025-03-01 - [Cosine Similarity Vector Redundancy via C-math]
-**Learning:** Dense vector operations in pure Python can be vastly optimized in Python 3.12+ using `math.sumprod(v1, v2)` for dot products and `math.hypot(*vec)` for L2 norms, which operate at the C level. This bypasses the previously required slow single-pass Python loops or `map(operator.mul, ...)` workarounds, yielding ~3.8x - 5.3x speedups on 768D embeddings.
-**Action:** When working in Python 3.12+, default to `math.sumprod` and `math.hypot(*vec)` for L2 norms and dot products instead of manual unrolled loops.
-
-## 2025-03-02 - [AST NodeVisitor Constraint Redundancy]
-**Learning:** When heavily executing `ast.NodeVisitor` classes across many candidate sources (e.g. `PreFlightFilter` constraint checking), executing string manipulation functions such as `.replace()`, `.lower()`, and `.rstrip()` repeatedly within recursive visitation handlers (like `visit_Call`) dramatically degrades performance and bottlenecks operations.
-**Action:** Always pre-compile these string replacements and search patterns into structured array or tuple class attributes during the `__init__` constructor instead of building the logic within the visitor methods themselves.
+## 2025-03-05 - [Cosine Similarity Vector Redundancy 2]
+**Learning:** Dense vector operations in pure Python suffer significant overhead when using `zip()` in a for loop. While `math.hypot(*vec)` is fast, we previously thought it had limits or failed. However, the project development environment runs on Python 3.12+, which natively supports unpacking large vectors into functions like `math.hypot(*vec)` without hitting legacy limits found in older versions. Additionally, Python 3.12 introduced `math.sumprod(v1, v2)` which computes the dot product directly in C. Note that CI checks also run on Python 3.11, so a fallback to `map(operator.mul)` is required when `math.sumprod` is missing.
+**Action:** Replace `zip()` based loops with `math.sumprod(v1, v2)` (with a fallback) for dot products and `math.hypot(*v)` for calculating norms in `_cosine_similarity` for a significant performance speed up.

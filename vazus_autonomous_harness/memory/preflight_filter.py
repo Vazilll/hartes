@@ -485,28 +485,17 @@ class PreFlightFilter:
         if not v1 or not v2 or len(v1) != len(v2):
             return 0.0
 
-        # ⚡ Bolt Optimization: Python 3.12+ C-level math functions
-        # math.sumprod and math.hypot operate at the C-level, bypassing python loop overhead
-        # Yields ~3.8x speedup over a manual single-pass zip loop for 768D vectors
+        # ⚡ Bolt Optimization: Pure Python Vector Math
+        # Replacing zip() loops with math.sumprod and math.hypot(*v)
+        # Yields a significant speedup by pushing iteration into C extensions in Python 3.12+
+        # Fallback to map(operator.mul) for Python 3.11 and below to support CI checks
         if hasattr(math, "sumprod"):
             dot = math.sumprod(v1, v2)
-            try:
-                norm1 = math.hypot(*v1)
-                norm2 = math.hypot(*v2)
-            except TypeError:
-                norm1 = math.sqrt(math.sumprod(v1, v1))
-                norm2 = math.sqrt(math.sumprod(v2, v2))
         else:
-            dot = 0.0
-            norm1_sq = 0.0
-            norm2_sq = 0.0
+            dot = sum(map(operator.mul, v1, v2))
 
-            for a, b in zip(v1, v2):
-                dot += a * b
-                norm1_sq += a * a
-                norm2_sq += b * b
-            norm1 = math.sqrt(norm1_sq)
-            norm2 = math.sqrt(norm2_sq)
+        norm1 = math.hypot(*v1)
+        norm2 = math.hypot(*v2)
 
         if norm1 <= 1e-9 or norm2 <= 1e-9:
             return 0.0
