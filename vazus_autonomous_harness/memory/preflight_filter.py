@@ -16,7 +16,6 @@ Milestone 2 (F7):
 import ast
 import logging
 import math
-import operator
 import re
 import time
 from dataclasses import dataclass
@@ -54,6 +53,29 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
         self.rules = rules
         self.violated_rule: Optional[ExecutableNegativeConstraint] = None
         self.violation_message: Optional[str] = None
+
+        # ⚡ Bolt Optimization: Precompile pattern string manipulations
+        self._deny_calls = []
+        self._deny_stubs = []
+        self._ban_imports = []
+        self._deny_imports = []
+
+        for rule in rules:
+            if rule.rule_type == "AST_PATTERN_DENY":
+                lower_pat = rule.pattern.lower()
+                # A rule can apply to multiple categories (e.g. blocking a function call named 'get_password' which contains 'pass')
+                if "stub" in lower_pat or "pass" in lower_pat or "ellipsis" in lower_pat:
+                    self._deny_stubs.append(rule)
+                if "import" in lower_pat or rule.target_scope == "imports":
+                    target = rule.pattern.replace("import:", "").replace("Import:", "").strip().lower()
+                    self._deny_imports.append((rule, target))
+
+                # All AST_PATTERN_DENY rules should be checked against function calls, like in the original code
+                target = rule.pattern.replace("call:", "").replace("Call:", "").rstrip("(").strip().lower()
+                self._deny_calls.append((rule, target))
+            elif rule.rule_type == "IMPORT_BAN":
+                target = rule.pattern.replace("import:", "").replace("Import:", "").strip().lower()
+                self._ban_imports.append((rule, target))
 
     def check(self, tree: ast.AST) -> Tuple[bool, Optional[ExecutableNegativeConstraint], Optional[str]]:
         self.visit(tree)
@@ -101,13 +123,14 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
             if isinstance(node.func.value, ast.Name):
                 full_name = f"{node.func.value.id}.{node.func.attr}"
 
-        for rule in self.rules:
-            if rule.rule_type == "AST_PATTERN_DENY":
-                target = rule.pattern.replace("call:", "").replace("Call:", "").rstrip("(").strip().lower()
-                if (func_name and func_name.lower() == target) or (full_name and full_name.lower() == target) or (target and target in full_name.lower()):
-                    self.violated_rule = rule
-                    self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
-                    return
+        func_name_lower = func_name.lower() if func_name else None
+        full_name_lower = full_name.lower() if full_name else None
+
+        for rule, target in self._deny_calls:
+            if (func_name_lower and func_name_lower == target) or (full_name_lower and full_name_lower == target) or (target and full_name_lower and target in full_name_lower):
+                self.violated_rule = rule
+                self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
+                return
 
         self.generic_visit(node)
 
@@ -146,26 +169,23 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
                     self._match_stub_rule(node.name, "unimplemented 'NotImplementedError' stub")
 
     def _match_stub_rule(self, func_name: str, reason: str):
-        for rule in self.rules:
-            if rule.rule_type == "AST_PATTERN_DENY" and ("stub" in rule.pattern.lower() or "pass" in rule.pattern.lower() or "ellipsis" in rule.pattern.lower()):
-                self.violated_rule = rule
-                self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Function '{func_name}' is a {reason}: {rule.description}"
-                return
+        for rule in self._deny_stubs:
+            self.violated_rule = rule
+            self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Function '{func_name}' is a {reason}: {rule.description}"
+            return
 
     def _check_import_name(self, name: str):
-        for rule in self.rules:
-            if rule.rule_type == "IMPORT_BAN":
-                target = rule.pattern.replace("import:", "").replace("Import:", "").strip().lower()
-                if target in name.lower() or name.lower() in target:
-                    self.violated_rule = rule
-                    self.violation_message = f"[PRE-FLIGHT IMPORT VETO] (IMPORT_BAN) Prohibited import '{name}': {rule.description}"
-                    return
-            elif rule.rule_type == "AST_PATTERN_DENY" and ("import" in rule.pattern.lower() or rule.target_scope == "imports"):
-                target = rule.pattern.replace("import:", "").replace("Import:", "").strip().lower()
-                if target in name.lower():
-                    self.violated_rule = rule
-                    self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited import '{name}': {rule.description}"
-                    return
+        name_lower = name.lower()
+        for rule, target in self._ban_imports:
+            if target in name_lower or name_lower in target:
+                self.violated_rule = rule
+                self.violation_message = f"[PRE-FLIGHT IMPORT VETO] (IMPORT_BAN) Prohibited import '{name}': {rule.description}"
+                return
+        for rule, target in self._deny_imports:
+            if target in name_lower:
+                self.violated_rule = rule
+                self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited import '{name}': {rule.description}"
+                return
 
 
 class PreFlightFilter:
@@ -465,28 +485,17 @@ class PreFlightFilter:
         if not v1 or not v2 or len(v1) != len(v2):
             return 0.0
 
-        # ⚡ Bolt Optimization: Python 3.12+ C-level math functions
-        # math.sumprod and math.hypot operate at the C-level, bypassing python loop overhead
-        # Yields ~3.8x speedup over a manual single-pass zip loop for 768D vectors
+        # ⚡ Bolt Optimization: Pure Python Vector Math
+        # Replacing zip() loops with math.sumprod and math.hypot(*v)
+        # Yields a significant speedup by pushing iteration into C extensions in Python 3.12+
+        # Fallback to map(operator.mul) for Python 3.11 and below to support CI checks
         if hasattr(math, "sumprod"):
             dot = math.sumprod(v1, v2)
-            try:
-                norm1 = math.hypot(*v1)
-                norm2 = math.hypot(*v2)
-            except TypeError:
-                norm1 = math.sqrt(math.sumprod(v1, v1))
-                norm2 = math.sqrt(math.sumprod(v2, v2))
         else:
-            dot = 0.0
-            norm1_sq = 0.0
-            norm2_sq = 0.0
+            dot = sum(map(operator.mul, v1, v2))
 
-            for a, b in zip(v1, v2):
-                dot += a * b
-                norm1_sq += a * a
-                norm2_sq += b * b
-            norm1 = math.sqrt(norm1_sq)
-            norm2 = math.sqrt(norm2_sq)
+        norm1 = math.hypot(*v1)
+        norm2 = math.hypot(*v2)
 
         if norm1 <= 1e-9 or norm2 <= 1e-9:
             return 0.0
