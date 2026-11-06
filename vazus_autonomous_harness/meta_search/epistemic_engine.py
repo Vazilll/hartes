@@ -20,6 +20,7 @@ Mathematical & Cognitive Foundations:
 
 from typing import Dict, Any, List, Optional
 import math
+import operator
 import logging
 
 logger = logging.getLogger("vazus.meta_search")
@@ -56,7 +57,12 @@ class EpistemicSearchEngine:
         if probabilities is None:
             probabilities = [1.0 / n] * n
 
-        expected_posterior = sum(p * h for p, h in zip(probabilities, posterior_entropies))
+        # ⚡ Bolt Optimization: Python 3.12+ C-level math.sumprod
+        # Bypasses Python loop overhead, fallback to map/operator.mul for older Python versions
+        if hasattr(math, "sumprod"):
+            expected_posterior = math.sumprod(probabilities, posterior_entropies)
+        else:
+            expected_posterior = sum(map(operator.mul, probabilities, posterior_entropies))
         eig = max(0.0, prior_entropy - expected_posterior)
         return round(eig, 4)
 
