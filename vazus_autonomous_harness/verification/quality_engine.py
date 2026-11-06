@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from vazus_autonomous_harness.memory.preflight_filter import PreFlightFilter
 from vazus_autonomous_harness.verification.academic_sovereignty import AcademicSovereigntyGuard
 from vazus_autonomous_harness.verification.smt_prover import SMTProver
 
@@ -154,6 +155,12 @@ class QualityEvaluationEngine:
         except SyntaxError as se:
             syntax_valid = False
             violation_reasons.append(f"Syntax error in candidate code: {se}")
+
+        if syntax_valid:
+            is_blocked, violation_msg = PreFlightFilter().check_negative_constraints(candidate_code)
+            if is_blocked:
+                syntax_valid = False
+                violation_reasons.append(f"Pre-flight security check failed: {violation_msg}")
 
         if syntax_valid:
             contract_res = self.smt_prover.verify_contracts(candidate_code)
