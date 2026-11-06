@@ -11,7 +11,6 @@ Capabilities:
 4. Persists verified skills to disk and registers them into the active SkillTree.
 """
 
-import os
 import re
 from pathlib import Path
 from dataclasses import dataclass, field
