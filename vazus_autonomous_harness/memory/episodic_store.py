@@ -378,7 +378,9 @@ class EpisodicMemoryStore:
         params.append(limit)
 
         cur.execute(query, params)
-        return [self._row_to_record(r) for r in cur.fetchall()]
+        # ⚡ Bolt: Optimize SQLite fetch loop
+        # Iterate directly over cursor to avoid fetchall() memory allocations
+        return [self._row_to_record(r) for r in cur]
 
     def increment_intercept_count(self, identifier: str, count: int = 1) -> bool:
         """
@@ -425,16 +427,20 @@ class EpisodicMemoryStore:
         rules: List[ExecutableNegativeConstraint] = []
         seen_patterns = set()
 
-        for row in cur.fetchall():
+        # ⚡ Bolt: Optimize JSON parsing in SQLite fetch loops
+        # Avoid fetchall() memory allocations and hoist json.loads
+        _loads = json.loads
+        for row in cur:
             if not row["negative_rules_json"]:
                 continue
             try:
-                data = json.loads(row["negative_rules_json"])
+                data = _loads(row["negative_rules_json"])
                 for item in data:
-                    rule = ExecutableNegativeConstraint.from_dict(item)
-                    if rule.pattern not in seen_patterns:
-                        seen_patterns.add(rule.pattern)
-                        rules.append(rule)
+                    # ⚡ Bolt: Defer heavy object instantiation until after deduplication check
+                    pat = item.get("pattern", "")
+                    if pat not in seen_patterns:
+                        seen_patterns.add(pat)
+                        rules.append(ExecutableNegativeConstraint.from_dict(item))
             except Exception as e:
                 logger.debug("Failed parsing negative_rules_json: %s", e)
 
@@ -464,7 +470,9 @@ class EpisodicMemoryStore:
                 """, (clean_query, limit))
 
                 results: List[Tuple[ReflexionRecord, float]] = []
-                for row in cur.fetchall():
+                # ⚡ Bolt: Optimize SQLite fetch loop
+                # Iterate directly over cursor to avoid memory allocations
+                for row in cur:
                     rec = self._row_to_record(row)
                     bm25_raw = float(row["bm25_rank"])
                     # Normalize BM25 rank to [0, 1] range (rank is negative)
@@ -481,8 +489,10 @@ class EpisodicMemoryStore:
         Generates or updates an Obsidian-compliant Zettelkasten note in the 30 TB Vault.
         Features YAML frontmatter, failure breakdown, counterexample JSON, and wikilinks.
         """
+        # Sentinel: Sanitize inputs to prevent path traversal
         clean_id = re.sub(r"[^\w\-]", "_", record.record_id)
-        note_name = f"Reflexion_{record.category}_{clean_id}.md"
+        clean_category = re.sub(r"[^\w\-]", "_", record.category)
+        note_name = f"Reflexion_{clean_category}_{clean_id}.md"
         dest_path = self.wiki_root / note_name
 
         date_str = time.strftime("%Y-%m-%d", time.localtime(record.timestamp))
