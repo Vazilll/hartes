@@ -15,11 +15,13 @@ import ast
 import logging
 import shlex
 import subprocess
+from vazus_autonomous_harness.topology.laptop_node import LocalReplSandbox
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from vazus_autonomous_harness.memory.preflight_filter import PreFlightFilter
 from vazus_autonomous_harness.verification.academic_sovereignty import AcademicSovereigntyGuard
 from vazus_autonomous_harness.verification.smt_prover import SMTProver
 
@@ -155,6 +157,12 @@ class QualityEvaluationEngine:
             violation_reasons.append(f"Syntax error in candidate code: {se}")
 
         if syntax_valid:
+            is_blocked, violation_msg = PreFlightFilter().check_negative_constraints(candidate_code)
+            if is_blocked:
+                syntax_valid = False
+                violation_reasons.append(f"Pre-flight security check failed: {violation_msg}")
+
+        if syntax_valid:
             contract_res = self.smt_prover.verify_contracts(candidate_code)
 
             if contract_res.status == "UNSAT":
@@ -246,25 +254,22 @@ class QualityEvaluationEngine:
                         for tf in test_funcs:
                             test_script += f"{tf}()\n"
 
-                        proc = subprocess.run(
-                            [sys.executable, "-c", test_script],
-                            capture_output=True,
-                            text=True,
-                            timeout=30,
-                            cwd=str(Path.cwd())
-                        )
-                        if proc.returncode == 0:
+                        sandbox = LocalReplSandbox()
+                        res = sandbox.execute_code(test_script, timeout=30, cwd=str(Path.cwd()))
+                        if res.success:
                             empirical_integrity = 30.0
                         else:
                             empirical_integrity = 0.0
-                            err_snippet = (proc.stderr or proc.stdout or "").strip()[:200]
-                            violation_reasons.append(f"Inline assertion test failed (exit {proc.returncode}): {err_snippet}")
-                    except subprocess.TimeoutExpired:
-                        empirical_integrity = 0.0
-                        violation_reasons.append("Inline test execution timed out after 30 seconds")
+                            err_snippet = (res.stderr or res.stdout or "").strip()[:200]
+                            violation_reasons.append(f"Inline assertion test failed (exit {res.exit_code}): {err_snippet}")
                     except Exception as exc:
-                        empirical_integrity = 0.0
-                        violation_reasons.append(f"Inline test error: {exc}")
+                        # Timeout logic may be raised internally or explicitly caught
+                        if "time" in str(exc).lower():
+                            empirical_integrity = 0.0
+                            violation_reasons.append("Inline test execution timed out after 30 seconds")
+                        else:
+                            empirical_integrity = 0.0
+                            violation_reasons.append(f"Inline test error: {exc}")
                 else:
                     # Valid syntax without dedicated test command or inline tests
                     empirical_integrity = 30.0
