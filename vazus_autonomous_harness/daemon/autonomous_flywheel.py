@@ -17,7 +17,6 @@ import hashlib
 import json
 import logging
 import os
-import signal
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -34,7 +33,6 @@ from vazus_autonomous_harness.telemetry.cloud_bridge import (
     CloudTelemetryBridge,
     DEFAULT_DRIVE_ROOT,
     LOCAL_FALLBACK_ROOT,
-    SystemHealthReport,
 )
 
 logger = logging.getLogger("hartes.flywheel.daemon")
@@ -86,6 +84,10 @@ class AutonomousFlywheelDaemon:
         self.inbox_dir = self.drive_root / "spark_inbox"
         self.outbox_dir = self.drive_root / "spark_outbox"
         self._ensure_queues()
+
+        # Lazy loaded components
+        self._reflexion_generator = None
+        self._episodic_store = None
 
         # State
         self.running = False
