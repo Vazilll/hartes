@@ -16,7 +16,6 @@ Milestone 2 (F7):
 import ast
 import logging
 import math
-import operator
 import re
 import time
 from dataclasses import dataclass
