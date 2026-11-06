@@ -3,7 +3,6 @@ vazus_autonomous_harness.verification.intent_guard
 Enforces Semantic Intent Invariance and Dynamic Pareto Plan Adaptation (IAPC 2.0).
 """
 
-import ast
 import hashlib
 import logging
 import os

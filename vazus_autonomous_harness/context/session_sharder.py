@@ -15,7 +15,6 @@ import collections
 import copy
 import logging
 import math
-import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 
