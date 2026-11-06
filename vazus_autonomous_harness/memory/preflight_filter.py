@@ -54,24 +54,28 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
         self.violated_rule: Optional[ExecutableNegativeConstraint] = None
         self.violation_message: Optional[str] = None
 
-        self.call_targets: Dict[str, ExecutableNegativeConstraint] = {}
-        self.import_ban_targets: Dict[str, ExecutableNegativeConstraint] = {}
-        self.import_ast_targets: Dict[str, ExecutableNegativeConstraint] = {}
-        self.stub_rules: List[ExecutableNegativeConstraint] = []
+        # ⚡ Bolt Optimization: Precompile pattern string manipulations
+        self._deny_calls = []
+        self._deny_stubs = []
+        self._ban_imports = []
+        self._deny_imports = []
 
-        for rule in self.rules:
+        for rule in rules:
             if rule.rule_type == "AST_PATTERN_DENY":
-                if "stub" in rule.pattern.lower() or "pass" in rule.pattern.lower() or "ellipsis" in rule.pattern.lower():
-                    self.stub_rules.append(rule)
-                elif "import" in rule.pattern.lower() or rule.target_scope == "imports":
+                lower_pat = rule.pattern.lower()
+                # A rule can apply to multiple categories (e.g. blocking a function call named 'get_password' which contains 'pass')
+                if "stub" in lower_pat or "pass" in lower_pat or "ellipsis" in lower_pat:
+                    self._deny_stubs.append(rule)
+                if "import" in lower_pat or rule.target_scope == "imports":
                     target = rule.pattern.replace("import:", "").replace("Import:", "").strip().lower()
-                    self.import_ast_targets[target] = rule
-                else:
-                    target = rule.pattern.replace("call:", "").replace("Call:", "").rstrip("(").strip().lower()
-                    self.call_targets[target] = rule
+                    self._deny_imports.append((rule, target))
+
+                # All AST_PATTERN_DENY rules should be checked against function calls, like in the original code
+                target = rule.pattern.replace("call:", "").replace("Call:", "").rstrip("(").strip().lower()
+                self._deny_calls.append((rule, target))
             elif rule.rule_type == "IMPORT_BAN":
                 target = rule.pattern.replace("import:", "").replace("Import:", "").strip().lower()
-                self.import_ban_targets[target] = rule
+                self._ban_imports.append((rule, target))
 
     def check(self, tree: ast.AST) -> Tuple[bool, Optional[ExecutableNegativeConstraint], Optional[str]]:
         self.visit(tree)
@@ -119,19 +123,11 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
             if isinstance(node.func.value, ast.Name):
                 full_name = f"{node.func.value.id}.{node.func.attr}"
 
-        func_name_lower = func_name.lower() if func_name else ""
-        full_name_lower = full_name.lower() if full_name else ""
+        func_name_lower = func_name.lower() if func_name else None
+        full_name_lower = full_name.lower() if full_name else None
 
-        # ⚡ Bolt Optimization: Use O(1) dictionary lookups for exact matches to avoid
-        # iterating through all self.call_targets rules inside recursive visit loops.
-        rule = self.call_targets.get(func_name_lower) or self.call_targets.get(full_name_lower)
-        if rule:
-            self.violated_rule = rule
-            self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
-            return
-
-        for target, rule in self.call_targets.items():
-            if target and target in full_name_lower:
+        for rule, target in self._deny_calls:
+            if (func_name_lower and func_name_lower == target) or (full_name_lower and full_name_lower == target) or (target and full_name_lower and target in full_name_lower):
                 self.violated_rule = rule
                 self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited call to '{full_name or func_name}': {rule.description}"
                 return
@@ -173,19 +169,19 @@ class ASTNegativeConstraintVisitor(ast.NodeVisitor):
                     self._match_stub_rule(node.name, "unimplemented 'NotImplementedError' stub")
 
     def _match_stub_rule(self, func_name: str, reason: str):
-        for rule in self.stub_rules:
+        for rule in self._deny_stubs:
             self.violated_rule = rule
             self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Function '{func_name}' is a {reason}: {rule.description}"
             return
 
     def _check_import_name(self, name: str):
         name_lower = name.lower()
-        for target, rule in self.import_ban_targets.items():
+        for rule, target in self._ban_imports:
             if target in name_lower or name_lower in target:
                 self.violated_rule = rule
                 self.violation_message = f"[PRE-FLIGHT IMPORT VETO] (IMPORT_BAN) Prohibited import '{name}': {rule.description}"
                 return
-        for target, rule in self.import_ast_targets.items():
+        for rule, target in self._deny_imports:
             if target in name_lower:
                 self.violated_rule = rule
                 self.violation_message = f"[PRE-FLIGHT AST VETO] (AST_PATTERN_DENY) Prohibited import '{name}': {rule.description}"

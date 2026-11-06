@@ -10,6 +10,6 @@
 **Learning:** Dense vector operations in pure Python can be vastly optimized in Python 3.12+ using `math.sumprod(v1, v2)` for dot products and `math.hypot(*vec)` for L2 norms, which operate at the C level. This bypasses the previously required slow single-pass Python loops or `map(operator.mul, ...)` workarounds, yielding ~3.8x - 5.3x speedups on 768D embeddings.
 **Action:** When working in Python 3.12+, default to `math.sumprod` and `math.hypot(*vec)` for L2 norms and dot products instead of manual unrolled loops.
 
-## 2025-02-28 - [Cache DB connection in flywheel task loop]
-**Learning:** Re-instantiating stateful components like database connectors (e.g., `EpisodicMemoryStore`) repeatedly inside a hot loop, especially within exception handling paths, introduces immense latency (~100x overhead measured) due to continuous disk/IO thrashing.
-**Action:** When working in persistent background daemons, lazily initialize and explicitly cache DB connections and resource-heavy class instances as attributes on the daemon itself to reuse them across iterations.
+## 2025-03-02 - [AST NodeVisitor Constraint Redundancy]
+**Learning:** When heavily executing `ast.NodeVisitor` classes across many candidate sources (e.g. `PreFlightFilter` constraint checking), executing string manipulation functions such as `.replace()`, `.lower()`, and `.rstrip()` repeatedly within recursive visitation handlers (like `visit_Call`) dramatically degrades performance and bottlenecks operations.
+**Action:** Always pre-compile these string replacements and search patterns into structured array or tuple class attributes during the `__init__` constructor instead of building the logic within the visitor methods themselves.
