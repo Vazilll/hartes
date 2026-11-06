@@ -128,12 +128,20 @@ class AcademicSovereigntyGuard:
         try:
             # Expand ~ for user home directory references
             expanded_path = os.path.expanduser(path_str)
+
             # Handle cross-platform Windows & POSIX path comparisons safely
-            path_normalized = expanded_path.replace('\\', '/')
-            parts = [p for p in path_normalized.split('/') if p]
-            if '..' in parts:
+            import pathlib
+            import re
+
+            if '\\' in expanded_path or re.match(r'^[a-zA-Z]:', expanded_path):
+                pure_path = pathlib.PureWindowsPath(expanded_path)
+            else:
+                pure_path = pathlib.PurePosixPath(expanded_path)
+
+            if '..' in pure_path.parts:
                 return False
 
+            path_normalized = str(pure_path).replace('\\', '/')
             path_lower = path_normalized.lower()
             for allowed in ALLOWED_JAIL_PREFIXES:
                 allowed_str = str(allowed).replace('\\', '/')
