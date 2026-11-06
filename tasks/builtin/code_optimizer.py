@@ -94,6 +94,12 @@ class CodeOptimizerTask(Task):
         except SyntaxError:
             return 0.0  # hard reject — unrunnable code
 
+        # ── Gate 1.5: Pre-Flight Safety Check ────────────────────────────────
+        from vazus_autonomous_harness.memory.preflight_filter import PreFlightFilter
+        is_blocked, _ = PreFlightFilter().check_negative_constraints(code)
+        if is_blocked:
+            return 0.0  # hard reject — malicious code
+
         # ── Gate 2: Tests pass (+30 pts) ─────────────────────────────────────
         if self._test_command is None:
             # No test suite provided → award full marks (good faith)

@@ -29,7 +29,7 @@ class TaskRegistry:
     module name (e.g., `code_optimizer` for `tasks/builtin/code_optimizer.py`).
     """
 
-    _registry: Dict[str, Type[Task]] = {}
+    _available_tasks: Dict[str, Type[Task]] = {}
     _discovered: bool = False
 
     @classmethod
@@ -49,7 +49,7 @@ class TaskRegistry:
                 continue
             for _, obj in inspect.getmembers(mod, inspect.isclass):
                 if issubclass(obj, Task) and obj is not Task and not inspect.isabstract(obj):
-                    cls._registry[module_name] = obj
+                    cls._available_tasks[module_name] = obj
         cls._discovered = True
 
     @classmethod
@@ -68,16 +68,16 @@ class TaskRegistry:
             KeyError: If no task with the given name is found.
         """
         cls._discover()
-        if name not in cls._registry:
-            available = ", ".join(sorted(cls._registry.keys()))
+        if name not in cls._available_tasks:
+            available = ", ".join(sorted(cls._available_tasks.keys()))
             raise KeyError(
                 f"No task named '{name}'. Available: [{available}]"
             )
-        task_cls = cls._registry[name]
+        task_cls = cls._available_tasks[name]
         return task_cls(**kwargs)
 
     @classmethod
     def list_available(cls) -> list[str]:
         """Return names of all discovered tasks."""
         cls._discover()
-        return sorted(cls._registry.keys())
+        return sorted(cls._available_tasks.keys())
