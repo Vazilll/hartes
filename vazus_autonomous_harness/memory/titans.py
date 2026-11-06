@@ -12,7 +12,7 @@ Mathematical Formulation:
 """
 
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 import numpy as np
 
 
