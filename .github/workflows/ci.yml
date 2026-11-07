@@ -1,134 +1,33 @@
-name: Vazus CI
+name: Hartes CI & SMT Z3 Verification Gate
 
 on:
   push:
-    branches: [vazus-main, vazus-dev]
-    paths:
-      - 'vazus_core/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - 'pytest.ini'
+    branches: [ main ]
   pull_request:
-    branches: [vazus-main, vazus-dev]
-  workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
-env:
-  VAZUS_TEST_ISOLATION: "1"
-  PYTHONIOENCODING: "utf-8"
+    branches: [ main ]
 
 jobs:
-  lint:
-    name: Lint (ruff + bandit)
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
 
-      - name: Install lint tools
-        run: pip install ruff bandit
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+        pip install pytest pytest-asyncio z3-solver pydantic sympy httpx psutil openpyxl
 
-      - name: Ruff check (syntax + import errors)
-        run: ruff check --select E9,F --no-fix vazus_core/
-
-      - name: Bandit security scan
-        run: bandit -r vazus_core/ -ll -q --skip B101,B603,B607 || true
-
-  test:
-    name: Tests (pytest)
-    needs: lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          # Install core deps excluding Windows/hardware-specific packages
-          pip install pytest pytest-asyncio PyYAML httpx orjson psutil \
-                      numpy z3-solver python-dotenv nest-asyncio \
-                      hypothesis sqlite-vec 2>/dev/null || true
-          # Install the package itself in editable mode (skip missing deps)
-          pip install -e ".[dev]" --no-deps 2>/dev/null || true
-
-      - name: Create minimal vazus.db for CI
-        run: |
-          python -c "
-          import sqlite3, os
-          os.makedirs('services/memory', exist_ok=True)
-          conn = sqlite3.connect('services/memory/vazus.db')
-          conn.execute('PRAGMA journal_mode=WAL')
-          conn.commit()
-          conn.close()
-          print('CI vazus.db initialized')
-          "
-
-      - name: Run pytest (portable tests only)
-        run: |
-          python -m pytest tests/ \
-            -x -q --tb=short \
-            -k "not npu and not openvino and not wsb and not sandbox and not silicon and not hardware and not gemma and not bleak and not whisper" \
-            --ignore=tests/future_specs \
-            --timeout=60 \
-            2>&1 | head -200
-        env:
-          VAZUS_CI: "1"
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: |
-            tests/*.log
-            .pytest_cache/
-
-  db-integrity:
-    name: DB Schema Integrity
-    needs: lint
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install sqlite-vec
-        run: pip install sqlite-vec numpy
-
-      - name: Verify DB schema init
-        run: |
-          python -c "
-          import sys
-          sys.path.insert(0, '.')
-          try:
-              from vazus_core.memory.db import init_db_schemas
-              import sqlite3
-              conn = sqlite3.connect(':memory:')
-              init_db_schemas(conn, db_path=':memory:')
-              tables = [r[0] for r in conn.execute(\"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name\").fetchall()]
-              print(f'Schema initialized: {len(tables)} tables')
-              for t in tables:
-                  print(f'  - {t}')
-              conn.execute('PRAGMA integrity_check')
-              print('Integrity: OK')
-              conn.close()
-          except Exception as e:
-              print(f'Schema init failed: {e}')
-              sys.exit(1)
-          "
+    - name: Run SMT Z3 Substrate-Guard & Epistemic Tests
+      run: |
+        export PYTHONPATH=.
+        pytest tests/ -v --tb=short

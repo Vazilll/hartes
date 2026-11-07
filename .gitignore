@@ -110,3 +110,7 @@ data/archive/
 backups/
 SYSTEM_STATE.json
 .vazus_test.lock
+artifacts/
+*.egg-info/
+dist/
+build/
