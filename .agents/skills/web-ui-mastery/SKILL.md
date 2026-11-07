@@ -1,11 +1,6 @@
 ---
 name: web-ui-mastery
-description: |
-  Mastery in building premium, high-density, production-grade web applications, dashboards,
-  and landing pages with Aeza/Linear/Vercel dark neo-brutalist aesthetics.
-  Enforces zero-amateur UI rules, Bento-grid layouts, typography hierarchies,
-  Playwright headless visual feedback verification, and clean React + Vite + Tailwind architectures.
-  Use whenever creating, updating, or styling websites, dashboards, frontends, or UI components.
+description: Use when creating, updating, or styling web applications, dashboards, landing pages, or UI components with dark neo-brutalist aesthetics, Bento-grid layouts, and Playwright visual verification.
 ---
 
 # Web UI Mastery: Production-Grade Design & Engineering Standard

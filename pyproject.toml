@@ -93,6 +93,7 @@ include = ["vazus_core*", "services*"]
 minversion = "8.0"
 addopts = "-ra -q --tb=short"
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 
 [tool.ruff]
@@ -115,6 +116,9 @@ exclude = [
 [tool.ruff.lint]
 select = ["E9", "F"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.deptry]
 exclude = [

@@ -1,1 +1,0 @@
-Package size exceeded the configured limit of 50 MB. Try https://github.com/openai/codex/tree/main/README.md instead.

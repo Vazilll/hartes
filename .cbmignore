@@ -1,0 +1,9 @@
+# Exclude raw HTML/JS scrapes, generated commit logs, transcripts, and slides from codebase-memory
+docs/research/_raw/
+services/memory/semantic/wiki/Commits/
+exports/
+transcripts/
+slides_v1/
+slides_v2/
+.venv/
+node_modules/
